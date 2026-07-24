@@ -1,0 +1,24 @@
+# Segreti — NON committare mai chiavi API
+.env
+.env.local
+*.key
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Strumenti AI locali
+.claude/
+.agents/

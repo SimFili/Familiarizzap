@@ -1,0 +1,34 @@
+name: Pubblica su Hugging Face
+
+# A ogni push su main che tocca space/, il contenuto di quella cartella viene
+# caricato nella root dello Space Sibucs/Familiarizzap, che si ricostruisce da solo.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'space/**'
+      - '.github/workflows/sync-hf-space.yml'
+  workflow_dispatch:   # avvio manuale dal tab Actions
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --upgrade huggingface_hub
+
+      - name: Carica space/ nello Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          hf upload Sibucs/Familiarizzap ./space . \
+            --type space \
+            --commit-message "Pubblicato da GitHub: $GITHUB_SHA"
+          # Per rispecchiare anche le cancellazioni (un file tolto da space/
+          # sparisce anche dallo Space) aggiungere:  --delete "*"
