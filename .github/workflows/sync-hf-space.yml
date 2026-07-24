@@ -23,12 +23,23 @@ jobs:
 
       - run: pip install --upgrade huggingface_hub
 
+      # NB: si usa l'API e non `hf upload`, perche' quel comando prova sempre a
+      # creare il repo prima di caricare, e la creazione di uno Space Gradio
+      # senza ZeroGPU e' a pagamento (402). upload_folder carica e basta.
       - name: Carica space/ nello Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          hf upload Sibucs/Familiarizzap ./space . \
-            --type space \
-            --commit-message "Pubblicato da GitHub: $GITHUB_SHA"
-          # Per rispecchiare anche le cancellazioni (un file tolto da space/
-          # sparisce anche dallo Space) aggiungere:  --delete "*"
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          HfApi().upload_folder(
+              repo_id="Sibucs/Familiarizzap",
+              repo_type="space",
+              folder_path="space",
+              commit_message=f"Pubblicato da GitHub: {os.environ['GITHUB_SHA'][:7]}",
+              # Per rispecchiare anche le cancellazioni (un file tolto da space/
+              # sparisce anche dallo Space) aggiungere: delete_patterns=["*"]
+          )
+          PY
