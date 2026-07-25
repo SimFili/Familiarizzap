@@ -1,8 +1,8 @@
 ---
 title: Familiarizzap
-emoji: 😻
-colorFrom: purple
-colorTo: pink
+emoji: 🧭
+colorFrom: teal
+colorTo: yellow
 sdk: gradio
 sdk_version: 6.20.0
 python_version: '3.12'
@@ -12,7 +12,13 @@ pinned: false
 
 # Familiarizzap
 
-App pubblicata automaticamente da GitHub: https://github.com/SimFili/Familiarizzap
+App di familiarizzazione con descrittori e livelli CEFR per docenti di lingua
+dei segni.
 
-Non modificare i file da qui: ogni modifica fatta sullo Space viene sovrascritta
-alla pubblicazione successiva. Si lavora su GitHub, nella cartella `space/`.
+Il codice viene pubblicato automaticamente da
+[GitHub](https://github.com/SimFili/Familiarizzap). Non modificare i file
+direttamente nello Space: ogni modifica verrebbe sovrascritta alla pubblicazione
+successiva.
+
+Il catalogo incluso è esclusivamente dimostrativo. Quando Dataset e secret non
+sono configurati, l’interfaccia segnala che gli eventi non sono durevoli.
