@@ -1,7 +1,7 @@
 ---
 title: Familiarizzap
 emoji: 🧭
-colorFrom: teal
+colorFrom: green
 colorTo: yellow
 sdk: gradio
 sdk_version: 6.20.0
