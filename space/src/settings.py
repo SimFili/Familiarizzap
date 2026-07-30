@@ -31,7 +31,7 @@ class Settings:
         return cls(
             base_dir=base_dir,
             app_env=app_env,
-            app_version=os.getenv("APP_VERSION", "0.3.0").strip(),
+            app_version=os.getenv("APP_VERSION", "0.4.0").strip(),
             content_repo_id=os.getenv("CONTENT_REPO_ID", "").strip(),
             content_revision=os.getenv("CONTENT_REVISION", "main").strip(),
             events_repo_id=os.getenv("EVENTS_REPO_ID", "").strip(),

@@ -96,8 +96,6 @@ def group_sessions(
         if event.get("event_type") in {
             "consent_recorded",
             "participant_accessed",
-            "access_code_issued",
-            "access_code_reset",
         }:
             continue
         session_id = str(event.get("session_id", ""))

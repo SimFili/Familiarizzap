@@ -27,7 +27,6 @@ class EventStore(ABC):
         self,
         participant_id: str,
         display_name: str,
-        access_code_hash: str | None = None,
         name_lookup_hash: str | None = None,
     ) -> dict[str, Any]:
         raise NotImplementedError
@@ -38,13 +37,6 @@ class EventStore(ABC):
     ) -> dict[str, Any] | None:
         raise NotImplementedError
 
-    @abstractmethod
-    def set_access_code(
-        self, participant_id: str, access_code_hash: str
-    ) -> dict[str, Any]:
-        raise NotImplementedError
-
-    @abstractmethod
     def append_events(self, events: list[dict[str, Any]]) -> None:
         raise NotImplementedError
 
@@ -70,7 +62,6 @@ class LocalEventStore(EventStore):
         self,
         participant_id: str,
         display_name: str,
-        access_code_hash: str | None = None,
         name_lookup_hash: str | None = None,
     ) -> dict[str, Any]:
         self.participants_dir.mkdir(parents=True, exist_ok=True)
@@ -80,7 +71,6 @@ class LocalEventStore(EventStore):
             participant_id,
             display_name,
             existing,
-            access_code_hash=access_code_hash,
             name_lookup_hash=name_lookup_hash,
         )
         _atomic_write_json(target, record)
@@ -98,23 +88,6 @@ class LocalEventStore(EventStore):
             raise EventStoreError(
                 f"Registro partecipante illeggibile: {target.name}: {exc}"
             ) from exc
-
-    def set_access_code(
-        self, participant_id: str, access_code_hash: str
-    ) -> dict[str, Any]:
-        existing = self.get_participant(participant_id)
-        if not existing:
-            raise EventStoreError("Partecipante non trovato.")
-        record = {
-            **existing,
-            "access_code_hash": access_code_hash,
-            "access_code_version": "1",
-            "access_code_updated_at": utc_now(),
-            "updated_at": utc_now(),
-        }
-        target = self.participants_dir / f"{participant_id}.json"
-        _atomic_write_json(target, record)
-        return record
 
     def append_events(self, events: list[dict[str, Any]]) -> None:
         staged: list[tuple[Path, Path]] = []
@@ -198,7 +171,6 @@ class HuggingFaceEventStore(EventStore):
         self,
         participant_id: str,
         display_name: str,
-        access_code_hash: str | None = None,
         name_lookup_hash: str | None = None,
     ) -> dict[str, Any]:
         path = f"participants/{participant_id}.json"
@@ -207,7 +179,6 @@ class HuggingFaceEventStore(EventStore):
             participant_id,
             display_name,
             existing,
-            access_code_hash=access_code_hash,
             name_lookup_hash=name_lookup_hash,
         )
         self._upload_participant(path, record, "Aggiorna registro partecipante")
@@ -217,24 +188,6 @@ class HuggingFaceEventStore(EventStore):
         self, participant_id: str
     ) -> dict[str, Any] | None:
         return self._download_json(f"participants/{participant_id}.json")
-
-    def set_access_code(
-        self, participant_id: str, access_code_hash: str
-    ) -> dict[str, Any]:
-        path = f"participants/{participant_id}.json"
-        existing = self._download_json(path)
-        if not existing:
-            raise EventStoreError("Partecipante non trovato.")
-        now = utc_now()
-        record = {
-            **existing,
-            "access_code_hash": access_code_hash,
-            "access_code_version": "1",
-            "access_code_updated_at": now,
-            "updated_at": now,
-        }
-        self._upload_participant(path, record, "Aggiorna codice percorso")
-        return record
 
     def append_events(self, events: list[dict[str, Any]]) -> None:
         if not events:
@@ -379,7 +332,6 @@ def _participant_record(
     display_name: str,
     existing: dict[str, Any],
     *,
-    access_code_hash: str | None,
     name_lookup_hash: str | None,
 ) -> dict[str, Any]:
     now = utc_now()
@@ -390,12 +342,6 @@ def _participant_record(
         "updated_at": now,
         "status": existing.get("status", "active"),
         "merged_into": existing.get("merged_into"),
-        "access_code_hash": existing.get("access_code_hash")
-        or access_code_hash,
-        "access_code_version": existing.get("access_code_version")
-        or ("1" if access_code_hash else None),
-        "access_code_updated_at": existing.get("access_code_updated_at")
-        or (now if access_code_hash else None),
         "name_lookup_hash": existing.get("name_lookup_hash")
         or name_lookup_hash,
     }

@@ -26,8 +26,8 @@ sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
 prima dell’uso pubblico. Quando Dataset e secret non sono configurati,
 l’interfaccia segnala che gli eventi non sono durevoli.
 
-La versione 0.3 conserva una cronologia longitudinale a eventi immutabili,
-protegge il recupero del percorso con un codice personale, mostra riepiloghi
-cliccabili e offre al ricercatore filtri, timestamp esatti, controllo
-d’integrità ed esportazione completa. Nessuna di queste funzioni usa AI durante
-la sessione.
+La versione 0.4 apre con lo schema descrittivo a colori, identifica il percorso
+con il solo nome e colloca la panoramica del ricercatore nella pagina separata
+`/ricercatore`. Conserva inoltre una cronologia longitudinale a eventi
+immutabili, mostra riepiloghi cliccabili ed è ottimizzata per smartphone e tema
+scuro. Nessuna di queste funzioni usa AI durante la sessione.

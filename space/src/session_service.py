@@ -74,23 +74,6 @@ class SessionService:
             ]
         )
 
-    def record_access_code_event(
-        self, participant_id: str, event_type: str
-    ) -> None:
-        if event_type not in {"access_code_issued", "access_code_reset"}:
-            raise SessionError("Tipo di evento del codice percorso non valido.")
-        event_id = str(uuid.uuid4())
-        self.event_store.append_events(
-            [
-                self._base_event(
-                    event_id=event_id,
-                    event_type=event_type,
-                    session_id=f"identity-{event_id}",
-                    participant_id=participant_id,
-                )
-            ]
-        )
-
     def start_session(
         self,
         participant_id: str,

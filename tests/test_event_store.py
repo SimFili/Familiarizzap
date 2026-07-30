@@ -8,19 +8,18 @@ import pytest
 from src.event_store import EventStoreError, LocalEventStore
 
 
-def test_participant_code_hash_is_preserved_until_explicit_reset(
+def test_participant_name_record_preserves_creation_and_lookup_hash(
     tmp_path: Path,
 ):
     store = LocalEventStore(tmp_path)
-    first = store.register_participant("p1", "Anna Rossi", "hash-one")
-    second = store.register_participant("p1", "ANNA ROSSI")
+    first = store.register_participant(
+        "p1", "Anna", name_lookup_hash="name-hash"
+    )
+    second = store.register_participant("p1", "ANNA")
 
-    assert first["access_code_hash"] == "hash-one"
-    assert second["access_code_hash"] == "hash-one"
-
-    reset = store.set_access_code("p1", "hash-two")
-    assert reset["access_code_hash"] == "hash-two"
-    assert reset["access_code_updated_at"]
+    assert second["display_name"] == "ANNA"
+    assert second["created_at"] == first["created_at"]
+    assert second["name_lookup_hash"] == "name-hash"
 
 
 def test_existing_event_file_is_never_overwritten(tmp_path: Path):

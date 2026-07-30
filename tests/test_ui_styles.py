@@ -7,6 +7,7 @@ from app import (
     SCALE_SELECTOR_TEMPLATE,
     TAXONOMY_TEMPLATE,
     _taxonomy_data,
+    build_demo,
 )
 
 
@@ -66,3 +67,36 @@ def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
     )
     assert reception["available"] is True
     assert mediation["available"] is False
+
+
+def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
+    expected = {
+        "--fapp-taxonomy": "#d1c29f",
+        "--fapp-reception": "#3b57ed",
+        "--fapp-production": "#f13312",
+        "--fapp-interaction": "#50139c",
+        "--fapp-mediation": "#ff8c27",
+        "--fapp-linguistic": "#31b3d2",
+        "--fapp-sociolinguistic": "#54c900",
+        "--fapp-pragmatic": "#ff0060",
+    }
+    for variable, color in expected.items():
+        assert f"{variable}: {color};" in CSS
+    for selector in (
+        ".tax-reception",
+        ".tax-production",
+        ".tax-interaction",
+        ".tax-mediation",
+        ".tax-linguistic",
+        ".tax-sociolinguistic",
+        ".tax-pragmatic",
+    ):
+        assert "!important;" in _css_rule(selector)
+
+
+def test_researcher_overview_is_a_separate_page() -> None:
+    demo = build_demo()
+    pages = {(page[0], page[1]) for page in demo.pages}
+
+    assert ("", "Home") in pages
+    assert ("ricercatore", "Panoramica ricercatore") in pages

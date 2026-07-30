@@ -102,7 +102,6 @@ La dashboard riservata permette:
 - filtri per partecipante, scala e periodo;
 - registro completo degli eventi;
 - controllo delle incoerenze;
-- reset tracciato del codice personale;
 - esportazione completa.
 
 ## Esportazione
@@ -116,8 +115,7 @@ Il file ZIP contiene dati grezzi e derivati. Per un’analisi riproducibile:
 5. documentare ogni esclusione o trasformazione;
 6. effettuare copie locali protette secondo il protocollo approvato.
 
-Gli hash dei codici personali e le chiavi HMAC usate per cercare i nomi non
-sono inclusi nell'esportazione.
+La chiave HMAC derivata dal nome non è inclusa nell'esportazione.
 
 ## Integrità e compatibilità
 

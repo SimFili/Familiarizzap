@@ -177,15 +177,11 @@ def test_repeated_descriptor_gets_incremented_exposure_number(tmp_path: Path):
     assert second_presented["exposure_number"] == 2
 
 
-def test_access_events_are_append_only_and_do_not_contain_name(tmp_path: Path):
+def test_access_event_is_append_only_and_does_not_contain_name(tmp_path: Path):
     _, store, service, _ = make_service(tmp_path)
 
-    service.record_participant_access("participant", "name_and_personal_code")
-    service.record_access_code_event("participant", "access_code_reset")
+    service.record_participant_access("participant", "name_only")
 
     events = store.list_events("participant")
-    assert [event["event_type"] for event in events] == [
-        "participant_accessed",
-        "access_code_reset",
-    ]
+    assert [event["event_type"] for event in events] == ["participant_accessed"]
     assert "Nome Privato" not in json.dumps(events, ensure_ascii=False)

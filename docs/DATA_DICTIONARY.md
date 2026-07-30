@@ -44,33 +44,19 @@ participants/<participant_id>.json
 
 | Campo | Significato |
 |---|---|
-| `participant_id` | identificativo casuale pseudonimo, indipendente dal nome |
-| `display_name` | nome e cognome mostrati soltanto nelle viste riservate |
-| `name_lookup_hash` | HMAC del nome normalizzato usato per trovare uno o più profili omonimi |
+| `participant_id` | HMAC deterministico del nome normalizzato |
+| `display_name` | nome mostrato soltanto nelle viste riservate |
+| `name_lookup_hash` | stesso HMAC usato per la ricerca del profilo |
 | `created_at`, `updated_at` | timestamp UTC del registro |
 | `status`, `merged_into` | gestione di profili attivi, ritirati o uniti |
-| `access_code_hash` | hash HMAC del codice personale; il codice in chiaro non viene salvato nel Dataset |
-| `access_code_version` | versione del formato del codice |
-| `access_code_updated_at` | ultimo rilascio o reset del codice |
 
 Il nome è conservato in chiaro esclusivamente in questo registro privato. Non è
 ripetuto negli eventi.
 
-I nuovi profili usano un ID casuale, così due persone omonime possono avere
-percorsi diversi. I profili precedenti, il cui ID coincideva con l’HMAC del
-nome, restano compatibili e vengono aggiornati al nuovo schema al primo accesso.
-
-## Codice personale del percorso
-
-Il codice ha 12 caratteri leggibili, visualizzati in tre gruppi. Viene:
-
-- generato al primo accesso;
-- mostrato una sola volta e memorizzato nel browser mediante `BrowserState`;
-- verificato sul server tramite HMAC;
-- sostituibile dal ricercatore se viene perso;
-- escluso in chiaro sia dagli eventi sia dalle esportazioni.
-
-Il reset produce un evento immutabile e rende invalido il codice precedente.
+Il browser ricorda soltanto il nome. Lo stesso nome normalizzato recupera sempre
+lo stesso percorso, anche da un altro dispositivo. Non si tratta di
+autenticazione: due omonimi condividono il percorso e chi conosce il nome può
+aprirlo. Questa scelta è limitata al piccolo gruppo interno concordato.
 
 ## Eventi
 
@@ -97,8 +83,6 @@ Tipi implementati:
 
 - `consent_recorded`;
 - `participant_accessed`;
-- `access_code_issued`;
-- `access_code_reset`;
 - `session_started`;
 - `descriptor_presented`;
 - `answer_submitted`;
@@ -184,4 +168,4 @@ La dashboard produce un archivio ZIP con:
 - `manifest.json`.
 
 L’archivio contiene nomi perché è destinato al ricercatore autorizzato, ma non
-contiene gli hash dei codici personali.
+contiene l’HMAC usato come chiave di ricerca.

@@ -5,9 +5,12 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione locale 0.3 aggiunge:
+La versione locale 0.4 include:
 
-- codice personale per recuperare il percorso anche da un altro dispositivo;
+- accesso al proprio percorso tramite il solo nome;
+- schema descrittivo come prima vista, con i colori concordati;
+- panoramica del ricercatore in una pagina separata e protetta;
+- interfaccia leggibile su smartphone e con tema scuro;
 - cronologia longitudinale senza sovrascrivere gli esiti precedenti;
 - mappa cliccabile della scala con esito e data relativa;
 - percentuale di riconoscimento al primo tentativo, senza voto composito;
@@ -89,6 +92,9 @@ Space `Sibucs/Familiarizzap`.
 
 - Nessuna chiave, token o password nei file: il repository è pubblico.
 - I dati della ricerca non entrano mai nel repository del codice.
+- Il nome identifica il percorso ma non autentica la persona: omonimi e accessi
+  da parte di chi conosce il nome sono un rischio accettato soltanto per il
+  piccolo gruppo interno.
 - Il livello corretto proviene soltanto dal catalogo approvato.
 - Nessun modello AI viene chiamato durante la sessione del docente.
 - Lo Space Hugging Face è una destinazione di deploy e non si modifica a mano.

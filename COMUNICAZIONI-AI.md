@@ -18,6 +18,32 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-07-30 — Accesso e interfaccia 0.4
+
+Fabio ha chiesto di semplificare l’accesso per il piccolo gruppo interno e di
+correggere la struttura dell’interfaccia. Questa decisione sostituisce la logica
+dei codici personali descritta nella voce 0.3 più sotto.
+
+- Il docente inserisce soltanto il nome, senza cognome né codice.
+- Il nome normalizzato genera tramite HMAC l’identificativo deterministico del
+  percorso: lo stesso nome recupera lo stesso percorso anche da un altro
+  dispositivo.
+- Non è autenticazione. Gli omonimi condividono il percorso e chi conosce il
+  nome può aprirlo; il rischio è accettato soltanto per circa dieci persone
+  conosciute e va rivalutato prima di un uso pubblico o con dati sensibili.
+- La pagina principale apre con lo schema descrittivo e con le scale
+  disponibili. I colori sono fissati esplicitamente anche in tema scuro.
+- La panoramica del ricercatore non è più una scheda nella pagina del docente:
+  si trova nella pagina separata `/ricercatore`.
+- Resta un solo secret, `RESEARCHER_ACCESS_KEY`, necessario perché la pagina
+  riservata mostra nomi e percorsi di tutti i partecipanti.
+- Schede dei descrittori, mappe e selettori sono stati adattati agli schermi
+  stretti e non dipendono dai colori automatici del tema Gradio.
+
+La versione applicativa diventa `0.4.0`. Prima della pubblicazione devono essere
+completati test automatici, prova visiva su desktop e smartphone e verifica in
+tema chiaro e scuro.
+
 ## 2026-07-30 — Percorso longitudinale e dashboard di ricerca 0.3
 
 Fabio ha stabilito che l’app deve permettere sia al docente sia al ricercatore

@@ -31,7 +31,7 @@ def build_research_export(
         {
             key: value
             for key, value in row.items()
-            if key not in {"access_code_hash", "name_lookup_hash"}
+            if key != "name_lookup_hash"
         }
         for row in participant_rows
     ]

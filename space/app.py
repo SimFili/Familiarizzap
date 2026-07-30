@@ -23,14 +23,9 @@ from src.analytics import (
     session_records,
 )
 from src.auth import (
-    AccessCodeError,
     IdentityError,
-    access_code_hash,
-    display_name,
-    generate_access_code,
-    new_participant_id,
-    participant_id,
-    verify_access_code,
+    display_name_only,
+    participant_name_id,
 )
 from src.catalog import CatalogError, load_catalog
 from src.event_store import EventStoreError, create_event_store
@@ -142,10 +137,12 @@ CSS = """
   border-left: 6px solid var(--fapp-teal);
   border-radius: 1rem;
   padding: 1.15rem 1.2rem;
-  background: var(--fapp-paper);
+  background: var(--fapp-paper) !important;
   color: var(--fapp-ink) !important;
   font-size: 1.08rem;
   line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .descriptor-card * { color: inherit !important; }
 .non-evaluation {
@@ -251,6 +248,13 @@ button.primary {
   text-align: left;
   cursor: pointer;
   transition: transform .12s ease, box-shadow .12s ease;
+  overflow: hidden;
+}
+.scale-descriptor .scale-level,
+.scale-descriptor .scale-text,
+.scale-descriptor .scale-result,
+.scale-descriptor .scale-when {
+  color: inherit !important;
 }
 .scale-descriptor:hover,
 .scale-descriptor:focus-visible {
@@ -283,6 +287,7 @@ button.primary {
   align-items: start;
   overflow-x: auto;
   padding: .25rem 0 .8rem;
+  scrollbar-width: thin;
 }
 .taxonomy-column {
   display: grid;
@@ -302,31 +307,37 @@ button.primary {
   min-height: 4.3rem;
   display: grid;
   place-items: center;
-  background: var(--fapp-taxonomy);
-  color: #0f1720;
+  background: var(--fapp-taxonomy) !important;
+  color: #0f1720 !important;
 }
 .taxonomy-item {
   min-height: 3.8rem;
-  color: #fff;
+  color: #fff !important;
   cursor: pointer;
+  border: 1px solid rgba(15, 23, 32, .08) !important;
+  box-shadow: 0 3px 8px rgba(15, 23, 32, .12);
 }
+.taxonomy-item * { color: inherit !important; }
 .taxonomy-item:focus-visible {
   outline: 3px solid rgba(22,124,112,.35);
   outline-offset: 2px;
 }
 .taxonomy-item[disabled] {
   cursor: not-allowed;
-  opacity: .38;
-  filter: grayscale(.3);
+  opacity: .34 !important;
+  filter: saturate(.72);
 }
-.tax-reception { background: var(--fapp-reception); }
-.tax-production { background: var(--fapp-production); }
-.tax-interaction { background: var(--fapp-interaction); }
-.tax-mediation { background: var(--fapp-mediation); }
-.tax-linguistic { background: var(--fapp-linguistic); }
-.tax-sociolinguistic { background: var(--fapp-sociolinguistic); }
-.tax-pragmatic { background: var(--fapp-pragmatic); }
-.tax-neutral { background: #c8c0b1; color: #263238; }
+.tax-reception { background: var(--fapp-reception) !important; }
+.tax-production { background: var(--fapp-production) !important; }
+.tax-interaction { background: var(--fapp-interaction) !important; }
+.tax-mediation { background: var(--fapp-mediation) !important; }
+.tax-linguistic { background: var(--fapp-linguistic) !important; }
+.tax-sociolinguistic { background: var(--fapp-sociolinguistic) !important; }
+.tax-pragmatic { background: var(--fapp-pragmatic) !important; }
+.tax-neutral {
+  background: #e9e4da !important;
+  color: #263238 !important;
+}
 .availability {
   display: block;
   margin-top: .25rem;
@@ -352,59 +363,85 @@ button.primary {
   border: 0;
   border-radius: .75rem;
   padding: .75rem;
-  background: var(--fapp-reception);
-  color: #fff;
+  background: var(--fapp-reception) !important;
+  color: #fff !important;
   font-weight: 700;
   cursor: pointer;
 }
+.scale-choice-button * { color: inherit !important; }
 .scale-choice-button:hover,
 .scale-choice-button:focus-visible {
   filter: brightness(.92);
   outline: 3px solid rgba(59,87,237,.25);
   outline-offset: 2px;
 }
-.code-notice {
-  border: 2px solid var(--fapp-teal);
-  border-radius: 1rem;
-  padding: 1rem;
-  background: var(--fapp-mint);
-  color: var(--fapp-ink) !important;
+.taxonomy-intro {
+  margin-top: .35rem;
 }
-.code-notice code {
-  display: inline-block;
-  margin: .4rem 0;
-  padding: .35rem .55rem;
-  font-size: 1.18rem;
-  color: var(--fapp-ink) !important;
-  background: #fff;
+.researcher-link {
+  display: inline-flex;
+  margin-top: 1.5rem;
+  padding: .75rem 1rem;
+  border: 1px solid var(--fapp-line);
+  border-radius: .75rem;
+  color: var(--fapp-teal) !important;
+  background: var(--fapp-paper) !important;
+  font-weight: 720;
+  text-decoration: none !important;
 }
 @media (prefers-color-scheme: dark) {
+  .gradio-container {
+    color: #f1f5f9 !important;
+  }
   .journey-overview,
   .descriptor-card,
-  .scale-branch {
+  .scale-branch,
+  .researcher-link {
     color: var(--fapp-ink) !important;
   }
   .journey-metric { color: var(--fapp-ink) !important; }
+  .taxonomy-title { color: #0f1720 !important; }
+  .taxonomy-item { color: #fff !important; }
+  .tax-neutral { color: #263238 !important; }
+  .scale-choice-button { color: #fff !important; }
 }
 @media (max-width: 720px) {
   .gradio-container { padding: .65rem !important; }
   .hero { padding: 1.15rem 1rem; }
+  .descriptor-card {
+    padding: 1rem;
+    font-size: 1rem;
+    line-height: 1.52;
+  }
   .scale-descriptor {
-    grid-template-columns: 3.4rem minmax(0, 1fr);
+    grid-template-columns: 3rem minmax(0, 1fr);
+    gap: .5rem;
+    padding: .8rem;
+  }
+  .scale-text {
+    min-width: 0;
+    font-size: .95rem;
+    line-height: 1.42;
+    overflow-wrap: anywhere;
   }
   .scale-result {
-    grid-column: 1 / -1;
+    grid-column: 2;
     text-align: left;
+    font-size: .88rem;
   }
   .trend-row {
     grid-template-columns: minmax(0, 1fr) 3.8rem;
   }
   .trend-track { grid-column: 1 / -1; grid-row: 2; }
   .taxonomy-grid {
-    grid-template-columns: repeat(5, minmax(145px, 70vw));
+    grid-template-columns: repeat(5, minmax(165px, 74vw));
     scroll-snap-type: x proximity;
+    padding-bottom: 1rem;
   }
   .taxonomy-column { scroll-snap-align: start; }
+  .taxonomy-title { min-height: 4.8rem; }
+  .taxonomy-item { min-height: 4.15rem; }
+  .scale-selector { grid-template-columns: 1fr; }
 }
 """
 
@@ -541,7 +578,7 @@ def _empty_ui_state() -> dict[str, Any]:
 
 
 def _empty_browser_identity() -> dict[str, str]:
-    return {"first_name": "", "last_name": "", "access_code": ""}
+    return {"name": ""}
 
 
 def _storage_banner() -> str:
@@ -977,25 +1014,15 @@ def _personal_view(
 
 def prefill_identity(saved: dict[str, str] | None):
     saved = saved or {}
-    return (
-        saved.get("first_name", ""),
-        saved.get("last_name", ""),
-        saved.get("access_code", ""),
-    )
+    return saved.get("name", "")
 
 
 def identify_participant(
-    first_name: str,
-    last_name: str,
-    journey_code: str,
-    create_separate_profile: bool,
+    name: str,
     consent: bool,
     state: dict[str, Any] | None,
 ):
     state = state or _empty_ui_state()
-    issued_code = ""
-    event_warning = ""
-    code_event_needed = False
     hidden_personal = (
         "",
         gr.Dropdown(choices=[], value=None),
@@ -1011,127 +1038,29 @@ def identify_participant(
             gr.update(visible=True),
             gr.update(visible=False),
             "",
-            "",
             *hidden_personal,
             "",
             "Devi confermare di aver letto l’informativa dimostrativa.",
         )
     try:
-        shown_name = display_name(first_name, last_name)
-        name_lookup = participant_id(
-            first_name, last_name, SETTINGS.effective_hash_salt
+        shown_name = display_name_only(name)
+        identifier = participant_name_id(
+            name, SETTINGS.effective_hash_salt
         )
-        candidates = [
-            record
-            for record in STORE.list_participants()
-            if record.get("name_lookup_hash") == name_lookup
-            or (
-                not record.get("name_lookup_hash")
-                and record.get("participant_id") == name_lookup
-            )
-        ]
-        existing = None
-        if journey_code:
-            matches = [
-                record
-                for record in candidates
-                if record.get("access_code_hash")
-                and verify_access_code(
-                    journey_code,
-                    str(record.get("participant_id", "")),
-                    SETTINGS.effective_hash_salt,
-                    str(record.get("access_code_hash", "")),
-                )
-            ]
-            if len(matches) != 1:
-                raise AccessCodeError(
-                    "Il codice percorso non corrisponde. Controlla i caratteri "
-                    "oppure chiedi al ricercatore di generarne uno nuovo."
-                )
-            existing = matches[0]
-        elif not create_separate_profile and len(candidates) == 1:
-            existing = candidates[0]
-        elif not create_separate_profile and len(candidates) > 1:
-            raise AccessCodeError(
-                "Esistono più percorsi con questo nome. Inserisci il tuo "
-                "codice personale per scegliere quello corretto."
-            )
-
-        if existing and existing.get("access_code_hash"):
-            if not journey_code:
-                raise AccessCodeError(
-                    "Questo percorso ha già un codice personale. Inseriscilo "
-                    "per aprire la cronologia."
-                )
-            identifier = str(existing["participant_id"])
-            saved_code = journey_code
-            access_method = "name_and_personal_code"
-            STORE.register_participant(
-                identifier,
-                shown_name,
-                name_lookup_hash=name_lookup,
-            )
-        else:
-            identifier = (
-                str(existing["participant_id"])
-                if existing
-                else new_participant_id()
-            )
-            issued_code = generate_access_code()
-            STORE.register_participant(
-                identifier,
-                shown_name,
-                access_code_hash=access_code_hash(
-                    issued_code,
-                    identifier,
-                    SETTINGS.effective_hash_salt,
-                ),
-                name_lookup_hash=name_lookup,
-            )
-            code_event_needed = True
-            saved_code = issued_code
-            access_method = (
-                "legacy_profile_upgraded"
-                if existing
-                else (
-                    "new_homonym_profile"
-                    if create_separate_profile and candidates
-                    else "new_personal_code"
-                )
-            )
-        try:
-            if code_event_needed:
-                SESSIONS.record_access_code_event(
-                    identifier, "access_code_issued"
-                )
-            SESSIONS.record_consent(identifier, SETTINGS.consent_version)
-            SESSIONS.record_participant_access(identifier, access_method)
-        except EventStoreError as exc:
-            if not issued_code:
-                raise
-            event_warning = (
-                "⚠️ Il codice personale è stato creato e va conservato, ma "
-                f"la registrazione dell’accesso non è stata completata: {exc}"
-            )
-        try:
-            personal = _personal_view(identifier)
-        except EventStoreError as exc:
-            if not issued_code:
-                raise
-            personal = hidden_personal
-            event_warning = (
-                f"{event_warning}\n\n" if event_warning else "⚠️ "
-            ) + (
-                "Il codice personale è stato creato e va conservato, ma il "
-                f"percorso non è temporaneamente leggibile: {exc}"
-            )
+        STORE.register_participant(
+            identifier,
+            shown_name,
+            name_lookup_hash=identifier,
+        )
+        SESSIONS.record_consent(identifier, SETTINGS.consent_version)
+        SESSIONS.record_participant_access(identifier, "name_only")
+        personal = _personal_view(identifier)
     except (IdentityError, EventStoreError) as exc:
         return (
             state,
             _empty_browser_identity(),
             gr.update(visible=True),
             gr.update(visible=False),
-            "",
             "",
             *hidden_personal,
             "",
@@ -1144,30 +1073,17 @@ def identify_participant(
         "display_name": shown_name,
     }
     browser_identity = {
-        "first_name": first_name.strip(),
-        "last_name": last_name.strip(),
-        "access_code": saved_code,
+        "name": name.strip(),
     }
-    code_notice = _new_code_notice(issued_code) if issued_code else ""
     return (
         updated,
         browser_identity,
         gr.update(visible=False),
         gr.update(visible=True),
         f"## Ciao, {shown_name}",
-        code_notice,
         *personal,
         "",
-        event_warning,
-    )
-
-
-def _new_code_notice(code: str) -> str:
-    return (
-        '<div class="code-notice"><strong>Salva il tuo codice percorso</strong><br>'
-        f"<code>{html.escape(code)}</code><br>"
-        "Servirà per recuperare la cronologia da un altro dispositivo. "
-        "Su questo browser viene ricordato automaticamente.</div>"
+        "",
     )
 
 
@@ -1811,11 +1727,7 @@ def logout():
         gr.update(visible=False),
         gr.update(visible=False),
         "",
-        "",
-        "",
         False,
-        False,
-        "",
         "",
     )
 
@@ -1846,7 +1758,6 @@ def _research_overview_rows(
         rows.append(
             [
                 participant["display_name"],
-                "Sì" if participant.get("access_code_hash") else "No",
                 overview["sessions_started"],
                 overview["sessions_completed"],
                 overview["sessions_in_progress"],
@@ -2063,8 +1974,6 @@ def researcher_detail(
             in {
                 "consent_recorded",
                 "participant_accessed",
-                "access_code_issued",
-                "access_code_reset",
             }
         )
     ]
@@ -2076,8 +1985,7 @@ def researcher_detail(
         primary_count=first_count,
         primary_label="esiti al primo tentativo nel filtro",
         subtitle=(
-            f"Profilo {participant[:10]}… · codice percorso "
-            f"{'attivo' if participant_record.get('access_code_hash') else 'non ancora attivo'}"
+            f"Profilo pseudonimo {participant[:10]}… · accesso tramite nome"
         ),
     )
     session_rows = [
@@ -2146,45 +2054,6 @@ def researcher_detail(
     return summary_html, session_rows, history_rows, raw_rows, ""
 
 
-def researcher_reset_code(
-    research_state: dict[str, Any], participant: str | None
-):
-    if not _research_authorized(research_state):
-        return "Accesso ricercatore non autorizzato."
-    if not participant:
-        return "Seleziona un partecipante."
-    new_code = generate_access_code()
-    try:
-        STORE.set_access_code(
-            participant,
-            access_code_hash(
-                new_code, participant, SETTINGS.effective_hash_salt
-            ),
-        )
-    except (EventStoreError, IdentityError) as exc:
-        return f"Codice non aggiornato: {exc}"
-    warning = ""
-    try:
-        SESSIONS.record_access_code_event(participant, "access_code_reset")
-    except EventStoreError as exc:
-        warning = (
-            "<br><strong>Attenzione:</strong> il codice è stato sostituito, "
-            f"ma l’evento di reset non è stato registrato: {html.escape(str(exc))}"
-        )
-    try:
-        record = STORE.get_participant(participant) or {}
-    except EventStoreError:
-        record = {}
-    return (
-        '<div class="code-notice"><strong>Nuovo codice per '
-        f"{html.escape(str(record.get('display_name', 'partecipante')))}</strong><br>"
-        f"<code>{html.escape(new_code)}</code><br>"
-        "Comunicalo direttamente alla persona. Il codice precedente non è più valido."
-        f"{warning}"
-        "</div>"
-    )
-
-
 def refresh_research_export(research_state: dict[str, Any]):
     if not _research_authorized(research_state):
         return None, "Accesso ricercatore non autorizzato."
@@ -2202,12 +2071,12 @@ def refresh_research_export(research_state: dict[str, Any]):
 def build_demo() -> gr.Blocks:
     schemas, schema, modality, activity, scale = _first_path_values()
     first_scale_selector = _scale_selector_data(schema, modality)
+
     with gr.Blocks(title="FamiliarizzApp") as demo:
         ui_state = gr.State(_empty_ui_state())
-        researcher_state = gr.State({"authorized": False})
         browser_identity = gr.BrowserState(
             _empty_browser_identity(),
-            storage_key="familiarizzapp-personal-journey",
+            storage_key="familiarizzapp-personal-name",
             secret=SETTINGS.effective_hash_salt,
         )
         gr.HTML(
@@ -2223,404 +2092,207 @@ def build_demo() -> gr.Blocks:
         )
         gr.Markdown(_storage_banner(), elem_classes="storage-banner")
 
-        with gr.Tabs():
-            with gr.Tab("Il mio percorso"):
-                with gr.Group(visible=True) as login_group:
-                    gr.Markdown(
-                        "## Apri il tuo percorso\n"
-                        "Nome, cognome e codice personale permettono di "
-                        "ritrovare in modo affidabile la propria cronologia."
-                    )
-                    with gr.Row():
-                        first_name = gr.Textbox(
-                            label="Nome",
-                            placeholder="Es. Giulia",
-                            max_length=80,
-                        )
-                        last_name = gr.Textbox(
-                            label="Cognome",
-                            placeholder="Es. Rossi",
-                            max_length=80,
-                        )
-                    journey_code = gr.Textbox(
-                        label="Codice percorso",
-                        placeholder="Lascialo vuoto soltanto al primo accesso",
-                        info=(
-                            "Viene creato automaticamente al primo accesso e "
-                            "ricordato su questo browser."
-                        ),
-                        max_length=20,
-                    )
-                    with gr.Accordion(
-                        "Caso particolare: omonimia", open=False
-                    ):
-                        separate_profile = gr.Checkbox(
-                            label=(
-                                "Sono una persona diversa con lo stesso nome e "
-                                "cognome e devo creare un percorso separato."
-                            ),
-                            info=(
-                                "Non selezionare questa opzione se hai soltanto "
-                                "perso il codice: chiedine il reset al ricercatore."
-                            ),
-                        )
-                    consent = gr.Checkbox(
-                        label=(
-                            "Confermo di aver letto l’informativa dimostrativa "
-                            "e di voler proseguire."
-                        )
-                    )
-                    identify_button = gr.Button(
-                        "Apri il mio percorso", variant="primary"
-                    )
-
-                with gr.Group(visible=False) as dashboard_group:
-                    greeting = gr.Markdown()
-                    code_notice = gr.HTML()
-                    progress_dashboard = gr.HTML()
-
-                    gr.Markdown("### Esplora la tua mappa")
-                    with gr.Row():
-                        personal_scale_choice = gr.Dropdown(
-                            choices=_scale_choices(),
-                            label="Scala da esplorare",
-                        )
-                        personal_filter = gr.Radio(
-                            choices=[
-                                ("Mostra tutto", "all"),
-                                ("Concentrati", "focus"),
-                                ("Da rivedere", "unresolved"),
-                                ("Mai incontrati", "unseen"),
-                            ],
-                            value="all",
-                            label="Filtro",
-                        )
-                    personal_scale_summary = gr.HTML()
-                    personal_map = gr.HTML(
-                        [],
-                        html_template=MAP_TEMPLATE,
-                        js_on_load=MAP_JS,
-                    )
-                    personal_detail = gr.Markdown()
-                    with gr.Accordion("Sessioni precedenti", open=False):
-                        personal_sessions = gr.Dataframe(
-                            headers=[
-                                "Quando",
-                                "Scala",
-                                "Stato",
-                                "Descrittori",
-                                "Senza suggerimenti",
-                            ],
-                            datatype=["str", "str", "str", "str", "str"],
-                            interactive=False,
-                            wrap=True,
-                            show_search="filter",
-                        )
-
-                    with gr.Accordion("Riprendi una sessione", open=False):
-                        resume_choice = gr.Dropdown(
-                            choices=[],
-                            label="Sessione da riprendere",
-                            interactive=False,
-                        )
-                        resume_button = gr.Button("Riprendi")
-
-                    gr.Markdown("## Scegli una nuova scala")
-                    gr.Markdown(
-                        "Le categorie colorate sono disponibili. Quelle "
-                        "attenuate non sono ancora presenti nel catalogo usato."
-                    )
-                    taxonomy = gr.HTML(
-                        _taxonomy_data(),
-                        html_template=TAXONOMY_TEMPLATE,
-                        js_on_load=TAXONOMY_JS,
-                    )
-                    path_selection_message = gr.Markdown()
-                    scale_selector = gr.HTML(
-                        first_scale_selector,
-                        html_template=SCALE_SELECTOR_TEMPLATE,
-                        js_on_load=SCALE_SELECTOR_JS,
-                    )
-
-                    with gr.Accordion(
-                        "Selezione testuale accessibile", open=False
-                    ):
-                        schema_choice = gr.Dropdown(
-                            choices=schemas,
-                            value=schema,
-                            label="Schema descrittivo",
-                        )
-                        modality_choice = gr.Dropdown(
-                            choices=CATALOG.choices(
-                                "modality", schema=schema
-                            ),
-                            value=modality,
-                            label="Modalità di comunicazione",
-                        )
-                        activity_choice = gr.Dropdown(
-                            choices=CATALOG.choices(
-                                "activity",
-                                schema=schema,
-                                modality=modality,
-                            ),
-                            value=activity,
-                            label="Attività, strategia o competenza",
-                        )
-                        scale_choice = gr.Dropdown(
-                            choices=CATALOG.choices(
-                                "scale",
-                                schema=schema,
-                                modality=modality,
-                                activity=activity,
-                            ),
-                            value=scale,
-                            label="Scala",
-                        )
-                    with gr.Row():
-                        start_button = gr.Button(
-                            "Inizia la sessione", variant="primary"
-                        )
-                        logout_button = gr.Button("Cambia partecipante")
-
-                with gr.Group(visible=False) as exercise_group:
-                    breadcrumb = gr.Markdown()
-                    exercise_progress = gr.Markdown()
-                    descriptor = gr.HTML()
-                    attempt_label = gr.Markdown()
-                    level_choice = gr.Radio(
-                        choices=[],
-                        label="A quale livello appartiene?",
-                    )
-                    feedback = gr.Markdown()
-                    with gr.Row():
-                        submit_button = gr.Button(
-                            "Conferma risposta", variant="primary"
-                        )
-                        continue_button = gr.Button(
-                            "Descrittore successivo",
-                            visible=False,
-                            variant="primary",
-                        )
-
-                with gr.Group(visible=False) as summary_group:
-                    summary_stats = gr.HTML()
-                    gr.Markdown(
-                        "### Apri i descrittori per esito\n"
-                        "I numeri sono pulsanti: selezionandoli ritrovi i "
-                        "descrittori corrispondenti."
-                    )
-                    with gr.Row():
-                        first_summary_button = gr.Button("1° tentativo · 0")
-                        second_summary_button = gr.Button("2° tentativo · 0")
-                        third_summary_button = gr.Button("3° tentativo · 0")
-                        unresolved_summary_button = gr.Button("Da rivedere · 0")
-                    with gr.Row():
-                        summary_all_button = gr.Button("Mostra tutto")
-                        summary_focus_button = gr.Button("Concentrati")
-                        summary_level_filter = gr.Dropdown(
-                            choices=[],
-                            label="Livello target",
-                        )
-                    summary_map = gr.HTML(
-                        [],
-                        html_template=MAP_TEMPLATE,
-                        js_on_load=MAP_JS,
-                    )
-                    summary_detail = gr.Markdown()
-                    repeat_choices = gr.CheckboxGroup(
-                        choices=[],
-                        visible=False,
-                        label="Descrittori da ripetere",
-                    )
-                    repeat_button = gr.Button(
-                        "Ripeti i descrittori selezionati",
-                        visible=False,
-                        variant="primary",
-                    )
-                    dashboard_button = gr.Button(
-                        "Torna al mio percorso", variant="primary"
-                    )
-
-                user_message = gr.Markdown()
-
-            with gr.Tab("Panoramica ricercatore"):
-                gr.Markdown(
-                    "## Panoramica riservata\n"
-                    "La chiave è configurata nei secret dello Space e non "
-                    "compare nel codice."
+        with gr.Group(visible=True) as selection_group:
+            gr.Markdown(
+                "## Scegli una nuova scala\n"
+                "Le categorie mantengono i colori del quadro di riferimento. "
+                "Quelle attenuate non sono ancora presenti nel catalogo usato.",
+                elem_classes="taxonomy-intro",
+            )
+            taxonomy = gr.HTML(
+                _taxonomy_data(),
+                html_template=TAXONOMY_TEMPLATE,
+                js_on_load=TAXONOMY_JS,
+            )
+            scale_selector = gr.HTML(
+                first_scale_selector,
+                html_template=SCALE_SELECTOR_TEMPLATE,
+                js_on_load=SCALE_SELECTOR_JS,
+            )
+            path_selection_message = gr.Markdown()
+            with gr.Accordion("Selezione testuale accessibile", open=False):
+                schema_choice = gr.Dropdown(
+                    choices=schemas,
+                    value=schema,
+                    label="Schema descrittivo",
                 )
-                researcher_key = gr.Textbox(
-                    label="Chiave ricercatore", type="password"
+                modality_choice = gr.Dropdown(
+                    choices=CATALOG.choices("modality", schema=schema),
+                    value=modality,
+                    label="Modalità di comunicazione",
                 )
-                researcher_button = gr.Button("Apri panoramica")
-                researcher_message = gr.Markdown()
-                with gr.Group(visible=False) as researcher_content:
-                    researcher_global = gr.HTML()
-                    researcher_table = gr.Dataframe(
-                        headers=[
-                            "Partecipante",
-                            "Codice attivo",
-                            "Sessioni iniziate",
-                            "Sessioni completate",
-                            "Sessioni in corso",
-                            "Descrittori incontrati",
-                            "% attuale senza suggerimenti",
-                            "Ultima attività",
-                        ],
-                        datatype=[
-                            "str",
-                            "str",
-                            "number",
-                            "number",
-                            "number",
-                            "number",
-                            "str",
-                            "str",
-                        ],
-                        interactive=False,
-                        wrap=True,
-                        show_search="filter",
-                    )
-                    gr.Markdown("### Percorso individuale")
-                    with gr.Row():
-                        researcher_participant = gr.Dropdown(
-                            choices=[],
-                            label="Partecipante",
-                        )
-                        researcher_scale = gr.Dropdown(
-                            choices=[("Tutte le scale", "all")],
-                            value="all",
-                            label="Scala",
-                        )
-                    with gr.Row():
-                        researcher_from = gr.DateTime(
-                            label="Dal giorno",
-                            include_time=False,
-                            type="string",
-                            timezone="Europe/Rome",
-                        )
-                        researcher_to = gr.DateTime(
-                            label="Al giorno",
-                            include_time=False,
-                            type="string",
-                            timezone="Europe/Rome",
-                        )
-                        researcher_refresh = gr.Button("Applica filtri")
-                    researcher_personal_summary = gr.HTML()
-                    researcher_detail_message = gr.Markdown()
-                    with gr.Accordion("Sessioni", open=True):
-                        researcher_sessions = gr.Dataframe(
-                            headers=[
-                                "ID sessione",
-                                "Scala",
-                                "Stato",
-                                "Inizio esatto",
-                                "Fine esatta",
-                                "Durata s",
-                                "Completati",
-                                "1°",
-                                "2°",
-                                "3°",
-                                "Non risolti",
-                                "% 1°",
-                                "Revisione catalogo",
-                                "Versione app",
-                            ],
-                            interactive=False,
-                            wrap=True,
-                            show_search="filter",
-                        )
-                    with gr.Accordion("Cronologia dei descrittori", open=True):
-                        researcher_descriptors = gr.Dataframe(
-                            headers=[
-                                "Quando",
-                                "ID sessione",
-                                "Scala",
-                                "ID descrittore",
-                                "Target",
-                                "Risposte",
-                                "Esito",
-                                "Distanza iniziale",
-                                "Esposizione n.",
-                                "Tempo risposta s",
-                                "Descrittore",
-                            ],
-                            interactive=False,
-                            wrap=True,
-                            show_search="filter",
-                        )
-                    with gr.Accordion("Registro completo degli eventi", open=False):
-                        researcher_events = gr.Dataframe(
-                            headers=[
-                                "Timestamp esatto",
-                                "Tipo",
-                                "Sessione",
-                                "Descrittore",
-                                "Tentativo",
-                                "Scelta",
-                                "Corretto",
-                                "Esito",
-                                "Distanza",
-                                "Tempo ms",
-                                "Feedback o motivazione",
-                                "Schema dati",
-                                "Revisione contenuti",
-                                "Versione app",
-                                "ID evento",
-                            ],
-                            interactive=False,
-                            wrap=True,
-                            show_search="filter",
-                        )
-                    with gr.Accordion("Integrità e backup", open=False):
-                        researcher_integrity = gr.Dataframe(
-                            headers=["Gravità", "Ambito", "Messaggio"],
-                            interactive=False,
-                            wrap=True,
-                        )
-                        with gr.Row():
-                            researcher_export = gr.DownloadButton(
-                                "Scarica archivio completo"
-                            )
-                            researcher_export_refresh = gr.Button(
-                                "Rigenera esportazione"
-                            )
-                        researcher_export_message = gr.Markdown()
-                    with gr.Accordion(
-                        "Recupero del codice personale", open=False
-                    ):
-                        gr.Markdown(
-                            "Usa questa funzione soltanto se il partecipante "
-                            "ha perso il codice. L’operazione viene registrata "
-                            "e rende invalido il codice precedente."
-                        )
-                        reset_code_button = gr.Button(
-                            "Genera un nuovo codice"
-                        )
-                        reset_code_result = gr.HTML()
+                activity_choice = gr.Dropdown(
+                    choices=CATALOG.choices(
+                        "activity", schema=schema, modality=modality
+                    ),
+                    value=activity,
+                    label="Attività, strategia o competenza",
+                )
+                scale_choice = gr.Dropdown(
+                    choices=CATALOG.choices(
+                        "scale",
+                        schema=schema,
+                        modality=modality,
+                        activity=activity,
+                    ),
+                    value=scale,
+                    label="Scala",
+                )
+
+        with gr.Group(visible=True) as login_group:
+            gr.Markdown(
+                "## Apri il tuo percorso\n"
+                "Per questo piccolo gruppo è sufficiente inserire il proprio "
+                "nome. Usa sempre la stessa forma per ritrovare la cronologia."
+            )
+            name = gr.Textbox(
+                label="Nome",
+                placeholder="Es. Giulia",
+                max_length=80,
+            )
+            consent = gr.Checkbox(
+                label=(
+                    "Confermo di aver letto l’informativa dimostrativa "
+                    "e di voler proseguire."
+                )
+            )
+            identify_button = gr.Button(
+                "Continua con questo nome", variant="primary"
+            )
+
+        with gr.Group(visible=False) as dashboard_group:
+            greeting = gr.Markdown()
+            with gr.Row():
+                start_button = gr.Button(
+                    "Inizia la scala selezionata", variant="primary"
+                )
+                logout_button = gr.Button("Cambia nome")
+
+            progress_dashboard = gr.HTML()
+            gr.Markdown("### Esplora la tua mappa")
+            with gr.Row():
+                personal_scale_choice = gr.Dropdown(
+                    choices=_scale_choices(),
+                    label="Scala da esplorare",
+                )
+                personal_filter = gr.Radio(
+                    choices=[
+                        ("Mostra tutto", "all"),
+                        ("Concentrati", "focus"),
+                        ("Da rivedere", "unresolved"),
+                        ("Mai incontrati", "unseen"),
+                    ],
+                    value="all",
+                    label="Filtro",
+                )
+            personal_scale_summary = gr.HTML()
+            personal_map = gr.HTML(
+                [],
+                html_template=MAP_TEMPLATE,
+                js_on_load=MAP_JS,
+            )
+            personal_detail = gr.Markdown()
+            with gr.Accordion("Sessioni precedenti", open=False):
+                personal_sessions = gr.Dataframe(
+                    headers=[
+                        "Quando",
+                        "Scala",
+                        "Stato",
+                        "Descrittori",
+                        "Senza suggerimenti",
+                    ],
+                    datatype=["str", "str", "str", "str", "str"],
+                    interactive=False,
+                    wrap=True,
+                    show_search="filter",
+                )
+            with gr.Accordion("Riprendi una sessione", open=False):
+                resume_choice = gr.Dropdown(
+                    choices=[],
+                    label="Sessione da riprendere",
+                    interactive=False,
+                )
+                resume_button = gr.Button("Riprendi")
+
+        with gr.Group(visible=False) as exercise_group:
+            breadcrumb = gr.Markdown()
+            exercise_progress = gr.Markdown()
+            descriptor = gr.HTML()
+            attempt_label = gr.Markdown()
+            level_choice = gr.Radio(
+                choices=[],
+                label="A quale livello appartiene?",
+            )
+            feedback = gr.Markdown()
+            with gr.Row():
+                submit_button = gr.Button(
+                    "Conferma risposta", variant="primary"
+                )
+                continue_button = gr.Button(
+                    "Descrittore successivo",
+                    visible=False,
+                    variant="primary",
+                )
+
+        with gr.Group(visible=False) as summary_group:
+            summary_stats = gr.HTML()
+            gr.Markdown(
+                "### Apri i descrittori per esito\n"
+                "I numeri sono pulsanti: selezionandoli ritrovi i "
+                "descrittori corrispondenti."
+            )
+            with gr.Row():
+                first_summary_button = gr.Button("1° tentativo · 0")
+                second_summary_button = gr.Button("2° tentativo · 0")
+                third_summary_button = gr.Button("3° tentativo · 0")
+                unresolved_summary_button = gr.Button("Da rivedere · 0")
+            with gr.Row():
+                summary_all_button = gr.Button("Mostra tutto")
+                summary_focus_button = gr.Button("Concentrati")
+                summary_level_filter = gr.Dropdown(
+                    choices=[],
+                    label="Livello target",
+                )
+            summary_map = gr.HTML(
+                [],
+                html_template=MAP_TEMPLATE,
+                js_on_load=MAP_JS,
+            )
+            summary_detail = gr.Markdown()
+            repeat_choices = gr.CheckboxGroup(
+                choices=[],
+                visible=False,
+                label="Descrittori da ripetere",
+            )
+            repeat_button = gr.Button(
+                "Ripeti i descrittori selezionati",
+                visible=False,
+                variant="primary",
+            )
+            dashboard_button = gr.Button(
+                "Torna al mio percorso", variant="primary"
+            )
+
+        user_message = gr.Markdown()
+        gr.HTML(
+            '<a class="researcher-link" href="/ricercatore" target="_blank">'
+            "Apri la panoramica del ricercatore in una pagina separata ↗</a>"
+        )
 
         demo.load(
             prefill_identity,
             inputs=browser_identity,
-            outputs=[first_name, last_name, journey_code],
+            outputs=name,
         )
         identify_button.click(
             identify_participant,
-            inputs=[
-                first_name,
-                last_name,
-                journey_code,
-                separate_profile,
-                consent,
-                ui_state,
-            ],
+            inputs=[name, consent, ui_state],
             outputs=[
                 ui_state,
                 browser_identity,
                 login_group,
                 dashboard_group,
                 greeting,
-                code_notice,
                 progress_dashboard,
                 personal_scale_choice,
                 personal_scale_summary,
@@ -2721,12 +2393,12 @@ def build_demo() -> gr.Blocks:
                 scale_choice,
             ],
             outputs=exercise_outputs,
-        )
+        ).then(lambda: gr.update(visible=False), outputs=selection_group)
         resume_button.click(
             resume_session,
             inputs=[ui_state, resume_choice],
             outputs=exercise_outputs,
-        )
+        ).then(lambda: gr.update(visible=False), outputs=selection_group)
         submit_button.click(
             submit_answer,
             inputs=[ui_state, level_choice],
@@ -2797,7 +2469,7 @@ def build_demo() -> gr.Blocks:
             repeat_selected_descriptors,
             inputs=[ui_state, repeat_choices],
             outputs=exercise_outputs,
-        )
+        ).then(lambda: gr.update(visible=False), outputs=selection_group)
         dashboard_button.click(
             back_to_dashboard,
             inputs=ui_state,
@@ -2814,7 +2486,7 @@ def build_demo() -> gr.Blocks:
                 personal_detail,
                 user_message,
             ],
-        )
+        ).then(lambda: gr.update(visible=True), outputs=selection_group)
         logout_button.click(
             logout,
             outputs=[
@@ -2824,15 +2496,170 @@ def build_demo() -> gr.Blocks:
                 dashboard_group,
                 exercise_group,
                 summary_group,
-                first_name,
-                last_name,
-                journey_code,
-                separate_profile,
+                name,
                 consent,
-                code_notice,
                 user_message,
             ],
         )
+
+    with demo.route(
+        "Panoramica ricercatore",
+        "/ricercatore",
+        show_in_navbar=False,
+    ):
+        researcher_state = gr.State({"authorized": False})
+        gr.HTML(
+            '<a class="researcher-link" href="/">← Torna a FamiliarizzApp</a>'
+        )
+        gr.HTML(
+            """
+            <section class="hero">
+              <div class="hero-kicker">Area riservata</div>
+              <h1>Panoramica ricercatore</h1>
+              <p>Percorsi longitudinali, risposte, tempi, integrità ed
+              esportazioni sono raccolti in questa pagina separata.</p>
+            </section>
+            """
+        )
+        gr.Markdown(
+            "La chiave del ricercatore protegge i dati complessivi dei "
+            "partecipanti e non viene richiesta a chi svolge gli esercizi."
+        )
+        researcher_key = gr.Textbox(
+            label="Chiave ricercatore", type="password"
+        )
+        researcher_button = gr.Button("Apri panoramica", variant="primary")
+        researcher_message = gr.Markdown()
+        with gr.Group(visible=False) as researcher_content:
+            researcher_global = gr.HTML()
+            researcher_table = gr.Dataframe(
+                headers=[
+                    "Partecipante",
+                    "Sessioni iniziate",
+                    "Sessioni completate",
+                    "Sessioni in corso",
+                    "Descrittori incontrati",
+                    "% attuale senza suggerimenti",
+                    "Ultima attività",
+                ],
+                datatype=[
+                    "str",
+                    "number",
+                    "number",
+                    "number",
+                    "number",
+                    "str",
+                    "str",
+                ],
+                interactive=False,
+                wrap=True,
+                show_search="filter",
+            )
+            gr.Markdown("### Percorso individuale")
+            with gr.Row():
+                researcher_participant = gr.Dropdown(
+                    choices=[],
+                    label="Partecipante",
+                )
+                researcher_scale = gr.Dropdown(
+                    choices=[("Tutte le scale", "all")],
+                    value="all",
+                    label="Scala",
+                )
+            with gr.Row():
+                researcher_from = gr.DateTime(
+                    label="Dal giorno",
+                    include_time=False,
+                    type="string",
+                    timezone="Europe/Rome",
+                )
+                researcher_to = gr.DateTime(
+                    label="Al giorno",
+                    include_time=False,
+                    type="string",
+                    timezone="Europe/Rome",
+                )
+                researcher_refresh = gr.Button("Applica filtri")
+            researcher_personal_summary = gr.HTML()
+            researcher_detail_message = gr.Markdown()
+            with gr.Accordion("Sessioni", open=True):
+                researcher_sessions = gr.Dataframe(
+                    headers=[
+                        "ID sessione",
+                        "Scala",
+                        "Stato",
+                        "Inizio esatto",
+                        "Fine esatta",
+                        "Durata s",
+                        "Completati",
+                        "1°",
+                        "2°",
+                        "3°",
+                        "Non risolti",
+                        "% 1°",
+                        "Revisione catalogo",
+                        "Versione app",
+                    ],
+                    interactive=False,
+                    wrap=True,
+                    show_search="filter",
+                )
+            with gr.Accordion("Cronologia dei descrittori", open=True):
+                researcher_descriptors = gr.Dataframe(
+                    headers=[
+                        "Quando",
+                        "ID sessione",
+                        "Scala",
+                        "ID descrittore",
+                        "Target",
+                        "Risposte",
+                        "Esito",
+                        "Distanza iniziale",
+                        "Esposizione n.",
+                        "Tempo risposta s",
+                        "Descrittore",
+                    ],
+                    interactive=False,
+                    wrap=True,
+                    show_search="filter",
+                )
+            with gr.Accordion("Registro completo degli eventi", open=False):
+                researcher_events = gr.Dataframe(
+                    headers=[
+                        "Timestamp esatto",
+                        "Tipo",
+                        "Sessione",
+                        "Descrittore",
+                        "Tentativo",
+                        "Scelta",
+                        "Corretto",
+                        "Esito",
+                        "Distanza",
+                        "Tempo ms",
+                        "Feedback o motivazione",
+                        "Schema dati",
+                        "Revisione contenuti",
+                        "Versione app",
+                        "ID evento",
+                    ],
+                    interactive=False,
+                    wrap=True,
+                    show_search="filter",
+                )
+            with gr.Accordion("Integrità e backup", open=False):
+                researcher_integrity = gr.Dataframe(
+                    headers=["Gravità", "Ambito", "Messaggio"],
+                    interactive=False,
+                    wrap=True,
+                )
+                with gr.Row():
+                    researcher_export = gr.DownloadButton(
+                        "Scarica archivio completo"
+                    )
+                    researcher_export_refresh = gr.Button(
+                        "Rigenera esportazione"
+                    )
+                researcher_export_message = gr.Markdown()
 
         researcher_button.click(
             researcher_login,
@@ -2898,11 +2725,6 @@ def build_demo() -> gr.Blocks:
                 researcher_events,
                 researcher_detail_message,
             ],
-        )
-        reset_code_button.click(
-            researcher_reset_code,
-            inputs=[researcher_state, researcher_participant],
-            outputs=reset_code_result,
         )
         researcher_export_refresh.click(
             refresh_research_export,
