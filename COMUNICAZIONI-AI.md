@@ -40,9 +40,15 @@ dei codici personali descritta nella voce 0.3 più sotto.
 - Schede dei descrittori, mappe e selettori sono stati adattati agli schermi
   stretti e non dipendono dai colori automatici del tema Gradio.
 
-La versione applicativa diventa `0.4.0`. Prima della pubblicazione devono essere
-completati test automatici, prova visiva su desktop e smartphone e verifica in
-tema chiaro e scuro.
+La versione applicativa è `0.4.0`. La verifica ha incluso 31 test automatici,
+compilazione, controllo delle dipendenze, ricerca di secret, prova funzionale e
+visiva su desktop e smartphone in tema chiaro e scuro. La modifica è nel commit
+GitHub `2261947` del branch `agent/familiarizzapp-0.3`.
+
+Il workflow “Pubblica su Hugging Face” è terminato correttamente
+([run 30571293979](https://github.com/SimFili/Familiarizzap/actions/runs/30571293979)).
+Lo Space è tornato **Running on Zero** e sono state verificate online sia la
+pagina principale sia `/ricercatore`.
 
 ## 2026-07-30 — Percorso longitudinale e dashboard di ricerca 0.3
 
