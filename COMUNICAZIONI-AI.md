@@ -34,6 +34,17 @@ riprendere eventuali sessioni incomplete. Il nome ricordato dal browser è
 condiviso con la pagina personale; non sono stati reintrodotti codici o account.
 La versione applicativa diventa `0.4.1`.
 
+La verifica ha incluso 32 test automatici, compilazione, controllo delle
+dipendenze, ricerca di secret e prove funzionali e visive su desktop e mobile,
+anche in tema scuro. La modifica applicativa è nel commit GitHub `deadd99` del
+branch `agent/familiarizzapp-0.3`.
+
+Il workflow “Pubblica su Hugging Face” è terminato correttamente
+([run 30572861634](https://github.com/SimFili/Familiarizzap/actions/runs/30572861634)).
+Lo Space è tornato **Running on Zero**. Sono state verificate online la home
+senza riepilogo personale, la pagina `/percorso` con mappa e cronologia e la
+pagina separata `/ricercatore`.
+
 ## 2026-07-30 — Accesso e interfaccia 0.4
 
 Fabio ha chiesto di semplificare l’accesso per il piccolo gruppo interno e di
