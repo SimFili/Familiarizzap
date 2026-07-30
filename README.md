@@ -29,6 +29,10 @@ docs/       decisioni e contratto dei dati
 .github/    test e automazione di pubblicazione
 ```
 
+[COMUNICAZIONI-AI.md](COMUNICAZIONI-AI.md) raccoglie le modifiche fatte fuori dal
+codice (secret configurati, decisioni, servizi esterni). Va letto a inizio
+sessione e aggiornato quando si cambia qualcosa che dai commit non si vede.
+
 Tutto ciò che sta fuori da `space/` resta nel repository GitHub e non viene
 pubblicato nello Space.
 
