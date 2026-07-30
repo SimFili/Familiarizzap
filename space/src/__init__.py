@@ -1,1 +1,1 @@
-"""Core services for Familiarizzap."""
+"""Core services for Familiarizzapp."""

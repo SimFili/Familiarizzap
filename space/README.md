@@ -1,5 +1,5 @@
 ---
-title: Familiarizzap
+title: Familiarizzapp
 emoji: 🧭
 colorFrom: green
 colorTo: yellow
@@ -10,7 +10,7 @@ app_file: app.py
 pinned: false
 ---
 
-# Familiarizzap
+# Familiarizzapp
 
 App di familiarizzazione con descrittori e livelli CEFR per docenti di lingua
 dei segni.
