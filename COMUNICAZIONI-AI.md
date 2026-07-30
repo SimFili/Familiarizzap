@@ -72,10 +72,11 @@ approvato e registro eventi). Finché non ci sono, l'app resta in **modalità
 dimostrativa**: funziona, ma gli eventi non vengono conservati e l'interfaccia
 lo dichiara.
 
-## 2026-07-30 — L'app si chiama «Familiarizzapp»
+## 2026-07-30 — L'app si chiama «FamiliarizzApp»
 
-Rinominata con due «p» nei punti visibili agli utenti: header di Hugging Face,
-titolo della scheda del browser, intestazione dell'interfaccia.
+Il nome visibile confermato è `FamiliarizzApp`, con la `A` finale maiuscola,
+nei punti visibili agli utenti: header di Hugging Face, titolo della scheda del
+browser e intestazione dell'interfaccia.
 
 Gli identificatori tecnici restano **con una sola «p»** e non vanno toccati,
 perché cambiarli romperebbe il collegamento fra GitHub e Hugging Face:
