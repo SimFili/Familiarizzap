@@ -1,6 +1,6 @@
-# Familiarizzapp
+# FamiliarizzApp
 
-Familiarizzapp è un’app Gradio per aiutare docenti di lingua dei segni a
+FamiliarizzApp è un’app Gradio per aiutare docenti di lingua dei segni a
 familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.

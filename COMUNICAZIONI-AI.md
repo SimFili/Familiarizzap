@@ -18,6 +18,33 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-07-30 — Catalogo CEFR reale ripulito e regole confermate
+
+Fabio ha completato una prima pulizia del database Excel reale dei descrittori.
+Sono state eliminate interamente **15 righe** contenenti
+`Nessun descrittore`; restano **831 righe valide**. Il file Excel pulito è
+ancora conservato localmente e **non è stato caricato nel repository né nello
+Space**.
+
+Per la futura conversione in `catalog.json` valgono queste regole:
+
+- colonna G: testo del descrittore mostrato nell'esercizio;
+- colonna F: livello corretto;
+- colonna E: scala;
+- colonne B, C e D: gerarchia usata per la navigazione;
+- ogni riga valida genera un esercizio;
+- descrittori diversi dello stesso livello restano esercizi distinti;
+- i pulsanti mostrano una sola volta i livelli presenti nella scala scelta;
+- livelli ammessi e ordine: `A1`, `A2`, `A2+`, `B1`, `B1+`, `B2`;
+- `A2+` e `B1+` sono livelli autonomi;
+- `C1`, `C2` e qualsiasi altro livello non sono ammessi;
+- il livello corretto proviene dal catalogo approvato, mai da un modello AI.
+
+Resta aperta una decisione pedagogica: usare tutti i descrittori di una scala
+oppure proporre prima un percorso base con un descrittore per livello e poi un
+approfondimento. Finché questa decisione e le autorizzazioni sui contenuti non
+sono confermate, il catalogo dimostrativo non deve essere sostituito.
+
 ## 2026-07-30 — Secret configurati sullo Space
 
 Sono stati impostati due secret nello Space `Sibucs/Familiarizzap`
@@ -45,10 +72,11 @@ approvato e registro eventi). Finché non ci sono, l'app resta in **modalità
 dimostrativa**: funziona, ma gli eventi non vengono conservati e l'interfaccia
 lo dichiara.
 
-## 2026-07-30 — L'app si chiama «Familiarizzapp»
+## 2026-07-30 — L'app si chiama «FamiliarizzApp»
 
-Rinominata con due «p» nei punti visibili agli utenti: header di Hugging Face,
-titolo della scheda del browser, intestazione dell'interfaccia.
+Il nome visibile confermato è `FamiliarizzApp`, con la `A` finale maiuscola,
+nei punti visibili agli utenti: header di Hugging Face, titolo della scheda del
+browser e intestazione dell'interfaccia.
 
 Gli identificatori tecnici restano **con una sola «p»** e non vanno toccati,
 perché cambiarli romperebbe il collegamento fra GitHub e Hugging Face:

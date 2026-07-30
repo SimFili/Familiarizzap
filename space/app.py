@@ -50,7 +50,7 @@ except ImportError:  # pragma: no cover - used only outside Hugging Face ZeroGPU
 @spaces.GPU(duration=1)
 def zero_gpu_probe() -> str:
     """Declarative ZeroGPU probe required by the configured Space hardware."""
-    return "Familiarizzapp è pronta."
+    return "FamiliarizzApp è pronta."
 
 
 CSS = """
@@ -683,14 +683,14 @@ def researcher_overview(access_key: str):
 def build_demo() -> gr.Blocks:
     schemas, schema, modality, activity, scale = _first_path_values()
     with gr.Blocks(
-        title="Familiarizzapp",
+        title="FamiliarizzApp",
     ) as demo:
         ui_state = gr.State(_empty_ui_state())
         gr.HTML(
             """
             <section class="hero">
               <div class="hero-kicker">Familiarizzazione CEFR</div>
-              <h1>Familiarizzapp</h1>
+              <h1>FamiliarizzApp</h1>
               <p>Esplora i descrittori, riconosci il livello e usa i feedback
               progressivi per affinare la tua lettura. Nessun voto, nessuna
               graduatoria.</p>
