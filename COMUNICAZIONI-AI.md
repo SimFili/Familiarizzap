@@ -18,6 +18,22 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-07-30 — Pagina personale separata 0.4.1
+
+Fabio ha chiarito che anche il riepilogo personale non deve occupare la prima
+pagina. La navigazione è ora divisa in tre spazi:
+
+- `/`: scelta della scala, identificazione e svolgimento degli esercizi;
+- `/percorso`: percentuali personali, mappa completa, cronologia, dettaglio dei
+  descrittori e sessioni precedenti;
+- `/ricercatore`: dati complessivi di tutti i partecipanti, protetti dalla
+  chiave del ricercatore.
+
+La pagina principale mantiene soltanto un avvio compatto e il comando per
+riprendere eventuali sessioni incomplete. Il nome ricordato dal browser è
+condiviso con la pagina personale; non sono stati reintrodotti codici o account.
+La versione applicativa diventa `0.4.1`.
+
 ## 2026-07-30 — Accesso e interfaccia 0.4
 
 Fabio ha chiesto di semplificare l’accesso per il piccolo gruppo interno e di

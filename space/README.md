@@ -26,8 +26,9 @@ sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
 prima dell’uso pubblico. Quando Dataset e secret non sono configurati,
 l’interfaccia segnala che gli eventi non sono durevoli.
 
-La versione 0.4 apre con lo schema descrittivo a colori, identifica il percorso
-con il solo nome e colloca la panoramica del ricercatore nella pagina separata
-`/ricercatore`. Conserva inoltre una cronologia longitudinale a eventi
+La versione 0.4.1 apre con lo schema descrittivo a colori, identifica il
+percorso con il solo nome e colloca percentuali, mappa e cronologia nella pagina
+personale separata `/percorso`. La panoramica del ricercatore resta nella pagina
+riservata `/ricercatore`. Conserva inoltre una cronologia longitudinale a eventi
 immutabili, mostra riepiloghi cliccabili ed è ottimizzata per smartphone e tema
 scuro. Nessuna di queste funzioni usa AI durante la sessione.

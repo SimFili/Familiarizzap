@@ -43,6 +43,9 @@ di ricerca.
   dell’interfaccia. Un errore non consuma il tentativo.
 - La panoramica del ricercatore è nella pagina separata `/ricercatore` ed è
   protetta da un unico secret.
+- La pagina principale serve a scegliere una scala e svolgere gli esercizi.
+  Percentuali, mappa completa, cronologia e sessioni precedenti sono raccolte
+  nella pagina personale separata `/percorso`.
 - Gli eventi nuovi usano lo schema `2.0` e conservano fotografia del
   descrittore, numero di esposizione, distanza della risposta dal target,
   tempi server e versioni. I dati precedenti in schema `1.0` restano leggibili.

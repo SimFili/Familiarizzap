@@ -380,7 +380,7 @@ button.primary {
 }
 .researcher-link {
   display: inline-flex;
-  margin-top: 1.5rem;
+  margin-top: .5rem;
   padding: .75rem 1rem;
   border: 1px solid var(--fapp-line);
   border-radius: .75rem;
@@ -388,6 +388,12 @@ button.primary {
   background: var(--fapp-paper) !important;
   font-weight: 720;
   text-decoration: none !important;
+}
+.page-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin-top: 1rem;
 }
 @media (prefers-color-scheme: dark) {
   .gradio-container {
@@ -923,6 +929,19 @@ def _session_trend_html(sessions: list[dict[str, Any]]) -> str:
     )
 
 
+def _resume_dropdown(participant: str) -> gr.Dropdown:
+    incomplete = SESSIONS.incomplete_sessions(participant)
+    choices = [
+        (session["label"], session["session_id"]) for session in incomplete
+    ]
+    return gr.Dropdown(
+        choices=choices,
+        value=choices[0][1] if choices else None,
+        interactive=bool(choices),
+        label="Sessione da riprendere",
+    )
+
+
 def _personal_view(
     participant: str,
     selected_path_value: str | None = None,
@@ -989,10 +1008,6 @@ def _personal_view(
         ]
         for session in sessions
     ]
-    incomplete = SESSIONS.incomplete_sessions(participant)
-    resume_choices = [
-        (session["label"], session["session_id"]) for session in incomplete
-    ]
     return (
         overview_html,
         gr.Dropdown(
@@ -1003,18 +1018,40 @@ def _personal_view(
         scale_progress,
         rows,
         session_rows,
-        gr.Dropdown(
-            choices=resume_choices,
-            value=resume_choices[0][1] if resume_choices else None,
-            interactive=bool(resume_choices),
-            label="Sessione da riprendere",
-        ),
+        _resume_dropdown(participant),
     )
 
 
 def prefill_identity(saved: dict[str, str] | None):
     saved = saved or {}
     return saved.get("name", "")
+
+
+def _register_identity(
+    name: str,
+    consent: bool,
+    state: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, str], str]:
+    if not consent:
+        raise IdentityError(
+            "Devi confermare di aver letto l’informativa dimostrativa."
+        )
+    shown_name = display_name_only(name)
+    identifier = participant_name_id(name, SETTINGS.effective_hash_salt)
+    STORE.register_participant(
+        identifier,
+        shown_name,
+        name_lookup_hash=identifier,
+    )
+    SESSIONS.record_consent(identifier, SETTINGS.consent_version)
+    SESSIONS.record_participant_access(identifier, "name_only")
+    updated = {
+        **_empty_ui_state(),
+        "participant_id": identifier,
+        "display_name": shown_name,
+    }
+    browser_identity = {"name": name.strip()}
+    return updated, browser_identity, shown_name
 
 
 def identify_participant(
@@ -1031,30 +1068,11 @@ def identify_participant(
         [],
         gr.Dropdown(choices=[], value=None),
     )
-    if not consent:
-        return (
-            state,
-            _empty_browser_identity(),
-            gr.update(visible=True),
-            gr.update(visible=False),
-            "",
-            *hidden_personal,
-            "",
-            "Devi confermare di aver letto l’informativa dimostrativa.",
-        )
     try:
-        shown_name = display_name_only(name)
-        identifier = participant_name_id(
-            name, SETTINGS.effective_hash_salt
+        updated, browser_identity, shown_name = _register_identity(
+            name, consent, state
         )
-        STORE.register_participant(
-            identifier,
-            shown_name,
-            name_lookup_hash=identifier,
-        )
-        SESSIONS.record_consent(identifier, SETTINGS.consent_version)
-        SESSIONS.record_participant_access(identifier, "name_only")
-        personal = _personal_view(identifier)
+        personal = _personal_view(updated["participant_id"])
     except (IdentityError, EventStoreError) as exc:
         return (
             state,
@@ -1067,14 +1085,6 @@ def identify_participant(
             f"⚠️ {exc}",
         )
 
-    updated = {
-        **_empty_ui_state(),
-        "participant_id": identifier,
-        "display_name": shown_name,
-    }
-    browser_identity = {
-        "name": name.strip(),
-    }
     return (
         updated,
         browser_identity,
@@ -1083,6 +1093,39 @@ def identify_participant(
         f"## Ciao, {shown_name}",
         *personal,
         "",
+        "",
+    )
+
+
+def identify_for_practice(
+    name: str,
+    consent: bool,
+    state: dict[str, Any] | None,
+):
+    """Open the compact launcher without rendering journey analytics."""
+    state = state or _empty_ui_state()
+    try:
+        updated, browser_identity, shown_name = _register_identity(
+            name, consent, state
+        )
+        resume = _resume_dropdown(updated["participant_id"])
+    except (IdentityError, EventStoreError) as exc:
+        return (
+            state,
+            _empty_browser_identity(),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "",
+            gr.Dropdown(choices=[], value=None),
+            f"⚠️ {exc}",
+        )
+    return (
+        updated,
+        browser_identity,
+        gr.update(visible=False),
+        gr.update(visible=True),
+        f"## Ciao, {shown_name}",
+        resume,
         "",
     )
 
@@ -1689,33 +1732,15 @@ def repeat_selected_descriptors(
         )
 
 
-def back_to_dashboard(state: dict[str, Any]):
-    try:
-        personal = _personal_view(state["participant_id"])
-        updated = dict(state)
-        updated["session"] = None
-        return (
-            updated,
-            gr.update(visible=True),
-            gr.update(visible=False),
-            *personal,
-            "",
-            "",
-        )
-    except (KeyError, EventStoreError, CatalogError) as exc:
-        return (
-            state,
-            gr.update(visible=False),
-            gr.update(visible=True),
-            "",
-            gr.Dropdown(choices=[]),
-            "",
-            [],
-            [],
-            gr.Dropdown(choices=[]),
-            "",
-            f"⚠️ Percorso non aggiornato: {exc}",
-        )
+def back_to_practice(state: dict[str, Any]):
+    updated = dict(state)
+    updated["session"] = None
+    return (
+        updated,
+        gr.update(visible=True),
+        gr.update(visible=False),
+        "",
+    )
 
 
 def logout():
@@ -1725,6 +1750,18 @@ def logout():
         gr.update(visible=True),
         gr.update(visible=False),
         gr.update(visible=False),
+        gr.update(visible=False),
+        "",
+        False,
+        "",
+    )
+
+
+def logout_personal():
+    return (
+        _empty_ui_state(),
+        _empty_browser_identity(),
+        gr.update(visible=True),
         gr.update(visible=False),
         "",
         False,
@@ -2141,9 +2178,10 @@ def build_demo() -> gr.Blocks:
 
         with gr.Group(visible=True) as login_group:
             gr.Markdown(
-                "## Apri il tuo percorso\n"
+                "## Identificati per iniziare\n"
                 "Per questo piccolo gruppo è sufficiente inserire il proprio "
-                "nome. Usa sempre la stessa forma per ritrovare la cronologia."
+                "nome. Usa sempre la stessa forma per collegare le attività "
+                "alla tua cronologia."
             )
             name = gr.Textbox(
                 label="Nome",
@@ -2160,52 +2198,17 @@ def build_demo() -> gr.Blocks:
                 "Continua con questo nome", variant="primary"
             )
 
-        with gr.Group(visible=False) as dashboard_group:
+        with gr.Group(visible=False) as practice_group:
             greeting = gr.Markdown()
+            gr.Markdown(
+                "La scala scelta è pronta. Puoi iniziare subito oppure aprire "
+                "la pagina separata con percentuali, mappa e cronologia."
+            )
             with gr.Row():
                 start_button = gr.Button(
                     "Inizia la scala selezionata", variant="primary"
                 )
                 logout_button = gr.Button("Cambia nome")
-
-            progress_dashboard = gr.HTML()
-            gr.Markdown("### Esplora la tua mappa")
-            with gr.Row():
-                personal_scale_choice = gr.Dropdown(
-                    choices=_scale_choices(),
-                    label="Scala da esplorare",
-                )
-                personal_filter = gr.Radio(
-                    choices=[
-                        ("Mostra tutto", "all"),
-                        ("Concentrati", "focus"),
-                        ("Da rivedere", "unresolved"),
-                        ("Mai incontrati", "unseen"),
-                    ],
-                    value="all",
-                    label="Filtro",
-                )
-            personal_scale_summary = gr.HTML()
-            personal_map = gr.HTML(
-                [],
-                html_template=MAP_TEMPLATE,
-                js_on_load=MAP_JS,
-            )
-            personal_detail = gr.Markdown()
-            with gr.Accordion("Sessioni precedenti", open=False):
-                personal_sessions = gr.Dataframe(
-                    headers=[
-                        "Quando",
-                        "Scala",
-                        "Stato",
-                        "Descrittori",
-                        "Senza suggerimenti",
-                    ],
-                    datatype=["str", "str", "str", "str", "str"],
-                    interactive=False,
-                    wrap=True,
-                    show_search="filter",
-                )
             with gr.Accordion("Riprendi una sessione", open=False):
                 resume_choice = gr.Dropdown(
                     choices=[],
@@ -2270,13 +2273,16 @@ def build_demo() -> gr.Blocks:
                 variant="primary",
             )
             dashboard_button = gr.Button(
-                "Torna al mio percorso", variant="primary"
+                "Torna alla scelta della scala", variant="primary"
             )
 
         user_message = gr.Markdown()
         gr.HTML(
+            '<nav class="page-links" aria-label="Altre pagine">'
+            '<a class="researcher-link" href="/percorso">'
+            "Il mio percorso completo →</a>"
             '<a class="researcher-link" href="/ricercatore" target="_blank">'
-            "Apri la panoramica del ricercatore in una pagina separata ↗</a>"
+            "Panoramica ricercatore ↗</a></nav>"
         )
 
         demo.load(
@@ -2285,46 +2291,17 @@ def build_demo() -> gr.Blocks:
             outputs=name,
         )
         identify_button.click(
-            identify_participant,
+            identify_for_practice,
             inputs=[name, consent, ui_state],
             outputs=[
                 ui_state,
                 browser_identity,
                 login_group,
-                dashboard_group,
+                practice_group,
                 greeting,
-                progress_dashboard,
-                personal_scale_choice,
-                personal_scale_summary,
-                personal_map,
-                personal_sessions,
                 resume_choice,
-                personal_detail,
                 user_message,
             ],
-        )
-        personal_scale_choice.change(
-            update_personal_path,
-            inputs=[ui_state, personal_scale_choice, personal_filter],
-            outputs=[
-                personal_scale_summary,
-                personal_map,
-                personal_detail,
-            ],
-        )
-        personal_filter.change(
-            update_personal_path,
-            inputs=[ui_state, personal_scale_choice, personal_filter],
-            outputs=[
-                personal_scale_summary,
-                personal_map,
-                personal_detail,
-            ],
-        )
-        personal_map.click(
-            personal_descriptor_click,
-            inputs=ui_state,
-            outputs=personal_detail,
         )
         taxonomy.click(
             navigation_click,
@@ -2370,7 +2347,7 @@ def build_demo() -> gr.Blocks:
 
         exercise_outputs = [
             ui_state,
-            dashboard_group,
+            practice_group,
             exercise_group,
             summary_group,
             breadcrumb,
@@ -2471,19 +2448,12 @@ def build_demo() -> gr.Blocks:
             outputs=exercise_outputs,
         ).then(lambda: gr.update(visible=False), outputs=selection_group)
         dashboard_button.click(
-            back_to_dashboard,
+            back_to_practice,
             inputs=ui_state,
             outputs=[
                 ui_state,
-                dashboard_group,
+                practice_group,
                 summary_group,
-                progress_dashboard,
-                personal_scale_choice,
-                personal_scale_summary,
-                personal_map,
-                personal_sessions,
-                resume_choice,
-                personal_detail,
                 user_message,
             ],
         ).then(lambda: gr.update(visible=True), outputs=selection_group)
@@ -2493,12 +2463,182 @@ def build_demo() -> gr.Blocks:
                 ui_state,
                 browser_identity,
                 login_group,
-                dashboard_group,
+                practice_group,
                 exercise_group,
                 summary_group,
                 name,
                 consent,
                 user_message,
+            ],
+        )
+
+    with demo.route(
+        "Il mio percorso",
+        "/percorso",
+        show_in_navbar=False,
+    ):
+        journey_state = gr.State(_empty_ui_state())
+        journey_browser_identity = gr.BrowserState(
+            _empty_browser_identity(),
+            storage_key="familiarizzapp-personal-name",
+            secret=SETTINGS.effective_hash_salt,
+        )
+        gr.HTML(
+            '<a class="researcher-link" href="/">← Torna a FamiliarizzApp</a>'
+        )
+        gr.HTML(
+            """
+            <section class="hero">
+              <div class="hero-kicker">Pagina personale</div>
+              <h1>Il mio percorso</h1>
+              <p>Qui trovi percentuali, mappa completa delle scale, cronologia
+              e descrittori sui quali concentrarti.</p>
+            </section>
+            """
+        )
+        gr.Markdown(_storage_banner(), elem_classes="storage-banner")
+
+        with gr.Group(visible=True) as journey_login_group:
+            gr.Markdown(
+                "## Apri il tuo percorso\n"
+                "Inserisci lo stesso nome usato per svolgere gli esercizi."
+            )
+            journey_name = gr.Textbox(
+                label="Nome",
+                placeholder="Es. Giulia",
+                max_length=80,
+            )
+            journey_consent = gr.Checkbox(
+                label=(
+                    "Confermo di aver letto l’informativa dimostrativa "
+                    "e di voler proseguire."
+                )
+            )
+            journey_identify_button = gr.Button(
+                "Mostra il mio percorso", variant="primary"
+            )
+
+        with gr.Group(visible=False) as journey_content:
+            journey_greeting = gr.Markdown()
+            journey_progress_dashboard = gr.HTML()
+            gr.Markdown("### Esplora la tua mappa")
+            with gr.Row():
+                journey_scale_choice = gr.Dropdown(
+                    choices=_scale_choices(),
+                    label="Scala da esplorare",
+                )
+                journey_filter = gr.Radio(
+                    choices=[
+                        ("Mostra tutto", "all"),
+                        ("Concentrati", "focus"),
+                        ("Da rivedere", "unresolved"),
+                        ("Mai incontrati", "unseen"),
+                    ],
+                    value="all",
+                    label="Filtro",
+                )
+            journey_scale_summary = gr.HTML()
+            journey_map = gr.HTML(
+                [],
+                html_template=MAP_TEMPLATE,
+                js_on_load=MAP_JS,
+            )
+            journey_detail = gr.Markdown()
+            with gr.Accordion("Sessioni precedenti", open=False):
+                journey_sessions = gr.Dataframe(
+                    headers=[
+                        "Quando",
+                        "Scala",
+                        "Stato",
+                        "Descrittori",
+                        "Senza suggerimenti",
+                    ],
+                    datatype=["str", "str", "str", "str", "str"],
+                    interactive=False,
+                    wrap=True,
+                    show_search="filter",
+                )
+            with gr.Accordion("Sessioni da riprendere", open=False):
+                journey_resume_choice = gr.Dropdown(
+                    choices=[],
+                    label="Sessione in corso",
+                    interactive=False,
+                )
+                gr.Markdown(
+                    "Per riprendere una sessione torna alla "
+                    "[pagina principale](/), conferma il nome e usa "
+                    "“Riprendi una sessione”."
+                )
+            with gr.Row():
+                gr.HTML(
+                    '<a class="researcher-link" href="/">'
+                    "Scegli una nuova scala →</a>"
+                )
+                journey_logout_button = gr.Button("Cambia nome")
+
+        journey_message = gr.Markdown()
+        gr.HTML(
+            '<a class="researcher-link" href="/ricercatore" target="_blank">'
+            "Panoramica ricercatore ↗</a>"
+        )
+
+        demo.load(
+            prefill_identity,
+            inputs=journey_browser_identity,
+            outputs=journey_name,
+        )
+        journey_identify_button.click(
+            identify_participant,
+            inputs=[journey_name, journey_consent, journey_state],
+            outputs=[
+                journey_state,
+                journey_browser_identity,
+                journey_login_group,
+                journey_content,
+                journey_greeting,
+                journey_progress_dashboard,
+                journey_scale_choice,
+                journey_scale_summary,
+                journey_map,
+                journey_sessions,
+                journey_resume_choice,
+                journey_detail,
+                journey_message,
+            ],
+        )
+        journey_scale_choice.change(
+            update_personal_path,
+            inputs=[journey_state, journey_scale_choice, journey_filter],
+            outputs=[
+                journey_scale_summary,
+                journey_map,
+                journey_detail,
+            ],
+        )
+        journey_filter.change(
+            update_personal_path,
+            inputs=[journey_state, journey_scale_choice, journey_filter],
+            outputs=[
+                journey_scale_summary,
+                journey_map,
+                journey_detail,
+            ],
+        )
+        journey_map.click(
+            personal_descriptor_click,
+            inputs=journey_state,
+            outputs=journey_detail,
+        )
+        journey_logout_button.click(
+            logout_personal,
+            outputs=[
+                journey_state,
+                journey_browser_identity,
+                journey_login_group,
+                journey_content,
+                journey_name,
+                journey_consent,
+                journey_message,
             ],
         )
 

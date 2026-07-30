@@ -94,9 +94,10 @@ def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
         assert "!important;" in _css_rule(selector)
 
 
-def test_researcher_overview_is_a_separate_page() -> None:
+def test_journey_and_researcher_overviews_are_separate_pages() -> None:
     demo = build_demo()
     pages = {(page[0], page[1]) for page in demo.pages}
 
     assert ("", "Home") in pages
+    assert ("percorso", "Il mio percorso") in pages
     assert ("ricercatore", "Panoramica ricercatore") in pages
