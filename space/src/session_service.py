@@ -58,6 +58,39 @@ class SessionService:
             ]
         )
 
+    def record_participant_access(
+        self, participant_id: str, access_method: str
+    ) -> None:
+        access_id = str(uuid.uuid4())
+        self.event_store.append_events(
+            [
+                self._base_event(
+                    event_id=access_id,
+                    event_type="participant_accessed",
+                    session_id=f"access-{access_id}",
+                    participant_id=participant_id,
+                    access_method=access_method,
+                )
+            ]
+        )
+
+    def record_access_code_event(
+        self, participant_id: str, event_type: str
+    ) -> None:
+        if event_type not in {"access_code_issued", "access_code_reset"}:
+            raise SessionError("Tipo di evento del codice percorso non valido.")
+        event_id = str(uuid.uuid4())
+        self.event_store.append_events(
+            [
+                self._base_event(
+                    event_id=event_id,
+                    event_type=event_type,
+                    session_id=f"identity-{event_id}",
+                    participant_id=participant_id,
+                )
+            ]
+        )
+
     def start_session(
         self,
         participant_id: str,
@@ -71,6 +104,24 @@ class SessionService:
         random.Random(seed).shuffle(descriptor_ids)
         session_id = str(uuid.uuid4())
         first = self.catalog.get(descriptor_ids[0])
+        scale_descriptor_ids = [
+            item["descriptor_id"]
+            for item in self.catalog.for_scale(
+                first["schema"],
+                first["modality"],
+                first["activity"],
+                first["scale"],
+            )
+        ]
+        answer_levels = self.catalog.levels_for(scale_descriptor_ids)
+        now = utc_now()
+        exposure_counts: dict[str, int] = defaultdict(int)
+        prior_sessions: set[str] = set()
+        for event in self.event_store.list_events(participant_id):
+            if event.get("event_type") == "descriptor_completed":
+                exposure_counts[str(event.get("descriptor_id", ""))] += 1
+            if event.get("event_type") == "session_started":
+                prior_sessions.add(str(event.get("session_id", "")))
         state = {
             "participant_id": participant_id,
             "display_name": display_name,
@@ -81,6 +132,7 @@ class SessionService:
             "scale": first["scale"],
             "seed": seed,
             "descriptor_ids": descriptor_ids,
+            "available_levels": answer_levels,
             "current_index": 0,
             "attempts": [],
             "feedbacks": [],
@@ -88,7 +140,10 @@ class SessionService:
             "last_result": None,
             "completed_records": [],
             "session_finished": False,
-            "started_at": utc_now(),
+            "started_at": now,
+            "descriptor_presented_at": now,
+            "attempt_started_at": now,
+            "prior_exposure_counts": dict(exposure_counts),
         }
         start_event = self._base_event(
             event_id=self._event_id(session_id, "session-started"),
@@ -101,6 +156,10 @@ class SessionService:
             scale=state["scale"],
             seed=seed,
             descriptor_order=descriptor_ids,
+            answer_levels=answer_levels,
+            descriptor_count=len(descriptor_ids),
+            prior_session_count=len(prior_sessions),
+            occurred_at=now,
         )
         presented_event = self._presented_event(state)
         self.event_store.append_events([start_event, presented_event])
@@ -117,6 +176,7 @@ class SessionService:
         if attempt_number > 3:
             raise SessionError("Sono già stati usati tre tentativi.")
 
+        answer_at = utc_now()
         updated = copy.deepcopy(state)
         descriptor = self.current_descriptor(updated)
         is_correct = selected_level == descriptor["correct_level"]
@@ -141,10 +201,29 @@ class SessionService:
             correct_level=descriptor["correct_level"],
             is_correct=is_correct,
             feedback_text=feedback_text,
+            feedback_stage="rationale" if is_finished else f"hint_{attempt_number}",
+            error_distance=self.catalog.level_distance(
+                selected_level, descriptor["correct_level"]
+            ),
+            response_time_ms=_elapsed_ms(
+                updated.get("attempt_started_at"), answer_at
+            ),
+            descriptor_elapsed_ms=_elapsed_ms(
+                updated.get("descriptor_presented_at"), answer_at
+            ),
+            exposure_number=(
+                int(
+                    updated.get("prior_exposure_counts", {}).get(
+                        descriptor["descriptor_id"], 0
+                    )
+                )
+                + 1
+            ),
             client_request_id=self._event_id(
                 updated["session_id"],
                 f"{descriptor['descriptor_id']}:request:{attempt_number}",
             ),
+            occurred_at=answer_at,
         )
         events = [answer_event]
         if is_finished:
@@ -164,6 +243,33 @@ class SessionService:
                     resolved_on_attempt=attempt_number if is_correct else None,
                     correct_level=descriptor["correct_level"],
                     rationale=descriptor["rationale"],
+                    descriptor_text=descriptor["descriptor_text"],
+                    schema=descriptor["schema"],
+                    modality=descriptor["modality"],
+                    activity=descriptor["activity"],
+                    scale=descriptor["scale"],
+                    content_version=descriptor["content_version"],
+                    source=descriptor["source"],
+                    source_version=descriptor["source_version"],
+                    first_response_distance=self.catalog.level_distance(
+                        (updated["attempts"] + [selected_level])[0],
+                        descriptor["correct_level"],
+                    ),
+                    final_response_distance=self.catalog.level_distance(
+                        selected_level, descriptor["correct_level"]
+                    ),
+                    descriptor_elapsed_ms=_elapsed_ms(
+                        updated.get("descriptor_presented_at"), answer_at
+                    ),
+                    exposure_number=(
+                        int(
+                            updated.get("prior_exposure_counts", {}).get(
+                                descriptor["descriptor_id"], 0
+                            )
+                        )
+                        + 1
+                    ),
+                    occurred_at=answer_at,
                 )
             )
 
@@ -171,6 +277,7 @@ class SessionService:
         self.event_store.append_events(events)
         updated["attempts"].append(selected_level)
         updated["feedbacks"].append(feedback_text)
+        updated["attempt_started_at"] = answer_at
         updated["last_result"] = {
             "is_correct": is_correct,
             "selected_level": selected_level,
@@ -187,6 +294,18 @@ class SessionService:
                     "resolved_on_attempt": attempt_number if is_correct else None,
                     "correct_level": descriptor["correct_level"],
                     "rationale": descriptor["rationale"],
+                    "occurred_at": answer_at,
+                    "first_response_distance": self.catalog.level_distance(
+                        updated["attempts"][0], descriptor["correct_level"]
+                    ),
+                    "exposure_number": (
+                        int(
+                            updated.get("prior_exposure_counts", {}).get(
+                                descriptor["descriptor_id"], 0
+                            )
+                        )
+                        + 1
+                    ),
                 }
             )
         return updated
@@ -197,6 +316,7 @@ class SessionService:
         updated = copy.deepcopy(state)
         if updated["current_index"] + 1 >= len(updated["descriptor_ids"]):
             summary = self.summary(updated)
+            completed_at = utc_now()
             self.event_store.append_events(
                 [
                     self._base_event(
@@ -212,6 +332,10 @@ class SessionService:
                         scale=updated["scale"],
                         seed=updated["seed"],
                         descriptor_order=updated["descriptor_ids"],
+                        duration_seconds=_elapsed_seconds(
+                            updated.get("started_at"), completed_at
+                        ),
+                        occurred_at=completed_at,
                         **summary,
                     )
                 ]
@@ -224,6 +348,9 @@ class SessionService:
         updated["feedbacks"] = []
         updated["descriptor_finished"] = False
         updated["last_result"] = None
+        presented_at = utc_now()
+        updated["descriptor_presented_at"] = presented_at
+        updated["attempt_started_at"] = presented_at
         self.event_store.append_events([self._presented_event(updated)])
         return updated
 
@@ -232,7 +359,10 @@ class SessionService:
         return self.catalog.get(descriptor_id)
 
     def available_levels(self, state: dict[str, Any]) -> list[str]:
-        return self.catalog.levels_for(state["descriptor_ids"])
+        return list(
+            state.get("available_levels")
+            or self.catalog.levels_for(state["descriptor_ids"])
+        )
 
     def summary(self, state: dict[str, Any]) -> dict[str, Any]:
         records = state.get("completed_records", [])
@@ -248,6 +378,9 @@ class SessionService:
             "descriptors_completed": len(records),
             "correct_by_attempt": counts,
             "unresolved_after_three": unresolved,
+            "first_attempt_rate": (
+                counts["1"] / len(records) * 100 if records else 0.0
+            ),
         }
 
     def incomplete_sessions(
@@ -312,6 +445,9 @@ class SessionService:
                 "resolved_on_attempt": event.get("resolved_on_attempt"),
                 "correct_level": event.get("correct_level"),
                 "rationale": event.get("rationale", ""),
+                "occurred_at": event.get("occurred_at", ""),
+                "first_response_distance": event.get("first_response_distance"),
+                "exposure_number": event.get("exposure_number"),
             }
             for event in completion_events
         ]
@@ -331,6 +467,21 @@ class SessionService:
             None,
         )
         last_answer = answers[-1] if answers else None
+        current_presented = next(
+            (
+                event
+                for event in reversed(presented)
+                if event.get("descriptor_id") == current_id
+            ),
+            None,
+        )
+        prior_exposure_counts: dict[str, int] = defaultdict(int)
+        for event in self.event_store.list_events(participant_id):
+            if (
+                event.get("event_type") == "descriptor_completed"
+                and event.get("session_id") != session_id
+            ):
+                prior_exposure_counts[str(event.get("descriptor_id", ""))] += 1
         return {
             "participant_id": participant_id,
             "display_name": display_name,
@@ -341,6 +492,10 @@ class SessionService:
             "scale": start["scale"],
             "seed": start["seed"],
             "descriptor_ids": order,
+            "available_levels": list(
+                start.get("answer_levels")
+                or self.catalog.levels_for(order)
+            ),
             "current_index": current_index,
             "attempts": [event["selected_level"] for event in answers],
             "feedbacks": [event["feedback_text"] for event in answers],
@@ -358,6 +513,21 @@ class SessionService:
             "completed_records": completed_records,
             "session_finished": False,
             "started_at": start["occurred_at"],
+            "descriptor_presented_at": (
+                current_presented.get("occurred_at")
+                if current_presented
+                else start["occurred_at"]
+            ),
+            "attempt_started_at": (
+                last_answer.get("occurred_at")
+                if last_answer
+                else (
+                    current_presented.get("occurred_at")
+                    if current_presented
+                    else start["occurred_at"]
+                )
+            ),
+            "prior_exposure_counts": dict(prior_exposure_counts),
         }
 
     def _presented_event(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -372,6 +542,24 @@ class SessionService:
             participant_id=state["participant_id"],
             descriptor_id=descriptor["descriptor_id"],
             position=state["current_index"] + 1,
+            schema=descriptor["schema"],
+            modality=descriptor["modality"],
+            activity=descriptor["activity"],
+            scale=descriptor["scale"],
+            correct_level=descriptor["correct_level"],
+            descriptor_text=descriptor["descriptor_text"],
+            content_version=descriptor["content_version"],
+            source=descriptor["source"],
+            source_version=descriptor["source_version"],
+            exposure_number=(
+                int(
+                    state.get("prior_exposure_counts", {}).get(
+                        descriptor["descriptor_id"], 0
+                    )
+                )
+                + 1
+            ),
+            occurred_at=state.get("descriptor_presented_at"),
         )
 
     def _base_event(
@@ -381,11 +569,12 @@ class SessionService:
         event_type: str,
         session_id: str,
         participant_id: str,
+        occurred_at: str | None = None,
         **payload: Any,
     ) -> dict[str, Any]:
-        now = utc_now()
+        now = occurred_at or utc_now()
         return {
-            "schema_version": "1.0",
+            "schema_version": "2.0",
             "event_id": event_id,
             "event_type": event_type,
             "occurred_at": now,
@@ -422,3 +611,25 @@ def _first_of_type(
         (event for event in events if event.get("event_type") == event_type),
         None,
     )
+
+
+def _elapsed_ms(start: str | None, end: str | None) -> int | None:
+    if not start or not end:
+        return None
+    try:
+        start_time = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+        end_time = datetime.fromisoformat(str(end).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max(round((end_time - start_time).total_seconds() * 1000), 0)
+
+
+def _elapsed_seconds(start: str | None, end: str | None) -> int | None:
+    if not start or not end:
+        return None
+    try:
+        start_time = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+        end_time = datetime.fromisoformat(str(end).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max(round((end_time - start_time).total_seconds()), 0)

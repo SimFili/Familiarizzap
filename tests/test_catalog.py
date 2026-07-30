@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.catalog import Catalog
+import pytest
+
+from src.catalog import Catalog, CatalogError, DEMO_CEFR_LEVELS
 
 
 def test_catalog_filters_unusable_rows_and_orders_levels(tmp_path: Path):
@@ -57,3 +59,100 @@ def test_catalog_filters_unusable_rows_and_orders_levels(tmp_path: Path):
 
     assert [item["descriptor_id"] for item in catalog.all()] == ["b1", "a2plus"]
     assert catalog.levels_for(["b1", "a2plus"]) == ["A2+", "B1"]
+
+
+def test_demo2_catalog_has_one_scale_for_each_reception_activity():
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "space"
+        / "data"
+        / "catalog.sample.json"
+    )
+    catalog = Catalog.from_json(
+        path,
+        allowed_statuses=("demo",),
+        allowed_levels=DEMO_CEFR_LEVELS,
+    )
+
+    expected = {
+        ("Comprensione orale", "Comprensione orale generale"): 8,
+        ("Comprensione audiovisiva", "Guardare la tv, film e video"): 9,
+        (
+            "Comprensione scritta",
+            "Comprensione generale di un testo scritto",
+        ): 5,
+    }
+    actual = {}
+    for activity, scale in expected:
+        descriptors = catalog.for_scale(
+            "Attività linguistico-comunicative",
+            "Ricezione",
+            activity,
+            scale,
+        )
+        actual[(activity, scale)] = len(descriptors)
+
+    assert actual == expected
+    assert len(catalog.all()) == 22
+    assert all(
+        "qualificator"
+        not in f"{item['hint_1']} {item['hint_2']} {item['rationale']}".casefold()
+        for item in catalog.all()
+    )
+
+
+def test_oral_scale_has_descriptor_specific_feedback():
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "space"
+        / "data"
+        / "catalog.sample.json"
+    )
+    catalog = Catalog.from_json(
+        path,
+        allowed_statuses=("demo",),
+        allowed_levels=DEMO_CEFR_LEVELS,
+    )
+    descriptors = catalog.for_scale(
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+
+    assert len({item["hint_1"] for item in descriptors}) == 8
+    assert len({item["hint_2"] for item in descriptors}) == 8
+    assert len({item["rationale"] for item in descriptors}) == 8
+    assert all(
+        item["content_version"] == "demo-2.0-feedback-oral-1"
+        for item in descriptors
+    )
+    assert all(
+        not item["hint_1"].startswith("Feedback provvisorio:")
+        for item in descriptors
+    )
+
+
+def test_pilot_catalog_rejects_levels_above_b2():
+    row = {
+        "descriptor_id": "c1",
+        "schema": "Schema",
+        "modality": "Ricezione",
+        "activity": "Attività",
+        "scale": "Scala",
+        "correct_level": "C1",
+        "descriptor_text": "Descrittore",
+        "rationale": "Motivazione",
+        "hint_1": "Primo indizio",
+        "hint_2": "Secondo indizio",
+        "language": "it",
+        "source": "Test",
+        "source_version": "1",
+        "license_or_permission": "Test",
+        "content_version": "1",
+        "status": "approved",
+        "active": True,
+    }
+
+    with pytest.raises(CatalogError, match="Livello CEFR non valido"):
+        Catalog([row])

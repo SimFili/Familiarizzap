@@ -5,12 +5,27 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
+La versione locale 0.3 aggiunge:
+
+- codice personale per recuperare il percorso anche da un altro dispositivo;
+- cronologia longitudinale senza sovrascrivere gli esiti precedenti;
+- mappa cliccabile della scala con esito e data relativa;
+- percentuale di riconoscimento al primo tentativo, senza voto composito;
+- ripetizione mirata dei descrittori da consolidare;
+- dashboard del ricercatore con filtri, timestamp esatti, dati grezzi,
+  controllo d’integrità ed esportazione ZIP.
+
 **App online:** https://huggingface.co/spaces/Sibucs/Familiarizzap
 
 ## Stato del rilascio
 
-Il codice include un catalogo dimostrativo originale e privo di testi CEFR
-protetti. Per il pilot reale devono essere configurati:
+La prova 2.0 include localmente 22 descrittori, ricavati da tre scale di
+ricezione del database fornito dal gruppo di ricerca: comprensione orale
+generale, comprensione audiovisiva e comprensione generale di un testo scritto.
+I feedback sono provvisori. Provenienza e diritti di pubblicazione dei testi
+devono essere verificati prima di rendere pubblica questa versione.
+
+Per il pilot reale devono essere configurati:
 
 - un Dataset Hugging Face privato per il catalogo approvato;
 - un Dataset Hugging Face privato per registro partecipanti ed eventi;
@@ -19,6 +34,9 @@ protetti. Per il pilot reale devono essere configurati:
 
 Se questi elementi non sono presenti, l’app mostra esplicitamente la modalità
 dimostrativa e usa uno storage temporaneo.
+
+La modalità locale e quella dimostrativa servono esclusivamente al collaudo:
+la continuità dei dati della ricerca richiede il Dataset privato configurato.
 
 ## Organizzazione
 
@@ -32,6 +50,10 @@ docs/       decisioni e contratto dei dati
 [COMUNICAZIONI-AI.md](COMUNICAZIONI-AI.md) raccoglie le modifiche fatte fuori dal
 codice (secret configurati, decisioni, servizi esterni). Va letto a inizio
 sessione e aggiornato quando si cambia qualcosa che dai commit non si vede.
+
+[docs/RICERCA_LONGITUDINALE.md](docs/RICERCA_LONGITUDINALE.md) descrive unità
+di osservazione, indicatori, distinzione fra ripetizione e trasferimento,
+timestamp, integrità ed esportazione.
 
 Tutto ciò che sta fuori da `space/` resta nel repository GitHub e non viene
 pubblicato nello Space.

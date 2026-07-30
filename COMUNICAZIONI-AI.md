@@ -18,6 +18,140 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-07-30 — Percorso longitudinale e dashboard di ricerca 0.3
+
+Fabio ha stabilito che l’app deve permettere sia al docente sia al ricercatore
+di ricostruire il miglioramento nel tempo senza perdere o sostituire gli esiti
+precedenti. È stata quindi implementata localmente una nuova architettura
+funzionale:
+
+- ogni accesso, esposizione, risposta e completamento aggiunge un evento
+  immutabile;
+- i nuovi eventi usano lo schema `2.0` e registrano fotografia del descrittore,
+  numero dell’esposizione, distanza dal target, tempi server e versioni;
+- gli eventi `1.0` già esistenti restano leggibili;
+- le ripetizioni dello stesso descrittore sono riconoscibili e separate;
+- mappe, percentuali e dashboard sono calcolate dagli eventi originali e
+  possono essere ricostruite in futuro con criteri diversi.
+
+Il docente riceve al primo accesso un codice personale di 12 caratteri. Il
+codice può essere ricordato dal browser e permette di recuperare il percorso da
+un altro dispositivo; nel Dataset viene salvato soltanto il suo hash. Se viene
+perso, il ricercatore può sostituirlo: il reset viene registrato e invalida il
+codice precedente.
+
+I nuovi `participant_id` sono casuali. Un HMAC separato del nome serve soltanto
+a trovare i profili candidati: in questo modo due omonimi possono avere percorsi
+distinti e selezionarli tramite codici diversi. I vecchi identificativi derivati
+dal nome restano compatibili.
+
+Il riepilogo della sessione e il percorso personale ora includono:
+
+- percentuale e conteggio dei descrittori riconosciuti al primo tentativo;
+- barra proporzionale senza punteggio composito;
+- mappa completa della scala, ordinata dai livelli più alti ai più bassi;
+- verde scuro, verde chiaro, giallo, rosso chiaro e grigio, sempre con
+  etichette testuali;
+- schede cliccabili con risposte in sequenza, livello target, motivazione e
+  cronologia;
+- filtri `Mostra tutto`, `Concentrati`, `Da rivedere` e `Mai incontrati`;
+- ripetizione selettiva dei descrittori da consolidare;
+- date relative per il docente.
+
+La dashboard del ricercatore include tutti i partecipanti, sessioni complete e
+interrotte, tentativi, distanze, esposizioni, tempi, feedback mostrati,
+revisioni, timestamp esatti in ora italiana e UTC, filtri per persona, scala e
+periodo, registro degli eventi, controllo d’integrità e archivio ZIP con CSV,
+JSONL e manifest. L’esportazione non contiene gli hash dei codici personali.
+
+La navigazione iniziale riproduce in HTML il quadro a colori concordato:
+categorie presenti nel catalogo cliccabili e categorie non ancora disponibili
+attenuate. Per la prova 2.0 il ramo disponibile conduce alle tre scale di
+ricezione.
+
+Tutte queste funzioni sono deterministiche e non chiamano modelli AI durante
+l’uso. La verifica locale è stata eseguita in tema chiaro e scuro, su desktop e
+smartphone. I test automatici sono stati estesi. Non è stato eseguito alcun
+commit, push o deploy.
+
+## 2026-07-30 — Prima scala con feedback specifici
+
+Fabio ha approvato lo stile editoriale proposto per i feedback. Per gli 8
+descrittori della scala `Comprensione orale generale` sono stati preparati e
+inseriti nel catalogo dimostrativo:
+
+- un primo suggerimento che indica gli aspetti da osservare senza rivelare il
+  livello;
+- un secondo suggerimento più selettivo, concentrato sui confini con i livelli
+  vicini;
+- una motivazione finale che dichiara il livello e spiega gli elementi
+  discriminanti.
+
+Sono quindi presenti **24 testi specifici**. Le altre due scale della prova 2.0
+mantengono per ora i feedback generici provvisori. Nel catalogo dimostrativo è
+stato corretto anche il refuso `in un varietà` → `in una varietà`; il file Excel
+originale non è stato modificato.
+
+Fabio ha inoltre comunicato un risultato del suo studio recente sulla distanza
+degli errori CEFR: 68% di risposte corrette, 28% a una posizione dal target, 3%
+a due posizioni e 1% a tre posizioni. Considerando le sole risposte errate,
+quasi tutte si collocano quindi a una o due posizioni dal livello corretto.
+Questo dato orienta i feedback soprattutto verso la distinzione fra livelli
+adiacenti, invece che verso confronti con livelli molto lontani.
+
+Il feedback attuale resta specifico per descrittore ma non cambia ancora in base
+alla risposta errata selezionata. Un eventuale suggerimento differenziato per
+errore verso l’alto o verso il basso richiede una decisione pedagogica separata.
+
+Queste modifiche sono locali; non è stato eseguito alcun commit, push o deploy.
+
+## 2026-07-30 — Catalogo dimostrativo 2.0: tre scale di ricezione
+
+Fabio ha scelto di preparare una versione intermedia dell’app con una scala per
+ciascuna delle tre sottocategorie delle attività di ricezione:
+
+- `Comprensione orale` → `Comprensione orale generale`: 8 descrittori;
+- `Comprensione audiovisiva` → `Guardare la tv, film e video`: 9 descrittori;
+- `Comprensione scritta` → `Comprensione generale di un testo scritto`: 5
+  descrittori.
+
+In totale il catalogo dimostrativo 2.0 contiene **22 esercizi**, estratti dalle
+colonne B–G del file Excel del gruppo di ricerca. I livelli restano quelli
+presenti in ciascuna scala: la scala di comprensione scritta non contiene
+`B1+`, quindi quel pulsante non deve comparire in quella sessione.
+
+Inizialmente le motivazioni e i due suggerimenti erano testi generici
+provvisori. La scala `Comprensione orale generale` dispone ora dei feedback
+specifici descritti nella voce più recente; le altre due scale devono ancora
+essere revisionate. La provenienza e i diritti di pubblicazione dei descrittori
+devono essere verificati prima di pubblicare questa versione su GitHub o
+Hugging Face.
+
+La navigazione concordata mantiene distinti nei dati `Attività` e `Strategie`,
+ma può riunirli nella stessa vista della modalità `Ricezione`, aprendo in
+evidenza il ramo da cui arriva l’utente.
+
+Queste modifiche sono state preparate localmente; nessun commit, push o deploy
+è implicito in questa voce.
+
+## 2026-07-30 — Contrasto in tema scuro e confini del catalogo demo
+
+Fabio ha confermato che il livello `C1` può rimanere nel catalogo
+**esclusivamente dimostrativo**. Il futuro catalogo reale continuerà invece ad
+ammettere soltanto `A1`, `A2`, `A2+`, `B1`, `B1+` e `B2`.
+
+È stato corretto un problema di leggibilità su telefoni e computer impostati
+con il tema scuro: il tema di Gradio rendeva quasi bianco il testo delle schede
+che conservavano uno sfondo chiaro. Gli stili ora fissano esplicitamente colori
+ad alto contrasto per intestazione e descrittori, senza disattivare il tema
+scuro. È stato anche eliminato lo scorrimento orizzontale prodotto dal
+contenitore principale sugli schermi stretti.
+
+La verifica locale è stata eseguita sia in tema chiaro sia in tema scuro, anche
+con una larghezza da smartphone. Il contrasto misurato nella scheda del
+descrittore è **13,42:1**. Sono stati aggiunti test automatici per impedire che
+le regole essenziali vengano rimosse accidentalmente.
+
 ## 2026-07-30 — Catalogo CEFR reale ripulito e regole confermate
 
 Fabio ha completato una prima pulizia del database Excel reale dei descrittori.
@@ -59,9 +193,10 @@ da lui per via privata.
 
 **`PARTICIPANT_HASH_SALT`** — stringa casuale di 64 caratteri usata da
 [space/src/auth.py](space/src/auth.py) per trasformare nome e cognome dei
-partecipanti in un codice irreversibile (HMAC-SHA256). Serve a non conservare
-mai i nomi in chiaro: dal codice non si risale alla persona, ma la stessa
-persona ottiene sempre lo stesso codice, così si può seguirne il percorso.
+partecipanti in una chiave di ricerca irreversibile (HMAC-SHA256) e verificare
+il codice personale. Il nome compare una sola volta nel registro privato dei
+partecipanti; gli eventi contengono soltanto l’identificativo casuale
+pseudonimo.
 
 > **Da non cambiare più** una volta raccolti dati reali: un salt diverso
 > produce codici diversi per le stesse persone e spezza la continuità dei dati

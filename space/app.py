@@ -1,15 +1,40 @@
 from __future__ import annotations
 
 import hmac
-from collections import defaultdict
+import html
+import json
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import gradio as gr
 
-from src.auth import IdentityError, display_name, participant_id
+from src.analytics import (
+    OUTCOME_LABELS,
+    descriptor_details,
+    descriptor_history,
+    exact_timestamp,
+    integrity_report,
+    participant_overview,
+    relative_timestamp,
+    scale_map,
+    session_records,
+)
+from src.auth import (
+    AccessCodeError,
+    IdentityError,
+    access_code_hash,
+    display_name,
+    generate_access_code,
+    new_participant_id,
+    participant_id,
+    verify_access_code,
+)
 from src.catalog import CatalogError, load_catalog
 from src.event_store import EventStoreError, create_event_store
+from src.research_export import build_research_export
 from src.session_service import SessionError, SessionService
 from src.settings import Settings
 
@@ -26,9 +51,10 @@ SESSIONS = SessionService(
     content_revision=(
         SETTINGS.content_revision
         if not CATALOG_RESULT.is_demo
-        else "demo-1.0"
+        else "demo-2.0"
     ),
 )
+ROME = ZoneInfo("Europe/Rome")
 
 
 try:
@@ -55,18 +81,34 @@ def zero_gpu_probe() -> str:
 
 CSS = """
 :root {
-  --ink: #16322f;
-  --muted: #58716d;
-  --paper: #fbfdfb;
-  --mint: #dff4ec;
-  --teal: #167c70;
-  --coral: #df6b57;
-  --line: #cfe2dc;
+  --fapp-ink: #16322f;
+  --fapp-muted: #58716d;
+  --fapp-paper: #fbfdfb;
+  --fapp-mint: #dff4ec;
+  --fapp-teal: #167c70;
+  --fapp-coral: #df6b57;
+  --fapp-line: #cfe2dc;
+  --fapp-first: #2e7d32;
+  --fapp-second: #c8e6c9;
+  --fapp-third: #ffe69c;
+  --fapp-unresolved: #f8d7da;
+  --fapp-unseen: #e9ecef;
+  --fapp-reception: #3b57ed;
+  --fapp-production: #f13312;
+  --fapp-interaction: #50139c;
+  --fapp-mediation: #ff8c27;
+  --fapp-linguistic: #31b3d2;
+  --fapp-sociolinguistic: #54c900;
+  --fapp-pragmatic: #ff0060;
+  --fapp-taxonomy: #d1c29f;
 }
 .gradio-container {
-  max-width: 1040px !important;
+  box-sizing: border-box;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 1180px !important;
   margin: 0 auto !important;
-  color: var(--ink);
+  color: var(--fapp-ink);
 }
 .hero {
   padding: 1.6rem 1.4rem;
@@ -74,29 +116,40 @@ CSS = """
   background:
     radial-gradient(circle at 88% 10%, rgba(255,255,255,.9) 0 6%, transparent 7%),
     linear-gradient(135deg, #dff4ec 0%, #f9f4dd 100%);
-  border: 1px solid var(--line);
+  border: 1px solid var(--fapp-line);
+  color: var(--fapp-ink) !important;
   margin-bottom: 1rem;
 }
 .hero-kicker {
-  color: var(--teal);
+  color: var(--fapp-teal) !important;
   font-weight: 750;
   letter-spacing: .08em;
   text-transform: uppercase;
   font-size: .78rem;
 }
-.hero h1 { margin: .25rem 0 .35rem; font-size: clamp(2rem, 6vw, 3.25rem); }
-.hero p { margin: 0; color: var(--muted); max-width: 48rem; }
+.hero h1 {
+  margin: .25rem 0 .35rem;
+  color: var(--fapp-ink) !important;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+}
+.hero p {
+  margin: 0;
+  color: var(--fapp-muted) !important;
+  max-width: 48rem;
+}
 .descriptor-card {
-  border: 1px solid var(--line);
-  border-left: 6px solid var(--teal);
+  border: 1px solid var(--fapp-line);
+  border-left: 6px solid var(--fapp-teal);
   border-radius: 1rem;
   padding: 1.15rem 1.2rem;
-  background: var(--paper);
+  background: var(--fapp-paper);
+  color: var(--fapp-ink) !important;
   font-size: 1.08rem;
   line-height: 1.65;
 }
+.descriptor-card * { color: inherit !important; }
 .non-evaluation {
-  color: var(--muted);
+  color: var(--fapp-muted);
   font-size: .92rem;
 }
 .storage-banner {
@@ -104,12 +157,254 @@ CSS = """
   padding: .2rem .8rem;
 }
 button.primary {
-  background: var(--teal) !important;
-  border-color: var(--teal) !important;
+  background: var(--fapp-teal) !important;
+  border-color: var(--fapp-teal) !important;
 }
-@media (max-width: 640px) {
+.journey-overview {
+  border: 1px solid var(--fapp-line);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: var(--fapp-paper);
+  color: var(--fapp-ink) !important;
+}
+.journey-overview * { color: inherit; }
+.journey-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: .65rem;
+  margin: .8rem 0;
+}
+.journey-metric {
+  border: 1px solid var(--fapp-line);
+  border-radius: .8rem;
+  padding: .75rem;
+  background: #f4faf7;
+}
+.journey-metric strong { display: block; font-size: 1.25rem; }
+.stacked-bar {
+  display: flex;
+  overflow: hidden;
+  min-height: 1.15rem;
+  border-radius: 999px;
+  background: var(--fapp-unseen);
+  border: 1px solid rgba(22,50,47,.18);
+}
+.stacked-bar span { min-width: 0; }
+.stack-first { background: var(--fapp-first); }
+.stack-second { background: var(--fapp-second); }
+.stack-third { background: var(--fapp-third); }
+.stack-unresolved { background: var(--fapp-unresolved); }
+.stack-unseen { background: var(--fapp-unseen); }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .9rem;
+  margin-top: .65rem;
+  font-size: .88rem;
+}
+.legend-item::before {
+  content: "";
+  display: inline-block;
+  width: .8rem;
+  height: .8rem;
+  margin-right: .3rem;
+  border-radius: .2rem;
+  vertical-align: -.05rem;
+  border: 1px solid rgba(22,50,47,.28);
+}
+.legend-first::before { background: var(--fapp-first); }
+.legend-second::before { background: var(--fapp-second); }
+.legend-third::before { background: var(--fapp-third); }
+.legend-unresolved::before { background: var(--fapp-unresolved); }
+.legend-unseen::before { background: var(--fapp-unseen); }
+.trend-list { display: grid; gap: .6rem; margin-top: .75rem; }
+.trend-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, .45fr) minmax(8rem, 1fr) 4.2rem;
+  gap: .6rem;
+  align-items: center;
+}
+.trend-label { font-size: .88rem; }
+.trend-track {
+  height: .8rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fapp-unseen);
+  border: 1px solid rgba(22,50,47,.18);
+}
+.trend-fill { height: 100%; background: var(--fapp-first); }
+.trend-value { font-weight: 750; text-align: right; }
+.scale-map {
+  display: grid;
+  gap: .55rem;
+  width: 100%;
+}
+.scale-descriptor {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(3.6rem, .16fr) minmax(0, 1fr) minmax(8rem, .25fr);
+  gap: .75rem;
+  align-items: center;
+  border: 1px solid rgba(22,50,47,.28);
+  border-radius: .85rem;
+  padding: .85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.scale-descriptor:hover,
+.scale-descriptor:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22,50,47,.18);
+  outline: 3px solid rgba(22,124,112,.28);
+  outline-offset: 2px;
+}
+.scale-level {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.scale-text { line-height: 1.45; }
+.scale-result { text-align: right; font-weight: 720; }
+.scale-when {
+  display: block;
+  margin-top: .2rem;
+  font-size: .82rem;
+  font-weight: 500;
+}
+.status-first { background: var(--fapp-first); color: #fff; }
+.status-second { background: var(--fapp-second); color: #102d1d; }
+.status-third { background: var(--fapp-third); color: #332700; }
+.status-unresolved { background: var(--fapp-unresolved); color: #481319; }
+.status-unseen { background: var(--fapp-unseen); color: #263238; }
+.taxonomy-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(155px, 1fr));
+  gap: .75rem;
+  align-items: start;
+  overflow-x: auto;
+  padding: .25rem 0 .8rem;
+}
+.taxonomy-column {
+  display: grid;
+  gap: .6rem;
+  min-width: 155px;
+}
+.taxonomy-title,
+.taxonomy-item {
+  border: 0;
+  border-radius: .9rem;
+  padding: .8rem .6rem;
+  text-align: center;
+  font-weight: 750;
+  line-height: 1.2;
+}
+.taxonomy-title {
+  min-height: 4.3rem;
+  display: grid;
+  place-items: center;
+  background: var(--fapp-taxonomy);
+  color: #0f1720;
+}
+.taxonomy-item {
+  min-height: 3.8rem;
+  color: #fff;
+  cursor: pointer;
+}
+.taxonomy-item:focus-visible {
+  outline: 3px solid rgba(22,124,112,.35);
+  outline-offset: 2px;
+}
+.taxonomy-item[disabled] {
+  cursor: not-allowed;
+  opacity: .38;
+  filter: grayscale(.3);
+}
+.tax-reception { background: var(--fapp-reception); }
+.tax-production { background: var(--fapp-production); }
+.tax-interaction { background: var(--fapp-interaction); }
+.tax-mediation { background: var(--fapp-mediation); }
+.tax-linguistic { background: var(--fapp-linguistic); }
+.tax-sociolinguistic { background: var(--fapp-sociolinguistic); }
+.tax-pragmatic { background: var(--fapp-pragmatic); }
+.tax-neutral { background: #c8c0b1; color: #263238; }
+.availability {
+  display: block;
+  margin-top: .25rem;
+  font-size: .7rem;
+  font-weight: 600;
+}
+.scale-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: .75rem;
+}
+.scale-branch {
+  border-left: 2px solid rgba(59,87,237,.25);
+  padding-left: .65rem;
+}
+.scale-branch h4 {
+  margin: 0 0 .5rem;
+  color: var(--fapp-ink) !important;
+}
+.scale-choice-button {
+  width: 100%;
+  margin: .25rem 0;
+  border: 0;
+  border-radius: .75rem;
+  padding: .75rem;
+  background: var(--fapp-reception);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.scale-choice-button:hover,
+.scale-choice-button:focus-visible {
+  filter: brightness(.92);
+  outline: 3px solid rgba(59,87,237,.25);
+  outline-offset: 2px;
+}
+.code-notice {
+  border: 2px solid var(--fapp-teal);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: var(--fapp-mint);
+  color: var(--fapp-ink) !important;
+}
+.code-notice code {
+  display: inline-block;
+  margin: .4rem 0;
+  padding: .35rem .55rem;
+  font-size: 1.18rem;
+  color: var(--fapp-ink) !important;
+  background: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .journey-overview,
+  .descriptor-card,
+  .scale-branch {
+    color: var(--fapp-ink) !important;
+  }
+  .journey-metric { color: var(--fapp-ink) !important; }
+}
+@media (max-width: 720px) {
   .gradio-container { padding: .65rem !important; }
   .hero { padding: 1.15rem 1rem; }
+  .scale-descriptor {
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+  }
+  .scale-result {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .trend-row {
+    grid-template-columns: minmax(0, 1fr) 3.8rem;
+  }
+  .trend-track { grid-column: 1 / -1; grid-row: 2; }
+  .taxonomy-grid {
+    grid-template-columns: repeat(5, minmax(145px, 70vw));
+    scroll-snap-type: x proximity;
+  }
+  .taxonomy-column { scroll-snap-align: start; }
 }
 """
 
@@ -119,21 +414,149 @@ THEME = gr.themes.Soft(
     neutral_hue="slate",
 )
 
+MAP_TEMPLATE = """
+<div class="scale-map" role="list" aria-label="Mappa dei descrittori">
+{{#each value}}
+  <button type="button"
+          class="scale-descriptor status-{{status}}"
+          data-descriptor-id="{{descriptor_id}}"
+          aria-label="{{level}}. {{status_label}}. Apri il dettaglio"
+          role="listitem">
+    <span class="scale-level">{{level}}</span>
+    <span class="scale-text">{{text}}</span>
+    <span class="scale-result">
+      {{status_label}}
+      {{#if when}}<span class="scale-when">{{when}}</span>{{/if}}
+    </span>
+  </button>
+{{else}}
+  <p>Nessun descrittore corrisponde al filtro selezionato.</p>
+{{/each}}
+</div>
+"""
+
+MAP_JS = """
+const bindMap = () => {
+  element.querySelectorAll('.scale-descriptor').forEach((button) => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', () => {
+      trigger('click', {descriptor_id: button.dataset.descriptorId});
+    });
+  });
+};
+bindMap();
+watch('value', bindMap);
+"""
+
+TAXONOMY_TEMPLATE = """
+<div class="taxonomy-grid" aria-label="Quadro delle categorie">
+{{#each value}}
+  <section class="taxonomy-column">
+    <div class="taxonomy-title">{{title}}</div>
+    {{#each items}}
+      <button type="button"
+              class="taxonomy-item tax-{{color}}"
+              data-schema="{{schema}}"
+              data-modality="{{modality}}"
+              {{#unless available}}disabled{{/unless}}>
+        {{label}}
+        <span class="availability">
+          {{#if available}}Disponibile{{else}}Non ancora disponibile{{/if}}
+        </span>
+      </button>
+    {{/each}}
+  </section>
+{{/each}}
+</div>
+"""
+
+TAXONOMY_JS = """
+const bindTaxonomy = () => {
+  element.querySelectorAll('.taxonomy-item:not([disabled])').forEach((button) => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', () => {
+      trigger('click', {
+        schema: button.dataset.schema,
+        modality: button.dataset.modality
+      });
+    });
+  });
+};
+bindTaxonomy();
+watch('value', bindTaxonomy);
+"""
+
+SCALE_SELECTOR_TEMPLATE = """
+<div class="scale-selector" aria-label="Scale disponibili">
+{{#each value}}
+  <section class="scale-branch">
+    <h4>{{activity}}</h4>
+    {{#each scales}}
+      <button type="button"
+              class="scale-choice-button"
+              data-schema="{{schema}}"
+              data-modality="{{modality}}"
+              data-activity="{{activity}}"
+              data-scale="{{scale}}">
+        {{scale}}
+      </button>
+    {{/each}}
+  </section>
+{{else}}
+  <p>Seleziona una categoria disponibile nella mappa.</p>
+{{/each}}
+</div>
+"""
+
+SCALE_SELECTOR_JS = """
+const bindScales = () => {
+  element.querySelectorAll('.scale-choice-button').forEach((button) => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', () => {
+      trigger('click', {
+        schema: button.dataset.schema,
+        modality: button.dataset.modality,
+        activity: button.dataset.activity,
+        scale: button.dataset.scale
+      });
+    });
+  });
+};
+bindScales();
+watch('value', bindScales);
+"""
+
 
 def _empty_ui_state() -> dict[str, Any]:
-    return {"participant_id": "", "display_name": "", "session": None}
+    return {
+        "participant_id": "",
+        "display_name": "",
+        "session": None,
+        "summary_outcome_filter": "all",
+        "summary_level_filter": "all",
+    }
+
+
+def _empty_browser_identity() -> dict[str, str]:
+    return {"first_name": "", "last_name": "", "access_code": ""}
 
 
 def _storage_banner() -> str:
     catalog_note = (
-        "catalogo dimostrativo originale"
+        (
+            "catalogo dimostrativo 2.0 con tre scale di ricezione; "
+            "i feedback editoriali sono ancora provvisori"
+        )
         if CATALOG_RESULT.is_demo
         else f"catalogo `{CATALOG_RESULT.source_label}`"
     )
     if SETTINGS.storage_mode == "huggingface":
         return (
-            f"🟢 **Modalità pilot:** {catalog_note}; gli eventi vengono salvati "
-            "nel Dataset privato configurato."
+            f"🟢 **Modalità pilot:** {catalog_note}; percorso ed eventi vengono "
+            "salvati nel Dataset privato configurato."
         )
     if SETTINGS.storage_mode == "local":
         return (
@@ -159,100 +582,724 @@ def _first_path_values() -> tuple[list[str], str, str, str, str]:
     return schemas, schema, modality, activity, scale
 
 
-def _dashboard(
-    participant: str,
-) -> tuple[str, list[tuple[str, str]]]:
-    events = STORE.list_events(participant)
-    starts = [
-        event for event in events if event.get("event_type") == "session_started"
-    ]
-    completed = {
-        event["session_id"]
-        for event in events
-        if event.get("event_type") == "session_completed"
-    }
-    descriptor_count = sum(
-        event.get("event_type") == "descriptor_completed" for event in events
-    )
-    incomplete = SESSIONS.incomplete_sessions(participant)
-    choices = [
-        (session["label"], session["session_id"]) for session in incomplete
-    ]
-    total_scales = {
-        (
+def _path_value(path: tuple[str, str, str, str]) -> str:
+    return json.dumps(list(path), ensure_ascii=False)
+
+
+def _decode_path(value: str | None) -> tuple[str, str, str, str] | None:
+    if not value:
+        return None
+    try:
+        parts = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(parts, list) or len(parts) != 4:
+        return None
+    return tuple(str(part) for part in parts)  # type: ignore[return-value]
+
+
+def _catalog_paths() -> list[tuple[str, str, str, str]]:
+    paths: list[tuple[str, str, str, str]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for item in CATALOG.all():
+        path = (
             item["schema"],
             item["modality"],
             item["activity"],
             item["scale"],
         )
+        if path not in seen:
+            paths.append(path)
+            seen.add(path)
+    return paths
+
+
+def _scale_choices() -> list[tuple[str, str]]:
+    return [
+        (
+            f"{path[1]} · {path[2]} · {path[3]}",
+            _path_value(path),
+        )
+        for path in _catalog_paths()
+    ]
+
+
+def _taxonomy_data() -> list[dict[str, Any]]:
+    available = {
+        (item["schema"].casefold(), item["modality"].casefold())
         for item in CATALOG.all()
     }
-    markdown = (
-        "### Il mio percorso\n\n"
-        f"- **Scale disponibili:** {len(total_scales)}\n"
-        f"- **Sessioni avviate:** {len(starts)}\n"
-        f"- **Sessioni completate:** {len(completed)}\n"
-        f"- **Descrittori incontrati:** {descriptor_count}\n\n"
-        '<span class="non-evaluation">Questi dati descrivono il percorso svolto; '
-        "non sono una valutazione professionale.</span>"
+
+    def present(schema_terms: tuple[str, ...], modality: str) -> bool:
+        modality_fold = modality.casefold()
+        return any(
+            any(term in schema for term in schema_terms)
+            and stored_modality == modality_fold
+            for schema, stored_modality in available
+        )
+
+    def actual_schema(schema_terms: tuple[str, ...], fallback: str) -> str:
+        for item in CATALOG.all():
+            if any(
+                term in item["schema"].casefold() for term in schema_terms
+            ):
+                return item["schema"]
+        return fallback
+
+    columns = [
+        {
+            "title": "Competenza generale",
+            "items": [
+                {
+                    "label": label,
+                    "color": "neutral",
+                    "schema": "Competenza generale",
+                    "modality": label,
+                    "available": False,
+                }
+                for label in ("Sapere", "Saper fare", "Saper essere", "Saper apprendere")
+            ],
+        },
+        {
+            "title": "Competenze linguistico-comunicative",
+            "items": [
+                {
+                    "label": label,
+                    "color": color,
+                    "schema": actual_schema(
+                        ("competenze linguistico",),
+                        "Competenze linguistico-comunicative",
+                    ),
+                    "modality": label,
+                    "available": present(("competenze linguistico",), label),
+                }
+                for label, color in (
+                    ("Linguistica", "linguistic"),
+                    ("Sociolinguistica", "sociolinguistic"),
+                    ("Pragmatica", "pragmatic"),
+                )
+            ],
+        },
+        {
+            "title": "Competenze nelle lingue dei segni",
+            "items": [
+                {
+                    "label": label,
+                    "color": color,
+                    "schema": actual_schema(
+                        ("lingua dei segni", "lingue dei segni"),
+                        "Competenze nelle lingue dei segni",
+                    ),
+                    "modality": label,
+                    "available": present(
+                        ("lingua dei segni", "lingue dei segni"), label
+                    ),
+                }
+                for label, color in (
+                    ("Linguistica", "linguistic"),
+                    ("Sociolinguistica", "sociolinguistic"),
+                    ("Pragmatica", "pragmatic"),
+                )
+            ],
+        },
+        {
+            "title": "Attività linguistico-comunicative",
+            "items": [
+                {
+                    "label": label,
+                    "color": color,
+                    "schema": actual_schema(
+                        ("attività linguistico",),
+                        "Attività linguistico-comunicative",
+                    ),
+                    "modality": label,
+                    "available": (
+                        label != "Mediazione"
+                        and present(("attività linguistico",), label)
+                    ),
+                }
+                for label, color in (
+                    ("Ricezione", "reception"),
+                    ("Produzione", "production"),
+                    ("Interazione", "interaction"),
+                    ("Mediazione", "mediation"),
+                )
+            ],
+        },
+        {
+            "title": "Strategie linguistico-comunicative",
+            "items": [
+                {
+                    "label": label,
+                    "color": color,
+                    "schema": actual_schema(
+                        ("strategie linguistico",),
+                        "Strategie linguistico-comunicative",
+                    ),
+                    "modality": label,
+                    "available": (
+                        label != "Mediazione"
+                        and present(("strategie linguistico",), label)
+                    ),
+                }
+                for label, color in (
+                    ("Ricezione", "reception"),
+                    ("Produzione", "production"),
+                    ("Interazione", "interaction"),
+                    ("Mediazione", "mediation"),
+                )
+            ],
+        },
+    ]
+    return columns
+
+
+def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for item in CATALOG.all():
+        if item["schema"] == schema and item["modality"] == modality:
+            if item["scale"] not in grouped[item["activity"]]:
+                grouped[item["activity"]].append(item["scale"])
+    return [
+        {
+            "activity": activity,
+            "scales": [
+                {
+                    "schema": schema,
+                    "modality": modality,
+                    "activity": activity,
+                    "scale": scale,
+                }
+                for scale in scales
+            ],
+        }
+        for activity, scales in grouped.items()
+    ]
+
+
+def _progress_html(
+    title: str,
+    counts: dict[str, int] | Counter[str],
+    total: int,
+    *,
+    primary_count: int,
+    primary_label: str,
+    subtitle: str,
+) -> str:
+    safe_total = max(total, 0)
+    first_rate = primary_count / safe_total * 100 if safe_total else 0.0
+    segments = []
+    for key in ("first", "second", "third", "unresolved", "unseen"):
+        count = int(counts.get(key, 0))
+        width = count / safe_total * 100 if safe_total else 0
+        segments.append(
+            f'<span class="stack-{key}" style="width:{width:.4f}%" '
+            f'title="{html.escape(OUTCOME_LABELS[key])}: {count}"></span>'
+        )
+    return (
+        '<section class="journey-overview">'
+        f"<h3>{html.escape(title)}</h3>"
+        f"<p>{html.escape(subtitle)}</p>"
+        '<div class="journey-metrics">'
+        f'<div class="journey-metric"><strong>{first_rate:.1f}%</strong>'
+        f"{html.escape(primary_label)} · {primary_count} su {safe_total}</div>"
+        f'<div class="journey-metric"><strong>{safe_total}</strong>'
+        "descrittori considerati</div>"
+        "</div>"
+        f'<div class="stacked-bar" aria-label="{html.escape(primary_label)}">'
+        + "".join(segments)
+        + "</div>"
+        + _legend_html(counts)
+        + "</section>"
     )
-    return markdown, choices
+
+
+def _legend_html(counts: dict[str, int] | Counter[str]) -> str:
+    return (
+        '<div class="legend">'
+        + "".join(
+            f'<span class="legend-item legend-{key}">'
+            f"{html.escape(OUTCOME_LABELS[key])}: {int(counts.get(key, 0))}</span>"
+            for key in ("first", "second", "third", "unresolved", "unseen")
+        )
+        + "</div>"
+    )
+
+
+def _scale_progress_html(
+    events: list[dict[str, Any]],
+    path: tuple[str, str, str, str],
+) -> str:
+    descriptors = CATALOG.for_scale(*path)
+    descriptor_ids = {item["descriptor_id"] for item in descriptors}
+    latest = {
+        record["descriptor_id"]: record
+        for record in descriptor_history(events, CATALOG)
+        if record["descriptor_id"] in descriptor_ids
+    }
+    counts = Counter(record["outcome"] for record in latest.values())
+    counts["unseen"] = max(len(descriptors) - len(latest), 0)
+    return _progress_html(
+        f"Percorso sulla scala · {path[3]}",
+        counts,
+        len(descriptors),
+        primary_count=counts["first"],
+        primary_label="descrittori attualmente riconosciuti senza suggerimenti",
+        subtitle=(
+            "Conta l’esito più recente di ciascun descrittore della scala. "
+            "Il 100% si raggiunge quando tutti risultano riconosciuti al primo "
+            "tentativo nell’incontro più recente."
+        ),
+    )
+
+
+def _session_trend_html(sessions: list[dict[str, Any]]) -> str:
+    completed = [
+        session for session in reversed(sessions)
+        if session["status"] == "completed"
+    ][-10:]
+    if not completed:
+        return ""
+    rows = []
+    for session in completed:
+        rate = float(session["first_attempt_rate"])
+        label = (
+            f"{relative_timestamp(session['completed_at'])} · "
+            f"{session['scale']}"
+        )
+        rows.append(
+            '<div class="trend-row">'
+            f'<span class="trend-label">{html.escape(label)}</span>'
+            '<span class="trend-track">'
+            f'<span class="trend-fill" style="display:block;width:{rate:.4f}%">'
+            "</span></span>"
+            f'<span class="trend-value">{rate:.1f}%</span>'
+            "</div>"
+        )
+    return (
+        '<section class="journey-overview"><h3>Andamento verso l’autonomia</h3>'
+        "<p>Percentuale riconosciuta al primo tentativo in ciascuna sessione "
+        "completata. Scale diverse possono avere difficoltà diverse.</p>"
+        '<div class="trend-list">'
+        + "".join(rows)
+        + "</div></section>"
+    )
+
+
+def _personal_view(
+    participant: str,
+    selected_path_value: str | None = None,
+    outcome_filter: str = "all",
+):
+    events = STORE.list_events(participant)
+    overview = participant_overview(events, CATALOG)
+    all_paths = _catalog_paths()
+    sessions = session_records(events, CATALOG)
+    latest_path = None
+    if sessions:
+        latest = sessions[0]
+        latest_path = (
+            latest["schema"],
+            latest["modality"],
+            latest["activity"],
+            latest["scale"],
+        )
+    path = _decode_path(selected_path_value) or latest_path or all_paths[0]
+    path_value = _path_value(path)
+    rows = scale_map(
+        CATALOG, events, path, outcome_filter=outcome_filter
+    )
+    scale_progress = _scale_progress_html(events, path)
+    latest_counts = Counter(
+        record["outcome"]
+        for record in {
+            item["descriptor_id"]: item
+            for item in descriptor_history(events, CATALOG)
+        }.values()
+    )
+    latest_counts["unseen"] = max(
+        overview["descriptors_available"]
+        - overview["descriptors_encountered"],
+        0,
+    )
+    overview_html = _progress_html(
+        "Il mio percorso complessivo",
+        latest_counts,
+        overview["descriptors_available"],
+        primary_count=overview["latest_first_count"],
+        primary_label="riconoscimento senza suggerimenti",
+        subtitle=(
+            "Il colore riporta l’esito più recente di ogni descrittore. "
+            "Non è un voto e non confronta il percorso con quello dei colleghi."
+        ),
+    )
+    overview_html += _session_trend_html(sessions)
+    session_rows = [
+        [
+            relative_timestamp(session["last_activity_at"]),
+            session["scale"],
+            session["status_label"],
+            (
+                f"{session['descriptors_completed']}/"
+                f"{session['descriptors_planned']}"
+            ),
+            (
+                f"{session['first_attempt_rate']:.1f}% "
+                f"({session['first']}/{session['descriptors_completed']})"
+                if session["descriptors_completed"]
+                else "—"
+            ),
+        ]
+        for session in sessions
+    ]
+    incomplete = SESSIONS.incomplete_sessions(participant)
+    resume_choices = [
+        (session["label"], session["session_id"]) for session in incomplete
+    ]
+    return (
+        overview_html,
+        gr.Dropdown(
+            choices=_scale_choices(),
+            value=path_value,
+            label="Scala da esplorare",
+        ),
+        scale_progress,
+        rows,
+        session_rows,
+        gr.Dropdown(
+            choices=resume_choices,
+            value=resume_choices[0][1] if resume_choices else None,
+            interactive=bool(resume_choices),
+            label="Sessione da riprendere",
+        ),
+    )
+
+
+def prefill_identity(saved: dict[str, str] | None):
+    saved = saved or {}
+    return (
+        saved.get("first_name", ""),
+        saved.get("last_name", ""),
+        saved.get("access_code", ""),
+    )
 
 
 def identify_participant(
     first_name: str,
     last_name: str,
+    journey_code: str,
+    create_separate_profile: bool,
     consent: bool,
     state: dict[str, Any] | None,
 ):
     state = state or _empty_ui_state()
+    issued_code = ""
+    event_warning = ""
+    code_event_needed = False
+    hidden_personal = (
+        "",
+        gr.Dropdown(choices=[], value=None),
+        "",
+        [],
+        [],
+        gr.Dropdown(choices=[], value=None),
+    )
     if not consent:
         return (
             state,
+            _empty_browser_identity(),
             gr.update(visible=True),
             gr.update(visible=False),
             "",
             "",
-            gr.Dropdown(choices=[], value=None),
+            *hidden_personal,
+            "",
             "Devi confermare di aver letto l’informativa dimostrativa.",
         )
     try:
         shown_name = display_name(first_name, last_name)
-        identifier = participant_id(
+        name_lookup = participant_id(
             first_name, last_name, SETTINGS.effective_hash_salt
         )
-        STORE.register_participant(identifier, shown_name)
-        SESSIONS.record_consent(identifier, SETTINGS.consent_version)
-        progress, resumes = _dashboard(identifier)
+        candidates = [
+            record
+            for record in STORE.list_participants()
+            if record.get("name_lookup_hash") == name_lookup
+            or (
+                not record.get("name_lookup_hash")
+                and record.get("participant_id") == name_lookup
+            )
+        ]
+        existing = None
+        if journey_code:
+            matches = [
+                record
+                for record in candidates
+                if record.get("access_code_hash")
+                and verify_access_code(
+                    journey_code,
+                    str(record.get("participant_id", "")),
+                    SETTINGS.effective_hash_salt,
+                    str(record.get("access_code_hash", "")),
+                )
+            ]
+            if len(matches) != 1:
+                raise AccessCodeError(
+                    "Il codice percorso non corrisponde. Controlla i caratteri "
+                    "oppure chiedi al ricercatore di generarne uno nuovo."
+                )
+            existing = matches[0]
+        elif not create_separate_profile and len(candidates) == 1:
+            existing = candidates[0]
+        elif not create_separate_profile and len(candidates) > 1:
+            raise AccessCodeError(
+                "Esistono più percorsi con questo nome. Inserisci il tuo "
+                "codice personale per scegliere quello corretto."
+            )
+
+        if existing and existing.get("access_code_hash"):
+            if not journey_code:
+                raise AccessCodeError(
+                    "Questo percorso ha già un codice personale. Inseriscilo "
+                    "per aprire la cronologia."
+                )
+            identifier = str(existing["participant_id"])
+            saved_code = journey_code
+            access_method = "name_and_personal_code"
+            STORE.register_participant(
+                identifier,
+                shown_name,
+                name_lookup_hash=name_lookup,
+            )
+        else:
+            identifier = (
+                str(existing["participant_id"])
+                if existing
+                else new_participant_id()
+            )
+            issued_code = generate_access_code()
+            STORE.register_participant(
+                identifier,
+                shown_name,
+                access_code_hash=access_code_hash(
+                    issued_code,
+                    identifier,
+                    SETTINGS.effective_hash_salt,
+                ),
+                name_lookup_hash=name_lookup,
+            )
+            code_event_needed = True
+            saved_code = issued_code
+            access_method = (
+                "legacy_profile_upgraded"
+                if existing
+                else (
+                    "new_homonym_profile"
+                    if create_separate_profile and candidates
+                    else "new_personal_code"
+                )
+            )
+        try:
+            if code_event_needed:
+                SESSIONS.record_access_code_event(
+                    identifier, "access_code_issued"
+                )
+            SESSIONS.record_consent(identifier, SETTINGS.consent_version)
+            SESSIONS.record_participant_access(identifier, access_method)
+        except EventStoreError as exc:
+            if not issued_code:
+                raise
+            event_warning = (
+                "⚠️ Il codice personale è stato creato e va conservato, ma "
+                f"la registrazione dell’accesso non è stata completata: {exc}"
+            )
+        try:
+            personal = _personal_view(identifier)
+        except EventStoreError as exc:
+            if not issued_code:
+                raise
+            personal = hidden_personal
+            event_warning = (
+                f"{event_warning}\n\n" if event_warning else "⚠️ "
+            ) + (
+                "Il codice personale è stato creato e va conservato, ma il "
+                f"percorso non è temporaneamente leggibile: {exc}"
+            )
     except (IdentityError, EventStoreError) as exc:
         return (
             state,
+            _empty_browser_identity(),
             gr.update(visible=True),
             gr.update(visible=False),
             "",
             "",
-            gr.Dropdown(choices=[], value=None),
+            *hidden_personal,
+            "",
             f"⚠️ {exc}",
         )
 
     updated = {
+        **_empty_ui_state(),
         "participant_id": identifier,
         "display_name": shown_name,
-        "session": None,
     }
+    browser_identity = {
+        "first_name": first_name.strip(),
+        "last_name": last_name.strip(),
+        "access_code": saved_code,
+    }
+    code_notice = _new_code_notice(issued_code) if issued_code else ""
     return (
         updated,
+        browser_identity,
         gr.update(visible=False),
         gr.update(visible=True),
         f"## Ciao, {shown_name}",
-        progress,
-        gr.Dropdown(
-            choices=resumes,
-            value=resumes[0][1] if resumes else None,
-            interactive=bool(resumes),
-            label="Sessione da riprendere",
-        ),
+        code_notice,
+        *personal,
         "",
+        event_warning,
+    )
+
+
+def _new_code_notice(code: str) -> str:
+    return (
+        '<div class="code-notice"><strong>Salva il tuo codice percorso</strong><br>'
+        f"<code>{html.escape(code)}</code><br>"
+        "Servirà per recuperare la cronologia da un altro dispositivo. "
+        "Su questo browser viene ricordato automaticamente.</div>"
+    )
+
+
+def update_personal_path(
+    state: dict[str, Any], path_value: str, outcome_filter: str
+):
+    if not state.get("participant_id"):
+        return "", [], ""
+    try:
+        path = _decode_path(path_value)
+        if not path:
+            return "", [], "Seleziona una scala."
+        events = STORE.list_events(state["participant_id"])
+        rows = scale_map(
+            CATALOG,
+            events,
+            path,
+            outcome_filter=outcome_filter,
+        )
+        return _scale_progress_html(events, path), rows, ""
+    except (EventStoreError, CatalogError) as exc:
+        return "", [], f"⚠️ Percorso non disponibile: {exc}"
+
+
+def _event_descriptor_id(evt: gr.EventData) -> str:
+    return str(getattr(evt, "descriptor_id", "") or "")
+
+
+def personal_descriptor_click(state: dict[str, Any], evt: gr.EventData):
+    descriptor_id = _event_descriptor_id(evt)
+    if not descriptor_id or not state.get("participant_id"):
+        return ""
+    details = descriptor_details(
+        descriptor_id,
+        STORE.list_events(state["participant_id"]),
+        CATALOG,
+        user_facing_time=True,
+    )
+    return _descriptor_detail_markdown(details, researcher=False)
+
+
+def _descriptor_detail_markdown(
+    details: dict[str, Any], *, researcher: bool
+) -> str:
+    descriptor = details["descriptor"]
+    history = details["history"]
+    formatter = exact_timestamp if researcher else relative_timestamp
+    lines = [
+        f"### {descriptor.get('correct_level', '—')} · "
+        f"{descriptor.get('scale', 'Descrittore')}",
+        "",
+        f"> {descriptor.get('descriptor_text', 'Testo non disponibile')}",
+    ]
+    if not history:
+        lines.extend(["", "**Non ancora incontrato.**"])
+        return "\n".join(lines)
+    lines.extend(["", "#### Cronologia"])
+    for record in reversed(history):
+        lines.extend(
+            [
+                "",
+                f"- **{formatter(record['occurred_at'])} — "
+                f"{record['outcome_label']}**",
+                f"  - Risposte: `{record['attempts_text']}`",
+                f"  - Livello corretto: **{record['level']}**",
+                f"  - Esposizione numero: {record['exposure_number']}",
+            ]
+        )
+        if researcher:
+            lines.append(
+                f"  - Distanza della prima risposta: "
+                f"{record.get('first_response_distance', '—')}"
+            )
+    latest = history[-1]
+    if latest.get("rationale"):
+        lines.extend(["", "#### Motivazione", latest["rationale"]])
+    return "\n".join(lines)
+
+
+def navigation_click(evt: gr.EventData):
+    schema = str(getattr(evt, "schema", "") or "")
+    modality = str(getattr(evt, "modality", "") or "")
+    activities = CATALOG.choices(
+        "activity", schema=schema, modality=modality
+    )
+    activity = activities[0] if activities else None
+    scales = CATALOG.choices(
+        "scale", schema=schema, modality=modality, activity=activity
+    )
+    return (
+        _scale_selector_data(schema, modality),
+        gr.Dropdown(choices=CATALOG.choices("schema"), value=schema),
+        gr.Dropdown(
+            choices=CATALOG.choices("modality", schema=schema),
+            value=modality,
+        ),
+        gr.Dropdown(choices=activities, value=activity),
+        gr.Dropdown(choices=scales, value=scales[0] if scales else None),
+        (
+            f"Categoria selezionata: **{schema} → {modality}**. "
+            "Ora scegli una scala nella mappa sottostante."
+        ),
+    )
+
+
+def scale_selector_click(evt: gr.EventData):
+    schema = str(getattr(evt, "schema", "") or "")
+    modality = str(getattr(evt, "modality", "") or "")
+    activity = str(getattr(evt, "activity", "") or "")
+    scale = str(getattr(evt, "scale", "") or "")
+    return (
+        gr.Dropdown(choices=CATALOG.choices("schema"), value=schema),
+        gr.Dropdown(
+            choices=CATALOG.choices("modality", schema=schema),
+            value=modality,
+        ),
+        gr.Dropdown(
+            choices=CATALOG.choices(
+                "activity", schema=schema, modality=modality
+            ),
+            value=activity,
+        ),
+        gr.Dropdown(
+            choices=CATALOG.choices(
+                "scale",
+                schema=schema,
+                modality=modality,
+                activity=activity,
+            ),
+            value=scale,
+        ),
+        f"Scala selezionata: **{scale}**.",
     )
 
 
@@ -270,6 +1317,7 @@ def update_schema(schema: str):
         gr.Dropdown(choices=modalities, value=modality),
         gr.Dropdown(choices=activities, value=activity),
         gr.Dropdown(choices=scales, value=scales[0] if scales else None),
+        _scale_selector_data(schema, modality) if modality else [],
     )
 
 
@@ -284,6 +1332,7 @@ def update_modality(schema: str, modality: str):
     return (
         gr.Dropdown(choices=activities, value=activity),
         gr.Dropdown(choices=scales, value=scales[0] if scales else None),
+        _scale_selector_data(schema, modality),
     )
 
 
@@ -310,7 +1359,8 @@ def _exercise_view(session: dict[str, Any]):
         f"`{'●' * position}{'○' * (total - position)}`"
     )
     descriptor_text = (
-        f'<div class="descriptor-card">{descriptor["descriptor_text"]}</div>'
+        f'<div class="descriptor-card">'
+        f'{html.escape(descriptor["descriptor_text"])}</div>'
     )
     finished = bool(session["descriptor_finished"])
     attempts_used = len(session["attempts"])
@@ -379,56 +1429,57 @@ def start_session(
 ):
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
-        session = SESSIONS.start_session(
-            participant_id=state["participant_id"],
-            display_name=state["display_name"],
-            descriptors=descriptors,
-        )
-        updated = dict(state)
-        updated["session"] = session
-        view = _exercise_view(session)
-        return (
-            updated,
-            gr.update(visible=False),
-            gr.update(visible=True),
-            gr.update(visible=False),
-            *view,
-            "",
-        )
+        return _start_descriptors(state, descriptors)
     except (KeyError, SessionError, EventStoreError, CatalogError) as exc:
-        return (
-            state,
-            gr.update(visible=True),
-            gr.update(visible=False),
-            gr.update(visible=False),
-            "",
-            "",
-            "",
-            gr.Radio(choices=[]),
-            "",
-            "",
-            gr.Button(visible=False),
-            gr.Button(visible=False),
-            f"⚠️ La sessione non è stata avviata: {exc}",
+        return _exercise_error(
+            state, f"⚠️ La sessione non è stata avviata: {exc}"
         )
+
+
+def _start_descriptors(
+    state: dict[str, Any], descriptors: list[dict[str, Any]]
+):
+    session = SESSIONS.start_session(
+        participant_id=state["participant_id"],
+        display_name=state["display_name"],
+        descriptors=descriptors,
+    )
+    updated = dict(state)
+    updated["session"] = session
+    updated["summary_outcome_filter"] = "all"
+    updated["summary_level_filter"] = "all"
+    return (
+        updated,
+        gr.update(visible=False),
+        gr.update(visible=True),
+        gr.update(visible=False),
+        *_exercise_view(session),
+        "",
+    )
+
+
+def _exercise_error(state: dict[str, Any], message: str):
+    return (
+        state,
+        gr.update(visible=True),
+        gr.update(visible=False),
+        gr.update(visible=False),
+        "",
+        "",
+        "",
+        gr.Radio(choices=[]),
+        "",
+        "",
+        gr.Button(visible=False),
+        gr.Button(visible=False),
+        message,
+    )
 
 
 def resume_session(state: dict[str, Any], session_id: str | None):
     if not session_id:
-        return (
-            state,
-            gr.update(visible=True),
-            gr.update(visible=False),
-            gr.update(visible=False),
-            "",
-            "",
-            "",
-            gr.Radio(choices=[]),
-            "",
-            "",
-            gr.Button(visible=False),
-            gr.Button(visible=False),
-            "Seleziona una sessione incompleta.",
+        return _exercise_error(
+            state, "Seleziona una sessione incompleta."
         )
     try:
         session = SESSIONS.restore_session(
@@ -445,21 +1496,7 @@ def resume_session(state: dict[str, Any], session_id: str | None):
             "",
         )
     except (SessionError, EventStoreError, CatalogError) as exc:
-        return (
-            state,
-            gr.update(visible=True),
-            gr.update(visible=False),
-            gr.update(visible=False),
-            "",
-            "",
-            "",
-            gr.Radio(choices=[]),
-            "",
-            "",
-            gr.Button(visible=False),
-            gr.Button(visible=False),
-            f"⚠️ Sessione non ripresa: {exc}",
-        )
+        return _exercise_error(state, f"⚠️ Sessione non ripresa: {exc}")
 
 
 def submit_answer(state: dict[str, Any], selected_level: str | None):
@@ -513,27 +1550,110 @@ def submit_answer(state: dict[str, Any], selected_level: str | None):
         )
 
 
-def _summary_markdown(session: dict[str, Any]) -> str:
+def _session_map(
+    session: dict[str, Any],
+    outcome_filter: str = "all",
+    level_filter: str = "all",
+) -> list[dict[str, Any]]:
+    events = STORE.list_events(session["participant_id"])
+    rows = scale_map(
+        CATALOG,
+        events,
+        (
+            session["schema"],
+            session["modality"],
+            session["activity"],
+            session["scale"],
+        ),
+        session_id=session["session_id"],
+        outcome_filter=outcome_filter,
+    )
+    if level_filter != "all":
+        rows = [row for row in rows if row["level"] == level_filter]
+    return rows
+
+
+def _summary_components(session: dict[str, Any]):
     summary = SESSIONS.summary(session)
-    counts = summary["correct_by_attempt"]
+    counts = {
+        "first": summary["correct_by_attempt"]["1"],
+        "second": summary["correct_by_attempt"]["2"],
+        "third": summary["correct_by_attempt"]["3"],
+        "unresolved": summary["unresolved_after_three"],
+        "unseen": 0,
+    }
+    total = summary["descriptors_completed"]
+    stats = _progress_html(
+        f"Sessione completata · {session['scale']}",
+        counts,
+        total,
+        primary_count=counts["first"],
+        primary_label="riconoscimento senza suggerimenti",
+        subtitle=(
+            "L’obiettivo è arrivare a riconoscere tutti i descrittori senza "
+            "suggerimenti. Il riepilogo descrive questa sessione e non è una "
+            "valutazione professionale."
+        ),
+    )
+    button_updates = [
+        gr.Button(
+            f"{OUTCOME_LABELS[key]} · {counts[key]}",
+            interactive=counts[key] > 0,
+            visible=True,
+        )
+        for key in ("first", "second", "third", "unresolved")
+    ]
+    levels = SESSIONS.available_levels(session)
+    focus_records = [
+        record
+        for record in session.get("completed_records", [])
+        if record.get("resolved_on_attempt") != 1
+    ]
+    focus_choices = [
+        (
+            f"{CATALOG.get(record['descriptor_id'])['correct_level']} · "
+            f"{CATALOG.get(record['descriptor_id'])['descriptor_text'][:90]}",
+            record["descriptor_id"],
+        )
+        for record in focus_records
+    ]
     return (
-        "## Sessione completata\n\n"
-        f"**Scala:** {session['scale']}  \n"
-        f"**Descrittori completati:** {summary['descriptors_completed']}  \n\n"
-        "| Esito | Descrittori |\n"
-        "|---|---:|\n"
-        f"| Corretti al primo tentativo | {counts['1']} |\n"
-        f"| Corretti al secondo tentativo | {counts['2']} |\n"
-        f"| Corretti al terzo tentativo | {counts['3']} |\n"
-        f"| Non risolti entro tre tentativi | "
-        f"{summary['unresolved_after_three']} |\n\n"
-        '<span class="non-evaluation">Il riepilogo serve a rivedere il percorso '
-        "di familiarizzazione e non esprime una valutazione professionale.</span>"
+        stats,
+        *button_updates,
+        gr.Dropdown(
+            choices=[("Tutti i livelli", "all"), *[(level, level) for level in levels]],
+            value="all",
+            label="Filtra per livello target",
+        ),
+        _session_map(session),
+        gr.CheckboxGroup(
+            choices=focus_choices,
+            value=[value for _, value in focus_choices],
+            label="Descrittori da ripetere",
+            visible=bool(focus_choices),
+        ),
+        gr.Button(
+            "Ripeti i descrittori selezionati",
+            visible=bool(focus_choices),
+            interactive=bool(focus_choices),
+            variant="primary",
+        ),
     )
 
 
 def continue_session(state: dict[str, Any]):
     session = state.get("session")
+    empty_summary = (
+        "",
+        gr.Button(visible=False),
+        gr.Button(visible=False),
+        gr.Button(visible=False),
+        gr.Button(visible=False),
+        gr.Dropdown(choices=[]),
+        [],
+        gr.CheckboxGroup(choices=[], visible=False),
+        gr.Button(visible=False),
+    )
     if not session:
         return (
             state,
@@ -547,7 +1667,7 @@ def continue_session(state: dict[str, Any]):
             "",
             gr.Button(visible=False),
             gr.Button(visible=False),
-            "",
+            *empty_summary,
             "La sessione non è attiva.",
         )
     try:
@@ -567,7 +1687,7 @@ def continue_session(state: dict[str, Any]):
                 "",
                 gr.Button(visible=False),
                 gr.Button(visible=False),
-                _summary_markdown(updated_session),
+                *_summary_components(updated_session),
                 "",
             )
         return (
@@ -575,7 +1695,7 @@ def continue_session(state: dict[str, Any]):
             gr.update(visible=True),
             gr.update(visible=False),
             *_exercise_view(updated_session),
-            "",
+            *empty_summary,
             "",
         )
     except (SessionError, EventStoreError, CatalogError) as exc:
@@ -585,35 +1705,99 @@ def continue_session(state: dict[str, Any]):
             gr.update(visible=True),
             gr.update(visible=False),
             *view,
-            "",
+            *empty_summary,
             f"⚠️ Impossibile continuare: {exc}",
+        )
+
+
+def filter_summary_map(
+    state: dict[str, Any],
+    outcome_filter: str,
+    level_filter: str,
+):
+    session = state.get("session")
+    if not session:
+        return state, [], ""
+    updated = dict(state)
+    updated["summary_outcome_filter"] = outcome_filter
+    updated["summary_level_filter"] = level_filter or "all"
+    return (
+        updated,
+        _session_map(
+            session,
+            outcome_filter=outcome_filter,
+            level_filter=level_filter or "all",
+        ),
+        "",
+    )
+
+
+def filter_summary_level(
+    state: dict[str, Any], level_filter: str
+):
+    return filter_summary_map(
+        state,
+        state.get("summary_outcome_filter", "all"),
+        level_filter,
+    )
+
+
+def summary_descriptor_click(state: dict[str, Any], evt: gr.EventData):
+    session = state.get("session")
+    descriptor_id = _event_descriptor_id(evt)
+    if not session or not descriptor_id:
+        return ""
+    details = descriptor_details(
+        descriptor_id,
+        STORE.list_events(session["participant_id"]),
+        CATALOG,
+        session_id=session["session_id"],
+        user_facing_time=True,
+    )
+    return _descriptor_detail_markdown(details, researcher=False)
+
+
+def repeat_selected_descriptors(
+    state: dict[str, Any], descriptor_ids: list[str] | None
+):
+    if not descriptor_ids:
+        return _exercise_error(
+            state, "Seleziona almeno un descrittore da ripetere."
+        )
+    try:
+        descriptors = [CATALOG.get(item_id) for item_id in descriptor_ids]
+        return _start_descriptors(state, descriptors)
+    except (CatalogError, SessionError, EventStoreError) as exc:
+        return _exercise_error(
+            state, f"⚠️ Ripetizione non avviata: {exc}"
         )
 
 
 def back_to_dashboard(state: dict[str, Any]):
     try:
-        progress, resumes = _dashboard(state["participant_id"])
+        personal = _personal_view(state["participant_id"])
         updated = dict(state)
         updated["session"] = None
         return (
             updated,
             gr.update(visible=True),
             gr.update(visible=False),
-            progress,
-            gr.Dropdown(
-                choices=resumes,
-                value=resumes[0][1] if resumes else None,
-                interactive=bool(resumes),
-            ),
+            *personal,
+            "",
             "",
         )
-    except (KeyError, EventStoreError) as exc:
+    except (KeyError, EventStoreError, CatalogError) as exc:
         return (
             state,
             gr.update(visible=False),
             gr.update(visible=True),
             "",
             gr.Dropdown(choices=[]),
+            "",
+            [],
+            [],
+            gr.Dropdown(choices=[]),
+            "",
             f"⚠️ Percorso non aggiornato: {exc}",
         )
 
@@ -621,71 +1805,411 @@ def back_to_dashboard(state: dict[str, Any]):
 def logout():
     return (
         _empty_ui_state(),
+        _empty_browser_identity(),
         gr.update(visible=True),
         gr.update(visible=False),
         gr.update(visible=False),
         gr.update(visible=False),
         "",
         "",
+        "",
         False,
+        False,
+        "",
         "",
     )
 
 
-def researcher_overview(access_key: str):
+def _research_authorized(state: dict[str, Any] | None) -> bool:
+    return bool(state and state.get("authorized"))
+
+
+def _research_dataset():
+    participants = STORE.list_participants()
+    events = STORE.list_events()
+    by_participant: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for event in events:
+        by_participant[str(event.get("participant_id_hash", ""))].append(event)
+    return participants, events, by_participant
+
+
+def _research_overview_rows(
+    participants: list[dict[str, Any]],
+    by_participant: dict[str, list[dict[str, Any]]],
+):
+    rows = []
+    for participant in participants:
+        participant_events = by_participant.get(
+            participant["participant_id"], []
+        )
+        overview = participant_overview(participant_events, CATALOG)
+        rows.append(
+            [
+                participant["display_name"],
+                "Sì" if participant.get("access_code_hash") else "No",
+                overview["sessions_started"],
+                overview["sessions_completed"],
+                overview["sessions_in_progress"],
+                overview["descriptors_encountered"],
+                f"{overview['latest_first_rate']:.1f}%",
+                exact_timestamp(overview["last_activity_at"]),
+            ]
+        )
+    return rows
+
+
+def researcher_login(access_key: str):
     if not SETTINGS.researcher_access_key:
         return (
+            {"authorized": False},
+            gr.update(visible=False),
             "La panoramica è disattivata: configura `RESEARCHER_ACCESS_KEY` "
             "nei secret dello Space.",
+            "",
+            [],
+            gr.Dropdown(choices=[], value=None),
+            gr.Dropdown(choices=[], value="all"),
+            None,
             [],
         )
     if not hmac.compare_digest(
         access_key or "", SETTINGS.researcher_access_key
     ):
-        return "Chiave non valida.", []
+        return (
+            {"authorized": False},
+            gr.update(visible=False),
+            "Chiave non valida.",
+            "",
+            [],
+            gr.Dropdown(choices=[], value=None),
+            gr.Dropdown(choices=[], value="all"),
+            None,
+            [],
+        )
+    try:
+        participants, events, by_participant = _research_dataset()
+        issues = integrity_report(events, participants)
+        archive = build_research_export(participants, events, CATALOG)
+    except EventStoreError as exc:
+        return (
+            {"authorized": False},
+            gr.update(visible=False),
+            f"Archivio non disponibile: {exc}",
+            "",
+            [],
+            gr.Dropdown(choices=[], value=None),
+            gr.Dropdown(choices=[], value="all"),
+            None,
+            [],
+        )
+    participant_choices = [
+        (item["display_name"], item["participant_id"]) for item in participants
+    ]
+    first_participant = participant_choices[0][1] if participant_choices else None
+    global_html = _research_global_html(participants, events, issues)
+    scale_choices = [("Tutte le scale", "all"), *_scale_choices()]
+    issue_rows = [
+        [item["severity"], item["scope"], item["message"]] for item in issues
+    ]
+    return (
+        {"authorized": True},
+        gr.update(visible=True),
+        "Accesso autorizzato.",
+        global_html,
+        _research_overview_rows(participants, by_participant),
+        gr.Dropdown(
+            choices=participant_choices,
+            value=first_participant,
+            interactive=bool(participant_choices),
+        ),
+        gr.Dropdown(choices=scale_choices, value="all"),
+        archive,
+        issue_rows,
+    )
+
+
+def _research_global_html(
+    participants: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+    issues: list[dict[str, str]],
+) -> str:
+    sessions = sum(
+        event.get("event_type") == "session_started" for event in events
+    )
+    completions = sum(
+        event.get("event_type") == "descriptor_completed" for event in events
+    )
+    return (
+        '<section class="journey-overview"><h3>Archivio della ricerca</h3>'
+        '<div class="journey-metrics">'
+        f'<div class="journey-metric"><strong>{len(participants)}</strong>'
+        "partecipanti</div>"
+        f'<div class="journey-metric"><strong>{sessions}</strong>'
+        "sessioni avviate</div>"
+        f'<div class="journey-metric"><strong>{completions}</strong>'
+        "descrittori completati</div>"
+        f'<div class="journey-metric"><strong>{len(events)}</strong>'
+        "eventi immutabili</div>"
+        f'<div class="journey-metric"><strong>{len(issues)}</strong>'
+        "segnalazioni di integrità</div>"
+        "</div></section>"
+    )
+
+
+def _parse_date_boundary(
+    value: str | float | datetime | None, *, end: bool
+) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, (float, int)):
+        parsed = datetime.fromtimestamp(value, tz=timezone.utc)
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value))
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(
+            tzinfo=ROME,
+            hour=23 if end else 0,
+            minute=59 if end else 0,
+            second=59 if end else 0,
+        )
+    return parsed.astimezone(timezone.utc)
+
+
+def _in_period(
+    timestamp: str,
+    start_value: str | float | datetime | None,
+    end_value: str | float | datetime | None,
+) -> bool:
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    start = _parse_date_boundary(start_value, end=False)
+    end = _parse_date_boundary(end_value, end=True)
+    return (not start or parsed >= start) and (not end or parsed <= end)
+
+
+def researcher_detail(
+    research_state: dict[str, Any],
+    participant: str | None,
+    scale_value: str,
+    date_from: str | float | datetime | None,
+    date_to: str | float | datetime | None,
+):
+    if not _research_authorized(research_state):
+        return "", [], [], [], "Accesso ricercatore non autorizzato."
+    if not participant:
+        return "", [], [], [], "Seleziona un partecipante."
+    try:
+        participant_record = STORE.get_participant(participant)
+        all_events = STORE.list_events(participant)
+    except EventStoreError as exc:
+        return "", [], [], [], f"Archivio non disponibile: {exc}"
+    if not participant_record:
+        return "", [], [], [], "Partecipante non trovato."
+
+    sessions = session_records(all_events, CATALOG)
+    histories = descriptor_history(all_events, CATALOG)
+    selected_path = _decode_path(scale_value) if scale_value != "all" else None
+    if selected_path:
+        sessions = [
+            row
+            for row in sessions
+            if (
+                row["schema"],
+                row["modality"],
+                row["activity"],
+                row["scale"],
+            )
+            == selected_path
+        ]
+        histories = [
+            row
+            for row in histories
+            if (
+                row["schema"],
+                row["modality"],
+                row["activity"],
+                row["scale"],
+            )
+            == selected_path
+        ]
+    sessions = [
+        row
+        for row in sessions
+        if _in_period(row["started_at"], date_from, date_to)
+    ]
+    histories = [
+        row
+        for row in histories
+        if _in_period(row["occurred_at"], date_from, date_to)
+    ]
+    session_ids = {row["session_id"] for row in sessions}
+    filtered_events = [
+        event
+        for event in all_events
+        if _in_period(event.get("occurred_at", ""), date_from, date_to)
+        and (
+            not selected_path
+            or event.get("session_id") in session_ids
+            or event.get("event_type")
+            in {
+                "consent_recorded",
+                "participant_accessed",
+                "access_code_issued",
+                "access_code_reset",
+            }
+        )
+    ]
+    first_count = sum(row["outcome"] == "first" for row in histories)
+    summary_html = _progress_html(
+        f"Percorso di {participant_record['display_name']}",
+        Counter(row["outcome"] for row in histories),
+        len(histories),
+        primary_count=first_count,
+        primary_label="esiti al primo tentativo nel filtro",
+        subtitle=(
+            f"Profilo {participant[:10]}… · codice percorso "
+            f"{'attivo' if participant_record.get('access_code_hash') else 'non ancora attivo'}"
+        ),
+    )
+    session_rows = [
+        [
+            row["session_id"],
+            row["scale"],
+            row["status_label"],
+            exact_timestamp(row["started_at"]),
+            exact_timestamp(row["completed_at"]),
+            row["duration_seconds"],
+            row["descriptors_completed"],
+            row["first"],
+            row["second"],
+            row["third"],
+            row["unresolved"],
+            f"{row['first_attempt_rate']:.1f}%",
+            row["content_revision"],
+            row["app_version"],
+        ]
+        for row in sessions
+    ]
+    history_rows = [
+        [
+            exact_timestamp(row["occurred_at"]),
+            row["session_id"],
+            row["scale"],
+            row["descriptor_id"],
+            row["level"],
+            row["attempts_text"],
+            row["outcome_label"],
+            row["first_response_distance"],
+            row["exposure_number"],
+            (
+                round(row["response_time_ms"] / 1000, 2)
+                if row.get("response_time_ms") is not None
+                else None
+            ),
+            row["descriptor_text"],
+        ]
+        for row in sorted(histories, key=lambda item: item["occurred_at"], reverse=True)
+    ]
+    raw_rows = [
+        [
+            exact_timestamp(event.get("occurred_at")),
+            event.get("event_type", ""),
+            event.get("session_id", ""),
+            event.get("descriptor_id", ""),
+            event.get("attempt_number"),
+            event.get("selected_level", ""),
+            event.get("correct_level", ""),
+            event.get("is_correct"),
+            event.get("error_distance"),
+            event.get("response_time_ms"),
+            event.get("feedback_text") or event.get("rationale", ""),
+            event.get("schema_version", ""),
+            event.get("content_revision", ""),
+            event.get("app_version", ""),
+            event.get("event_id", ""),
+        ]
+        for event in sorted(
+            filtered_events,
+            key=lambda item: item.get("occurred_at", ""),
+            reverse=True,
+        )
+    ]
+    return summary_html, session_rows, history_rows, raw_rows, ""
+
+
+def researcher_reset_code(
+    research_state: dict[str, Any], participant: str | None
+):
+    if not _research_authorized(research_state):
+        return "Accesso ricercatore non autorizzato."
+    if not participant:
+        return "Seleziona un partecipante."
+    new_code = generate_access_code()
+    try:
+        STORE.set_access_code(
+            participant,
+            access_code_hash(
+                new_code, participant, SETTINGS.effective_hash_salt
+            ),
+        )
+    except (EventStoreError, IdentityError) as exc:
+        return f"Codice non aggiornato: {exc}"
+    warning = ""
+    try:
+        SESSIONS.record_access_code_event(participant, "access_code_reset")
+    except EventStoreError as exc:
+        warning = (
+            "<br><strong>Attenzione:</strong> il codice è stato sostituito, "
+            f"ma l’evento di reset non è stato registrato: {html.escape(str(exc))}"
+        )
+    try:
+        record = STORE.get_participant(participant) or {}
+    except EventStoreError:
+        record = {}
+    return (
+        '<div class="code-notice"><strong>Nuovo codice per '
+        f"{html.escape(str(record.get('display_name', 'partecipante')))}</strong><br>"
+        f"<code>{html.escape(new_code)}</code><br>"
+        "Comunicalo direttamente alla persona. Il codice precedente non è più valido."
+        f"{warning}"
+        "</div>"
+    )
+
+
+def refresh_research_export(research_state: dict[str, Any]):
+    if not _research_authorized(research_state):
+        return None, "Accesso ricercatore non autorizzato."
     try:
         participants = STORE.list_participants()
         events = STORE.list_events()
+        return build_research_export(participants, events, CATALOG), (
+            "Esportazione aggiornata. Contiene CSV derivati, eventi JSONL "
+            "originali, manifest e controllo d’integrità."
+        )
     except EventStoreError as exc:
-        return f"Archivio non disponibile: {exc}", []
-
-    by_participant: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for event in events:
-        by_participant[str(event.get("participant_id_hash", ""))].append(event)
-
-    rows: list[list[Any]] = []
-    for participant in participants:
-        participant_events = by_participant.get(participant["participant_id"], [])
-        starts = sum(
-            event.get("event_type") == "session_started"
-            for event in participant_events
-        )
-        completed = sum(
-            event.get("event_type") == "session_completed"
-            for event in participant_events
-        )
-        last_activity = max(
-            (event.get("occurred_at", "") for event in participant_events),
-            default=participant.get("updated_at", ""),
-        )
-        rows.append(
-            [
-                participant["display_name"],
-                starts,
-                completed,
-                max(starts - completed, 0),
-                last_activity[:19].replace("T", " "),
-            ]
-        )
-    return f"Partecipanti trovati: **{len(rows)}**", rows
+        return None, f"Esportazione non riuscita: {exc}"
 
 
 def build_demo() -> gr.Blocks:
     schemas, schema, modality, activity, scale = _first_path_values()
-    with gr.Blocks(
-        title="FamiliarizzApp",
-    ) as demo:
+    first_scale_selector = _scale_selector_data(schema, modality)
+    with gr.Blocks(title="FamiliarizzApp") as demo:
         ui_state = gr.State(_empty_ui_state())
+        researcher_state = gr.State({"authorized": False})
+        browser_identity = gr.BrowserState(
+            _empty_browser_identity(),
+            storage_key="familiarizzapp-personal-journey",
+            secret=SETTINGS.effective_hash_salt,
+        )
         gr.HTML(
             """
             <section class="hero">
@@ -703,9 +2227,9 @@ def build_demo() -> gr.Blocks:
             with gr.Tab("Il mio percorso"):
                 with gr.Group(visible=True) as login_group:
                     gr.Markdown(
-                        "## Inizia dal tuo nome\n"
-                        "Il nome permette di ritrovare il percorso, ma non "
-                        "costituisce un sistema di autenticazione."
+                        "## Apri il tuo percorso\n"
+                        "Nome, cognome e codice personale permettono di "
+                        "ritrovare in modo affidabile la propria cronologia."
                     )
                     with gr.Row():
                         first_name = gr.Textbox(
@@ -717,6 +2241,28 @@ def build_demo() -> gr.Blocks:
                             label="Cognome",
                             placeholder="Es. Rossi",
                             max_length=80,
+                        )
+                    journey_code = gr.Textbox(
+                        label="Codice percorso",
+                        placeholder="Lascialo vuoto soltanto al primo accesso",
+                        info=(
+                            "Viene creato automaticamente al primo accesso e "
+                            "ricordato su questo browser."
+                        ),
+                        max_length=20,
+                    )
+                    with gr.Accordion(
+                        "Caso particolare: omonimia", open=False
+                    ):
+                        separate_profile = gr.Checkbox(
+                            label=(
+                                "Sono una persona diversa con lo stesso nome e "
+                                "cognome e devo creare un percorso separato."
+                            ),
+                            info=(
+                                "Non selezionare questa opzione se hai soltanto "
+                                "perso il codice: chiedine il reset al ricercatore."
+                            ),
                         )
                     consent = gr.Checkbox(
                         label=(
@@ -730,10 +2276,48 @@ def build_demo() -> gr.Blocks:
 
                 with gr.Group(visible=False) as dashboard_group:
                     greeting = gr.Markdown()
-                    progress_dashboard = gr.Markdown()
-                    with gr.Accordion(
-                        "Riprendi una sessione", open=False
-                    ):
+                    code_notice = gr.HTML()
+                    progress_dashboard = gr.HTML()
+
+                    gr.Markdown("### Esplora la tua mappa")
+                    with gr.Row():
+                        personal_scale_choice = gr.Dropdown(
+                            choices=_scale_choices(),
+                            label="Scala da esplorare",
+                        )
+                        personal_filter = gr.Radio(
+                            choices=[
+                                ("Mostra tutto", "all"),
+                                ("Concentrati", "focus"),
+                                ("Da rivedere", "unresolved"),
+                                ("Mai incontrati", "unseen"),
+                            ],
+                            value="all",
+                            label="Filtro",
+                        )
+                    personal_scale_summary = gr.HTML()
+                    personal_map = gr.HTML(
+                        [],
+                        html_template=MAP_TEMPLATE,
+                        js_on_load=MAP_JS,
+                    )
+                    personal_detail = gr.Markdown()
+                    with gr.Accordion("Sessioni precedenti", open=False):
+                        personal_sessions = gr.Dataframe(
+                            headers=[
+                                "Quando",
+                                "Scala",
+                                "Stato",
+                                "Descrittori",
+                                "Senza suggerimenti",
+                            ],
+                            datatype=["str", "str", "str", "str", "str"],
+                            interactive=False,
+                            wrap=True,
+                            show_search="filter",
+                        )
+
+                    with gr.Accordion("Riprendi una sessione", open=False):
                         resume_choice = gr.Dropdown(
                             choices=[],
                             label="Sessione da riprendere",
@@ -741,34 +2325,57 @@ def build_demo() -> gr.Blocks:
                         )
                         resume_button = gr.Button("Riprendi")
 
-                    gr.Markdown("### Inizia una nuova sessione")
-                    schema_choice = gr.Dropdown(
-                        choices=schemas,
-                        value=schema,
-                        label="Schema descrittivo",
+                    gr.Markdown("## Scegli una nuova scala")
+                    gr.Markdown(
+                        "Le categorie colorate sono disponibili. Quelle "
+                        "attenuate non sono ancora presenti nel catalogo usato."
                     )
-                    modality_choice = gr.Dropdown(
-                        choices=CATALOG.choices("modality", schema=schema),
-                        value=modality,
-                        label="Modalità di comunicazione",
+                    taxonomy = gr.HTML(
+                        _taxonomy_data(),
+                        html_template=TAXONOMY_TEMPLATE,
+                        js_on_load=TAXONOMY_JS,
                     )
-                    activity_choice = gr.Dropdown(
-                        choices=CATALOG.choices(
-                            "activity", schema=schema, modality=modality
-                        ),
-                        value=activity,
-                        label="Attività, strategia o competenza",
+                    path_selection_message = gr.Markdown()
+                    scale_selector = gr.HTML(
+                        first_scale_selector,
+                        html_template=SCALE_SELECTOR_TEMPLATE,
+                        js_on_load=SCALE_SELECTOR_JS,
                     )
-                    scale_choice = gr.Dropdown(
-                        choices=CATALOG.choices(
-                            "scale",
-                            schema=schema,
-                            modality=modality,
-                            activity=activity,
-                        ),
-                        value=scale,
-                        label="Scala",
-                    )
+
+                    with gr.Accordion(
+                        "Selezione testuale accessibile", open=False
+                    ):
+                        schema_choice = gr.Dropdown(
+                            choices=schemas,
+                            value=schema,
+                            label="Schema descrittivo",
+                        )
+                        modality_choice = gr.Dropdown(
+                            choices=CATALOG.choices(
+                                "modality", schema=schema
+                            ),
+                            value=modality,
+                            label="Modalità di comunicazione",
+                        )
+                        activity_choice = gr.Dropdown(
+                            choices=CATALOG.choices(
+                                "activity",
+                                schema=schema,
+                                modality=modality,
+                            ),
+                            value=activity,
+                            label="Attività, strategia o competenza",
+                        )
+                        scale_choice = gr.Dropdown(
+                            choices=CATALOG.choices(
+                                "scale",
+                                schema=schema,
+                                modality=modality,
+                                activity=activity,
+                            ),
+                            value=scale,
+                            label="Scala",
+                        )
                     with gr.Row():
                         start_button = gr.Button(
                             "Inizia la sessione", variant="primary"
@@ -796,7 +2403,40 @@ def build_demo() -> gr.Blocks:
                         )
 
                 with gr.Group(visible=False) as summary_group:
-                    summary = gr.Markdown()
+                    summary_stats = gr.HTML()
+                    gr.Markdown(
+                        "### Apri i descrittori per esito\n"
+                        "I numeri sono pulsanti: selezionandoli ritrovi i "
+                        "descrittori corrispondenti."
+                    )
+                    with gr.Row():
+                        first_summary_button = gr.Button("1° tentativo · 0")
+                        second_summary_button = gr.Button("2° tentativo · 0")
+                        third_summary_button = gr.Button("3° tentativo · 0")
+                        unresolved_summary_button = gr.Button("Da rivedere · 0")
+                    with gr.Row():
+                        summary_all_button = gr.Button("Mostra tutto")
+                        summary_focus_button = gr.Button("Concentrati")
+                        summary_level_filter = gr.Dropdown(
+                            choices=[],
+                            label="Livello target",
+                        )
+                    summary_map = gr.HTML(
+                        [],
+                        html_template=MAP_TEMPLATE,
+                        js_on_load=MAP_JS,
+                    )
+                    summary_detail = gr.Markdown()
+                    repeat_choices = gr.CheckboxGroup(
+                        choices=[],
+                        visible=False,
+                        label="Descrittori da ripetere",
+                    )
+                    repeat_button = gr.Button(
+                        "Ripeti i descrittori selezionati",
+                        visible=False,
+                        variant="primary",
+                    )
                     dashboard_button = gr.Button(
                         "Torna al mio percorso", variant="primary"
                     )
@@ -814,41 +2454,241 @@ def build_demo() -> gr.Blocks:
                 )
                 researcher_button = gr.Button("Apri panoramica")
                 researcher_message = gr.Markdown()
-                researcher_table = gr.Dataframe(
-                    headers=[
-                        "Partecipante",
-                        "Sessioni iniziate",
-                        "Sessioni completate",
-                        "Sessioni in corso",
-                        "Ultima attività (UTC)",
-                    ],
-                    datatype=["str", "number", "number", "number", "str"],
-                    interactive=False,
-                    wrap=True,
-                )
+                with gr.Group(visible=False) as researcher_content:
+                    researcher_global = gr.HTML()
+                    researcher_table = gr.Dataframe(
+                        headers=[
+                            "Partecipante",
+                            "Codice attivo",
+                            "Sessioni iniziate",
+                            "Sessioni completate",
+                            "Sessioni in corso",
+                            "Descrittori incontrati",
+                            "% attuale senza suggerimenti",
+                            "Ultima attività",
+                        ],
+                        datatype=[
+                            "str",
+                            "str",
+                            "number",
+                            "number",
+                            "number",
+                            "number",
+                            "str",
+                            "str",
+                        ],
+                        interactive=False,
+                        wrap=True,
+                        show_search="filter",
+                    )
+                    gr.Markdown("### Percorso individuale")
+                    with gr.Row():
+                        researcher_participant = gr.Dropdown(
+                            choices=[],
+                            label="Partecipante",
+                        )
+                        researcher_scale = gr.Dropdown(
+                            choices=[("Tutte le scale", "all")],
+                            value="all",
+                            label="Scala",
+                        )
+                    with gr.Row():
+                        researcher_from = gr.DateTime(
+                            label="Dal giorno",
+                            include_time=False,
+                            type="string",
+                            timezone="Europe/Rome",
+                        )
+                        researcher_to = gr.DateTime(
+                            label="Al giorno",
+                            include_time=False,
+                            type="string",
+                            timezone="Europe/Rome",
+                        )
+                        researcher_refresh = gr.Button("Applica filtri")
+                    researcher_personal_summary = gr.HTML()
+                    researcher_detail_message = gr.Markdown()
+                    with gr.Accordion("Sessioni", open=True):
+                        researcher_sessions = gr.Dataframe(
+                            headers=[
+                                "ID sessione",
+                                "Scala",
+                                "Stato",
+                                "Inizio esatto",
+                                "Fine esatta",
+                                "Durata s",
+                                "Completati",
+                                "1°",
+                                "2°",
+                                "3°",
+                                "Non risolti",
+                                "% 1°",
+                                "Revisione catalogo",
+                                "Versione app",
+                            ],
+                            interactive=False,
+                            wrap=True,
+                            show_search="filter",
+                        )
+                    with gr.Accordion("Cronologia dei descrittori", open=True):
+                        researcher_descriptors = gr.Dataframe(
+                            headers=[
+                                "Quando",
+                                "ID sessione",
+                                "Scala",
+                                "ID descrittore",
+                                "Target",
+                                "Risposte",
+                                "Esito",
+                                "Distanza iniziale",
+                                "Esposizione n.",
+                                "Tempo risposta s",
+                                "Descrittore",
+                            ],
+                            interactive=False,
+                            wrap=True,
+                            show_search="filter",
+                        )
+                    with gr.Accordion("Registro completo degli eventi", open=False):
+                        researcher_events = gr.Dataframe(
+                            headers=[
+                                "Timestamp esatto",
+                                "Tipo",
+                                "Sessione",
+                                "Descrittore",
+                                "Tentativo",
+                                "Scelta",
+                                "Corretto",
+                                "Esito",
+                                "Distanza",
+                                "Tempo ms",
+                                "Feedback o motivazione",
+                                "Schema dati",
+                                "Revisione contenuti",
+                                "Versione app",
+                                "ID evento",
+                            ],
+                            interactive=False,
+                            wrap=True,
+                            show_search="filter",
+                        )
+                    with gr.Accordion("Integrità e backup", open=False):
+                        researcher_integrity = gr.Dataframe(
+                            headers=["Gravità", "Ambito", "Messaggio"],
+                            interactive=False,
+                            wrap=True,
+                        )
+                        with gr.Row():
+                            researcher_export = gr.DownloadButton(
+                                "Scarica archivio completo"
+                            )
+                            researcher_export_refresh = gr.Button(
+                                "Rigenera esportazione"
+                            )
+                        researcher_export_message = gr.Markdown()
+                    with gr.Accordion(
+                        "Recupero del codice personale", open=False
+                    ):
+                        gr.Markdown(
+                            "Usa questa funzione soltanto se il partecipante "
+                            "ha perso il codice. L’operazione viene registrata "
+                            "e rende invalido il codice precedente."
+                        )
+                        reset_code_button = gr.Button(
+                            "Genera un nuovo codice"
+                        )
+                        reset_code_result = gr.HTML()
 
+        demo.load(
+            prefill_identity,
+            inputs=browser_identity,
+            outputs=[first_name, last_name, journey_code],
+        )
         identify_button.click(
             identify_participant,
-            inputs=[first_name, last_name, consent, ui_state],
+            inputs=[
+                first_name,
+                last_name,
+                journey_code,
+                separate_profile,
+                consent,
+                ui_state,
+            ],
             outputs=[
                 ui_state,
+                browser_identity,
                 login_group,
                 dashboard_group,
                 greeting,
+                code_notice,
                 progress_dashboard,
+                personal_scale_choice,
+                personal_scale_summary,
+                personal_map,
+                personal_sessions,
                 resume_choice,
+                personal_detail,
                 user_message,
+            ],
+        )
+        personal_scale_choice.change(
+            update_personal_path,
+            inputs=[ui_state, personal_scale_choice, personal_filter],
+            outputs=[
+                personal_scale_summary,
+                personal_map,
+                personal_detail,
+            ],
+        )
+        personal_filter.change(
+            update_personal_path,
+            inputs=[ui_state, personal_scale_choice, personal_filter],
+            outputs=[
+                personal_scale_summary,
+                personal_map,
+                personal_detail,
+            ],
+        )
+        personal_map.click(
+            personal_descriptor_click,
+            inputs=ui_state,
+            outputs=personal_detail,
+        )
+        taxonomy.click(
+            navigation_click,
+            outputs=[
+                scale_selector,
+                schema_choice,
+                modality_choice,
+                activity_choice,
+                scale_choice,
+                path_selection_message,
+            ],
+        )
+        scale_selector.click(
+            scale_selector_click,
+            outputs=[
+                schema_choice,
+                modality_choice,
+                activity_choice,
+                scale_choice,
+                path_selection_message,
             ],
         )
         schema_choice.change(
             update_schema,
             inputs=schema_choice,
-            outputs=[modality_choice, activity_choice, scale_choice],
+            outputs=[
+                modality_choice,
+                activity_choice,
+                scale_choice,
+                scale_selector,
+            ],
         )
         modality_choice.change(
             update_modality,
             inputs=[schema_choice, modality_choice],
-            outputs=[activity_choice, scale_choice],
+            outputs=[activity_choice, scale_choice, scale_selector],
         )
         activity_choice.change(
             update_activity,
@@ -915,9 +2755,48 @@ def build_demo() -> gr.Blocks:
                 feedback,
                 submit_button,
                 continue_button,
-                summary,
+                summary_stats,
+                first_summary_button,
+                second_summary_button,
+                third_summary_button,
+                unresolved_summary_button,
+                summary_level_filter,
+                summary_map,
+                repeat_choices,
+                repeat_button,
                 user_message,
             ],
+        )
+
+        def bind_summary_filter(button, outcome):
+            button.click(
+                lambda state, level: filter_summary_map(
+                    state, outcome, level or "all"
+                ),
+                inputs=[ui_state, summary_level_filter],
+                outputs=[ui_state, summary_map, summary_detail],
+            )
+
+        bind_summary_filter(first_summary_button, "first")
+        bind_summary_filter(second_summary_button, "second")
+        bind_summary_filter(third_summary_button, "third")
+        bind_summary_filter(unresolved_summary_button, "unresolved")
+        bind_summary_filter(summary_all_button, "all")
+        bind_summary_filter(summary_focus_button, "focus")
+        summary_level_filter.change(
+            filter_summary_level,
+            inputs=[ui_state, summary_level_filter],
+            outputs=[ui_state, summary_map, summary_detail],
+        )
+        summary_map.click(
+            summary_descriptor_click,
+            inputs=ui_state,
+            outputs=summary_detail,
+        )
+        repeat_button.click(
+            repeat_selected_descriptors,
+            inputs=[ui_state, repeat_choices],
+            outputs=exercise_outputs,
         )
         dashboard_button.click(
             back_to_dashboard,
@@ -927,7 +2806,12 @@ def build_demo() -> gr.Blocks:
                 dashboard_group,
                 summary_group,
                 progress_dashboard,
+                personal_scale_choice,
+                personal_scale_summary,
+                personal_map,
+                personal_sessions,
                 resume_choice,
+                personal_detail,
                 user_message,
             ],
         )
@@ -935,20 +2819,95 @@ def build_demo() -> gr.Blocks:
             logout,
             outputs=[
                 ui_state,
+                browser_identity,
                 login_group,
                 dashboard_group,
                 exercise_group,
                 summary_group,
                 first_name,
                 last_name,
+                journey_code,
+                separate_profile,
                 consent,
+                code_notice,
                 user_message,
             ],
         )
+
         researcher_button.click(
-            researcher_overview,
+            researcher_login,
             inputs=researcher_key,
-            outputs=[researcher_message, researcher_table],
+            outputs=[
+                researcher_state,
+                researcher_content,
+                researcher_message,
+                researcher_global,
+                researcher_table,
+                researcher_participant,
+                researcher_scale,
+                researcher_export,
+                researcher_integrity,
+            ],
+        ).then(
+            researcher_detail,
+            inputs=[
+                researcher_state,
+                researcher_participant,
+                researcher_scale,
+                researcher_from,
+                researcher_to,
+            ],
+            outputs=[
+                researcher_personal_summary,
+                researcher_sessions,
+                researcher_descriptors,
+                researcher_events,
+                researcher_detail_message,
+            ],
+        )
+        researcher_refresh.click(
+            researcher_detail,
+            inputs=[
+                researcher_state,
+                researcher_participant,
+                researcher_scale,
+                researcher_from,
+                researcher_to,
+            ],
+            outputs=[
+                researcher_personal_summary,
+                researcher_sessions,
+                researcher_descriptors,
+                researcher_events,
+                researcher_detail_message,
+            ],
+        )
+        researcher_participant.change(
+            researcher_detail,
+            inputs=[
+                researcher_state,
+                researcher_participant,
+                researcher_scale,
+                researcher_from,
+                researcher_to,
+            ],
+            outputs=[
+                researcher_personal_summary,
+                researcher_sessions,
+                researcher_descriptors,
+                researcher_events,
+                researcher_detail_message,
+            ],
+        )
+        reset_code_button.click(
+            researcher_reset_code,
+            inputs=[researcher_state, researcher_participant],
+            outputs=reset_code_result,
+        )
+        researcher_export_refresh.click(
+            refresh_research_export,
+            inputs=researcher_state,
+            outputs=[researcher_export, researcher_export_message],
         )
 
     return demo

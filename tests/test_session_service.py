@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.catalog import Catalog
+from src.catalog import Catalog, DEMO_CEFR_LEVELS
 from src.event_store import EventStoreError, LocalEventStore
 from src.session_service import SessionService
 
@@ -17,7 +17,11 @@ def sample_catalog() -> Catalog:
         / "data"
         / "catalog.sample.json"
     )
-    return Catalog.from_json(path)
+    return Catalog.from_json(
+        path,
+        allowed_statuses=("demo",),
+        allowed_levels=DEMO_CEFR_LEVELS,
+    )
 
 
 def make_service(tmp_path: Path):
@@ -25,10 +29,10 @@ def make_service(tmp_path: Path):
     store = LocalEventStore(tmp_path)
     service = SessionService(catalog, store, "test", "demo")
     descriptors = catalog.for_scale(
-        "Strategie linguistico-comunicative",
-        "Interazione",
-        "Gestione dell’interazione",
-        "Alternarsi nei turni di parola",
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
     )
     return catalog, store, service, descriptors
 
@@ -111,3 +115,77 @@ def test_failed_write_does_not_consume_attempt(tmp_path: Path, monkeypatch):
 
     assert state["attempts"] == []
     assert state["descriptor_finished"] is False
+
+
+def test_longitudinal_events_preserve_snapshot_distance_and_timing(
+    tmp_path: Path,
+):
+    _, store, service, descriptors = make_service(tmp_path)
+    state = service.start_session("participant", "Nome Privato", descriptors[:1])
+    wrong = wrong_level(service, state)
+
+    first = service.submit_answer(state, wrong)
+    correct = service.current_descriptor(first)["correct_level"]
+    completed = service.submit_answer(first, correct)
+    finished = service.advance(completed)
+
+    assert finished["session_finished"] is True
+    events = store.list_events("participant")
+    presented = next(
+        event for event in events if event["event_type"] == "descriptor_presented"
+    )
+    first_answer = next(
+        event
+        for event in events
+        if event["event_type"] == "answer_submitted"
+        and event["attempt_number"] == 1
+    )
+    completion = next(
+        event for event in events if event["event_type"] == "descriptor_completed"
+    )
+    session_completion = next(
+        event for event in events if event["event_type"] == "session_completed"
+    )
+
+    assert presented["schema_version"] == "2.0"
+    assert presented["descriptor_text"]
+    assert presented["content_version"]
+    assert presented["exposure_number"] == 1
+    assert first_answer["error_distance"] >= 1
+    assert first_answer["response_time_ms"] >= 0
+    assert completion["first_response_distance"] == first_answer["error_distance"]
+    assert completion["resolved_on_attempt"] == 2
+    assert session_completion["first_attempt_rate"] == 0
+    assert session_completion["duration_seconds"] >= 0
+
+
+def test_repeated_descriptor_gets_incremented_exposure_number(tmp_path: Path):
+    _, store, service, descriptors = make_service(tmp_path)
+    first = service.start_session("participant", "Nome Privato", descriptors[:1])
+    correct = service.current_descriptor(first)["correct_level"]
+    first = service.submit_answer(first, correct)
+    service.advance(first)
+
+    second = service.start_session("participant", "Nome Privato", descriptors[:1])
+    second_presented = [
+        event
+        for event in store.list_events("participant")
+        if event["event_type"] == "descriptor_presented"
+        and event["session_id"] == second["session_id"]
+    ][0]
+
+    assert second_presented["exposure_number"] == 2
+
+
+def test_access_events_are_append_only_and_do_not_contain_name(tmp_path: Path):
+    _, store, service, _ = make_service(tmp_path)
+
+    service.record_participant_access("participant", "name_and_personal_code")
+    service.record_access_code_event("participant", "access_code_reset")
+
+    events = store.list_events("participant")
+    assert [event["event_type"] for event in events] == [
+        "participant_accessed",
+        "access_code_reset",
+    ]
+    assert "Nome Privato" not in json.dumps(events, ensure_ascii=False)

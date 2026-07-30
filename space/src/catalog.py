@@ -8,7 +8,8 @@ from typing import Any, Iterable
 from .settings import Settings
 
 
-CEFR_LEVELS = ["A1", "A2", "A2+", "B1", "B1+", "B2", "C1", "C2"]
+PILOT_CEFR_LEVELS = ["A1", "A2", "A2+", "B1", "B1+", "B2"]
+DEMO_CEFR_LEVELS = [*PILOT_CEFR_LEVELS, "C1", "C2"]
 
 REQUIRED_FIELDS = {
     "descriptor_id",
@@ -43,9 +44,21 @@ class CatalogLoadResult:
 
 
 class Catalog:
-    def __init__(self, descriptors: Iterable[dict[str, Any]]):
+    def __init__(
+        self,
+        descriptors: Iterable[dict[str, Any]],
+        *,
+        allowed_statuses: Iterable[str] = ("approved",),
+        allowed_levels: Iterable[str] = PILOT_CEFR_LEVELS,
+    ):
         validated: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
+        status_filter = {
+            str(status).strip().casefold() for status in allowed_statuses
+        }
+        level_order = [
+            str(level).strip().upper() for level in allowed_levels
+        ]
         for raw in descriptors:
             missing = REQUIRED_FIELDS.difference(raw)
             if missing:
@@ -61,18 +74,19 @@ class Catalog:
             seen_ids.add(descriptor_id)
             item["descriptor_id"] = descriptor_id
             item["correct_level"] = str(item["correct_level"]).strip().upper()
-            if item["correct_level"] not in CEFR_LEVELS:
+            if item["correct_level"] not in level_order:
                 raise CatalogError(
                     f"Livello CEFR non valido per {descriptor_id}: "
                     f"{item['correct_level']}"
                 )
+            item["status"] = str(item["status"]).strip().casefold()
             if not isinstance(item["active"], bool):
                 raise CatalogError(
                     f"Il campo active deve essere booleano per {descriptor_id}."
                 )
             if (
                 item["active"]
-                and str(item["status"]).strip().lower() == "approved"
+                and item["status"] in status_filter
                 and str(item["scale"]).strip()
                 and str(item["descriptor_text"]).strip()
                 and str(item["descriptor_text"]).strip().casefold()
@@ -83,16 +97,27 @@ class Catalog:
             raise CatalogError("Il catalogo non contiene descrittori utilizzabili.")
         self._descriptors = validated
         self._by_id = {item["descriptor_id"]: item for item in validated}
+        self._level_order = level_order
 
     @classmethod
-    def from_json(cls, path: Path) -> "Catalog":
+    def from_json(
+        cls,
+        path: Path,
+        *,
+        allowed_statuses: Iterable[str] = ("approved",),
+        allowed_levels: Iterable[str] = PILOT_CEFR_LEVELS,
+    ) -> "Catalog":
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise CatalogError(f"Impossibile leggere il catalogo: {exc}") from exc
         if not isinstance(payload, list):
             raise CatalogError("Il catalogo deve essere una lista JSON.")
-        return cls(payload)
+        return cls(
+            payload,
+            allowed_statuses=allowed_statuses,
+            allowed_levels=allowed_levels,
+        )
 
     def get(self, descriptor_id: str) -> dict[str, Any]:
         try:
@@ -102,6 +127,10 @@ class Catalog:
 
     def all(self) -> list[dict[str, Any]]:
         return [dict(item) for item in self._descriptors]
+
+    @property
+    def level_order(self) -> list[str]:
+        return list(self._level_order)
 
     def choices(
         self,
@@ -136,7 +165,18 @@ class Catalog:
 
     def levels_for(self, descriptor_ids: list[str]) -> list[str]:
         levels = {self._by_id[item_id]["correct_level"] for item_id in descriptor_ids}
-        return [level for level in CEFR_LEVELS if level in levels]
+        return [level for level in self._level_order if level in levels]
+
+    def level_distance(self, first: str, second: str) -> int:
+        try:
+            return abs(
+                self._level_order.index(str(first).strip().upper())
+                - self._level_order.index(str(second).strip().upper())
+            )
+        except ValueError as exc:
+            raise CatalogError(
+                f"Impossibile calcolare la distanza tra {first!r} e {second!r}."
+            ) from exc
 
 
 def load_catalog(settings: Settings) -> CatalogLoadResult:
@@ -152,7 +192,11 @@ def load_catalog(settings: Settings) -> CatalogLoadResult:
                 token=settings.hf_data_token or None,
             )
             return CatalogLoadResult(
-                catalog=Catalog.from_json(Path(path)),
+                catalog=Catalog.from_json(
+                    Path(path),
+                    allowed_statuses=("approved",),
+                    allowed_levels=PILOT_CEFR_LEVELS,
+                ),
                 source_label=(
                     f"{settings.content_repo_id}@{settings.content_revision}"
                 ),
@@ -166,7 +210,11 @@ def load_catalog(settings: Settings) -> CatalogLoadResult:
 
     sample_path = settings.base_dir / "data" / "catalog.sample.json"
     return CatalogLoadResult(
-        catalog=Catalog.from_json(sample_path),
-        source_label="catalogo dimostrativo incluso",
+        catalog=Catalog.from_json(
+            sample_path,
+            allowed_statuses=("demo",),
+            allowed_levels=DEMO_CEFR_LEVELS,
+        ),
+        source_label="catalogo dimostrativo 2.0 incluso",
         is_demo=True,
     )

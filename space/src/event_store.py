@@ -24,8 +24,24 @@ class EventStore(ABC):
 
     @abstractmethod
     def register_participant(
-        self, participant_id: str, display_name: str
-    ) -> None:
+        self,
+        participant_id: str,
+        display_name: str,
+        access_code_hash: str | None = None,
+        name_lookup_hash: str | None = None,
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_participant(
+        self, participant_id: str
+    ) -> dict[str, Any] | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_access_code(
+        self, participant_id: str, access_code_hash: str
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -51,26 +67,54 @@ class LocalEventStore(EventStore):
         self.events_dir = root / "events"
 
     def register_participant(
-        self, participant_id: str, display_name: str
-    ) -> None:
+        self,
+        participant_id: str,
+        display_name: str,
+        access_code_hash: str | None = None,
+        name_lookup_hash: str | None = None,
+    ) -> dict[str, Any]:
         self.participants_dir.mkdir(parents=True, exist_ok=True)
         target = self.participants_dir / f"{participant_id}.json"
-        existing: dict[str, Any] = {}
-        if target.exists():
-            try:
-                existing = json.loads(target.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                existing = {}
-        now = utc_now()
-        record = {
-            "participant_id": participant_id,
-            "display_name": display_name,
-            "created_at": existing.get("created_at", now),
-            "updated_at": now,
-            "status": existing.get("status", "active"),
-            "merged_into": existing.get("merged_into"),
-        }
+        existing = self.get_participant(participant_id) or {}
+        record = _participant_record(
+            participant_id,
+            display_name,
+            existing,
+            access_code_hash=access_code_hash,
+            name_lookup_hash=name_lookup_hash,
+        )
         _atomic_write_json(target, record)
+        return record
+
+    def get_participant(
+        self, participant_id: str
+    ) -> dict[str, Any] | None:
+        target = self.participants_dir / f"{participant_id}.json"
+        if not target.exists():
+            return None
+        try:
+            return json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise EventStoreError(
+                f"Registro partecipante illeggibile: {target.name}: {exc}"
+            ) from exc
+
+    def set_access_code(
+        self, participant_id: str, access_code_hash: str
+    ) -> dict[str, Any]:
+        existing = self.get_participant(participant_id)
+        if not existing:
+            raise EventStoreError("Partecipante non trovato.")
+        record = {
+            **existing,
+            "access_code_hash": access_code_hash,
+            "access_code_version": "1",
+            "access_code_updated_at": utc_now(),
+            "updated_at": utc_now(),
+        }
+        target = self.participants_dir / f"{participant_id}.json"
+        _atomic_write_json(target, record)
+        return record
 
     def append_events(self, events: list[dict[str, Any]]) -> None:
         staged: list[tuple[Path, Path]] = []
@@ -113,8 +157,10 @@ class LocalEventStore(EventStore):
         for path in self.events_dir.rglob("*.json"):
             try:
                 event = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
+            except (OSError, json.JSONDecodeError) as exc:
+                raise EventStoreError(
+                    f"Evento illeggibile: {path}: {exc}"
+                ) from exc
             if (
                 participant_id is None
                 or event.get("participant_id_hash") == participant_id
@@ -131,8 +177,10 @@ class LocalEventStore(EventStore):
                 participants.append(
                     json.loads(path.read_text(encoding="utf-8"))
                 )
-            except (OSError, json.JSONDecodeError):
-                continue
+            except (OSError, json.JSONDecodeError) as exc:
+                raise EventStoreError(
+                    f"Registro partecipante illeggibile: {path}: {exc}"
+                ) from exc
         return sorted(participants, key=lambda item: item["display_name"].casefold())
 
 
@@ -147,31 +195,46 @@ class HuggingFaceEventStore(EventStore):
         self.api = HfApi(token=token)
 
     def register_participant(
-        self, participant_id: str, display_name: str
-    ) -> None:
+        self,
+        participant_id: str,
+        display_name: str,
+        access_code_hash: str | None = None,
+        name_lookup_hash: str | None = None,
+    ) -> dict[str, Any]:
         path = f"participants/{participant_id}.json"
         existing = self._download_json(path) or {}
+        record = _participant_record(
+            participant_id,
+            display_name,
+            existing,
+            access_code_hash=access_code_hash,
+            name_lookup_hash=name_lookup_hash,
+        )
+        self._upload_participant(path, record, "Aggiorna registro partecipante")
+        return record
+
+    def get_participant(
+        self, participant_id: str
+    ) -> dict[str, Any] | None:
+        return self._download_json(f"participants/{participant_id}.json")
+
+    def set_access_code(
+        self, participant_id: str, access_code_hash: str
+    ) -> dict[str, Any]:
+        path = f"participants/{participant_id}.json"
+        existing = self._download_json(path)
+        if not existing:
+            raise EventStoreError("Partecipante non trovato.")
         now = utc_now()
         record = {
-            "participant_id": participant_id,
-            "display_name": display_name,
-            "created_at": existing.get("created_at", now),
+            **existing,
+            "access_code_hash": access_code_hash,
+            "access_code_version": "1",
+            "access_code_updated_at": now,
             "updated_at": now,
-            "status": existing.get("status", "active"),
-            "merged_into": existing.get("merged_into"),
         }
-        try:
-            self.api.upload_file(
-                path_or_fileobj=io.BytesIO(_json_bytes(record)),
-                path_in_repo=path,
-                repo_id=self.repo_id,
-                repo_type="dataset",
-                commit_message="Aggiorna registro partecipante",
-            )
-        except Exception as exc:
-            raise EventStoreError(
-                f"Registro partecipante non salvato: {exc}"
-            ) from exc
+        self._upload_participant(path, record, "Aggiorna codice percorso")
+        return record
 
     def append_events(self, events: list[dict[str, Any]]) -> None:
         if not events:
@@ -179,13 +242,17 @@ class HuggingFaceEventStore(EventStore):
         try:
             from huggingface_hub import CommitOperationAdd
 
+            existing_paths = set(self._list_files(prefix="events/"))
             operations = [
                 CommitOperationAdd(
                     path_in_repo=_remote_event_path(event),
                     path_or_fileobj=io.BytesIO(_json_bytes(event)),
                 )
                 for event in events
+                if _remote_event_path(event) not in existing_paths
             ]
+            if not operations:
+                return
             self.api.create_commit(
                 repo_id=self.repo_id,
                 repo_type="dataset",
@@ -196,6 +263,22 @@ class HuggingFaceEventStore(EventStore):
             )
         except Exception as exc:
             raise EventStoreError(f"Eventi non salvati: {exc}") from exc
+
+    def _upload_participant(
+        self, path: str, record: dict[str, Any], commit_message: str
+    ) -> None:
+        try:
+            self.api.upload_file(
+                path_or_fileobj=io.BytesIO(_json_bytes(record)),
+                path_in_repo=path,
+                repo_id=self.repo_id,
+                repo_type="dataset",
+                commit_message=commit_message,
+            )
+        except Exception as exc:
+            raise EventStoreError(
+                f"Registro partecipante non salvato: {exc}"
+            ) from exc
 
     def list_events(
         self, participant_id: str | None = None
@@ -245,8 +328,16 @@ class HuggingFaceEventStore(EventStore):
                 force_download=True,
             )
             return json.loads(Path(local_path).read_text(encoding="utf-8"))
-        except Exception:
-            return None
+        except Exception as exc:
+            name = type(exc).__name__
+            status_code = getattr(
+                getattr(exc, "response", None), "status_code", None
+            )
+            if "EntryNotFound" in name or status_code == 404:
+                return None
+            raise EventStoreError(
+                f"File dell’archivio non leggibile ({path}): {exc}"
+            ) from exc
 
 
 def create_event_store(settings: Settings) -> EventStore:
@@ -281,3 +372,31 @@ def _remote_event_path(event: dict[str, Any]) -> str:
         f"events/{occurred:%Y/%m/%d}/{event['session_id']}/"
         f"{event['event_id']}.json"
     )
+
+
+def _participant_record(
+    participant_id: str,
+    display_name: str,
+    existing: dict[str, Any],
+    *,
+    access_code_hash: str | None,
+    name_lookup_hash: str | None,
+) -> dict[str, Any]:
+    now = utc_now()
+    record = {
+        "participant_id": participant_id,
+        "display_name": display_name,
+        "created_at": existing.get("created_at", now),
+        "updated_at": now,
+        "status": existing.get("status", "active"),
+        "merged_into": existing.get("merged_into"),
+        "access_code_hash": existing.get("access_code_hash")
+        or access_code_hash,
+        "access_code_version": existing.get("access_code_version")
+        or ("1" if access_code_hash else None),
+        "access_code_updated_at": existing.get("access_code_updated_at")
+        or (now if access_code_hash else None),
+        "name_lookup_hash": existing.get("name_lookup_hash")
+        or name_lookup_hash,
+    }
+    return record
