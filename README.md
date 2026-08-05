@@ -5,10 +5,11 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione locale 0.4.1 include:
+La versione locale 0.4.2 include:
 
 - accesso al proprio percorso tramite il solo nome;
-- schema descrittivo come prima vista, con i colori concordati;
+- navigazione progressiva: identificazione, ambiti disponibili e infine scale;
+- schema descrittivo a colori mostrato soltanto dopo l’identificazione;
 - pagina personale `/percorso` separata dalla scelta e dagli esercizi;
 - panoramica del ricercatore in una pagina separata e protetta;
 - interfaccia leggibile su smartphone e con tema scuro;

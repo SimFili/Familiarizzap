@@ -99,6 +99,8 @@ def test_practice_access_does_not_build_the_personal_map(
 
     assert result[0]["display_name"] == "Anna"
     assert len(result) == 7
+    assert result[2]["visible"] is False
+    assert result[3]["visible"] is True
     assert result[-1] == ""
 
 

@@ -18,6 +18,26 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-04 — Navigazione progressiva 0.4.2
+
+Fabio ha chiesto di separare la scelta iniziale in schermate successive. La
+pagina principale ora mostra, nell’ordine:
+
+1. identificazione tramite nome e consenso;
+2. quadro degli ambiti di descrittori disponibili;
+3. scale appartenenti all’ambito selezionato;
+4. esercizio avviato scegliendo la scala.
+
+Le voci `Sapere`, `Saper fare`, `Saper essere` e `Saper apprendere` non vengono
+più mostrate come «Non ancora disponibile» sotto `Competenza generale`, perché
+non sono descrittori esistenti. Resta visibile soltanto il titolo della colonna
+come riferimento al quadro generale.
+
+La navigazione mantiene una selezione testuale accessibile, il ritorno al
+livello precedente e la ripresa delle sessioni dopo l’identificazione. La
+verifica locale ha incluso 32 test automatici e il percorso completo su desktop
+e smartphone. Non sono stati eseguiti commit, push o deploy.
+
 ## 2026-07-30 — Pagina personale separata 0.4.1
 
 Fabio ha chiarito che anche il riepilogo personale non deve occupare la prima

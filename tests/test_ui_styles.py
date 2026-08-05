@@ -51,6 +51,11 @@ def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
     assert "disabled" in TAXONOMY_TEMPLATE
     assert "<button" in SCALE_SELECTOR_TEMPLATE
     columns = _taxonomy_data()
+    general = next(
+        column
+        for column in columns
+        if column["title"] == "Competenza generale"
+    )
     reception = next(
         item
         for column in columns
@@ -65,6 +70,7 @@ def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
         for item in column["items"]
         if item["label"] == "Mediazione"
     )
+    assert general["items"] == []
     assert reception["available"] is True
     assert mediation["available"] is False
 

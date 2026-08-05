@@ -26,9 +26,10 @@ sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
 prima dell’uso pubblico. Quando Dataset e secret non sono configurati,
 l’interfaccia segnala che gli eventi non sono durevoli.
 
-La versione 0.4.1 apre con lo schema descrittivo a colori, identifica il
-percorso con il solo nome e colloca percentuali, mappa e cronologia nella pagina
-personale separata `/percorso`. La panoramica del ricercatore resta nella pagina
-riservata `/ricercatore`. Conserva inoltre una cronologia longitudinale a eventi
+La versione 0.4.2 separa la navigazione in passaggi successivi: prima
+l’identificazione, poi gli ambiti disponibili e infine le scale dell’ambito
+scelto. Percentuali, mappa e cronologia restano nella pagina personale separata
+`/percorso`; la panoramica del ricercatore resta nella pagina riservata
+`/ricercatore`. L’app conserva inoltre una cronologia longitudinale a eventi
 immutabili, mostra riepiloghi cliccabili ed è ottimizzata per smartphone e tema
 scuro. Nessuna di queste funzioni usa AI durante la sessione.

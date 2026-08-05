@@ -692,16 +692,10 @@ def _taxonomy_data() -> list[dict[str, Any]]:
     columns = [
         {
             "title": "Competenza generale",
-            "items": [
-                {
-                    "label": label,
-                    "color": "neutral",
-                    "schema": "Competenza generale",
-                    "modality": label,
-                    "available": False,
-                }
-                for label in ("Sapere", "Saper fare", "Saper essere", "Saper apprendere")
-            ],
+            # Queste sottocategorie non appartengono al catalogo dei
+            # descrittori. La colonna resta come riferimento visivo del quadro,
+            # ma non deve suggerire che esistano contenuti futuri da attivare.
+            "items": [],
         },
         {
             "title": "Competenze linguistico-comunicative",
@@ -1206,9 +1200,7 @@ def _descriptor_detail_markdown(
     return "\n".join(lines)
 
 
-def navigation_click(evt: gr.EventData):
-    schema = str(getattr(evt, "schema", "") or "")
-    modality = str(getattr(evt, "modality", "") or "")
+def _navigation_selection(schema: str, modality: str):
     activities = CATALOG.choices(
         "activity", schema=schema, modality=modality
     )
@@ -1230,6 +1222,16 @@ def navigation_click(evt: gr.EventData):
             "Ora scegli una scala nella mappa sottostante."
         ),
     )
+
+
+def navigation_click(evt: gr.EventData):
+    schema = str(getattr(evt, "schema", "") or "")
+    modality = str(getattr(evt, "modality", "") or "")
+    return _navigation_selection(schema, modality)
+
+
+def navigation_text(schema: str, modality: str):
+    return _navigation_selection(schema, modality)
 
 
 def scale_selector_click(evt: gr.EventData):
@@ -2129,53 +2131,6 @@ def build_demo() -> gr.Blocks:
         )
         gr.Markdown(_storage_banner(), elem_classes="storage-banner")
 
-        with gr.Group(visible=True) as selection_group:
-            gr.Markdown(
-                "## Scegli una nuova scala\n"
-                "Le categorie mantengono i colori del quadro di riferimento. "
-                "Quelle attenuate non sono ancora presenti nel catalogo usato.",
-                elem_classes="taxonomy-intro",
-            )
-            taxonomy = gr.HTML(
-                _taxonomy_data(),
-                html_template=TAXONOMY_TEMPLATE,
-                js_on_load=TAXONOMY_JS,
-            )
-            scale_selector = gr.HTML(
-                first_scale_selector,
-                html_template=SCALE_SELECTOR_TEMPLATE,
-                js_on_load=SCALE_SELECTOR_JS,
-            )
-            path_selection_message = gr.Markdown()
-            with gr.Accordion("Selezione testuale accessibile", open=False):
-                schema_choice = gr.Dropdown(
-                    choices=schemas,
-                    value=schema,
-                    label="Schema descrittivo",
-                )
-                modality_choice = gr.Dropdown(
-                    choices=CATALOG.choices("modality", schema=schema),
-                    value=modality,
-                    label="Modalità di comunicazione",
-                )
-                activity_choice = gr.Dropdown(
-                    choices=CATALOG.choices(
-                        "activity", schema=schema, modality=modality
-                    ),
-                    value=activity,
-                    label="Attività, strategia o competenza",
-                )
-                scale_choice = gr.Dropdown(
-                    choices=CATALOG.choices(
-                        "scale",
-                        schema=schema,
-                        modality=modality,
-                        activity=activity,
-                    ),
-                    value=scale,
-                    label="Scala",
-                )
-
         with gr.Group(visible=True) as login_group:
             gr.Markdown(
                 "## Identificati per iniziare\n"
@@ -2198,17 +2153,36 @@ def build_demo() -> gr.Blocks:
                 "Continua con questo nome", variant="primary"
             )
 
-        with gr.Group(visible=False) as practice_group:
+        with gr.Group(visible=False) as taxonomy_group:
             greeting = gr.Markdown()
             gr.Markdown(
-                "La scala scelta è pronta. Puoi iniziare subito oppure aprire "
-                "la pagina separata con percentuali, mappa e cronologia."
+                "## Descrittori disponibili\n"
+                "Scegli l’ambito che vuoi esplorare. Le voci attenuate "
+                "appartengono al quadro di riferimento, ma non sono ancora "
+                "presenti nel catalogo usato.",
+                elem_classes="taxonomy-intro",
             )
-            with gr.Row():
-                start_button = gr.Button(
-                    "Inizia la scala selezionata", variant="primary"
+            taxonomy = gr.HTML(
+                _taxonomy_data(),
+                html_template=TAXONOMY_TEMPLATE,
+                js_on_load=TAXONOMY_JS,
+            )
+            with gr.Accordion(
+                "Selezione testuale accessibile dell’ambito", open=False
+            ):
+                schema_choice = gr.Dropdown(
+                    choices=schemas,
+                    value=schema,
+                    label="Schema descrittivo",
                 )
-                logout_button = gr.Button("Cambia nome")
+                modality_choice = gr.Dropdown(
+                    choices=CATALOG.choices("modality", schema=schema),
+                    value=modality,
+                    label="Modalità di comunicazione",
+                )
+                category_continue_button = gr.Button(
+                    "Continua con questo ambito", variant="primary"
+                )
             with gr.Accordion("Riprendi una sessione", open=False):
                 resume_choice = gr.Dropdown(
                     choices=[],
@@ -2216,6 +2190,47 @@ def build_demo() -> gr.Blocks:
                     interactive=False,
                 )
                 resume_button = gr.Button("Riprendi")
+            taxonomy_logout_button = gr.Button("Cambia nome")
+
+        with gr.Group(visible=False) as scale_group:
+            gr.Markdown(
+                "## Scegli la scala di descrittori\n"
+                "Ora seleziona la scala sulla quale vuoi esercitarti."
+            )
+            path_selection_message = gr.Markdown()
+            scale_selector = gr.HTML(
+                first_scale_selector,
+                html_template=SCALE_SELECTOR_TEMPLATE,
+                js_on_load=SCALE_SELECTOR_JS,
+            )
+            with gr.Accordion(
+                "Selezione testuale accessibile della scala", open=False
+            ):
+                activity_choice = gr.Dropdown(
+                    choices=CATALOG.choices(
+                        "activity", schema=schema, modality=modality
+                    ),
+                    value=activity,
+                    label="Attività, strategia o competenza",
+                )
+                scale_choice = gr.Dropdown(
+                    choices=CATALOG.choices(
+                        "scale",
+                        schema=schema,
+                        modality=modality,
+                        activity=activity,
+                    ),
+                    value=scale,
+                    label="Scala",
+                )
+            with gr.Row():
+                start_button = gr.Button(
+                    "Inizia la scala selezionata", variant="primary"
+                )
+                back_to_taxonomy_button = gr.Button(
+                    "Torna ai descrittori disponibili"
+                )
+                scale_logout_button = gr.Button("Cambia nome")
 
         with gr.Group(visible=False) as exercise_group:
             breadcrumb = gr.Markdown()
@@ -2273,7 +2288,7 @@ def build_demo() -> gr.Blocks:
                 variant="primary",
             )
             dashboard_button = gr.Button(
-                "Torna alla scelta della scala", variant="primary"
+                "Scegli un’altra scala", variant="primary"
             )
 
         user_message = gr.Markdown()
@@ -2290,6 +2305,31 @@ def build_demo() -> gr.Blocks:
             inputs=browser_identity,
             outputs=name,
         )
+
+        exercise_outputs = [
+            ui_state,
+            scale_group,
+            exercise_group,
+            summary_group,
+            breadcrumb,
+            exercise_progress,
+            descriptor,
+            level_choice,
+            attempt_label,
+            feedback,
+            submit_button,
+            continue_button,
+            user_message,
+        ]
+        navigation_outputs = [
+            scale_selector,
+            schema_choice,
+            modality_choice,
+            activity_choice,
+            scale_choice,
+            path_selection_message,
+        ]
+
         identify_button.click(
             identify_for_practice,
             inputs=[name, consent, ui_state],
@@ -2297,7 +2337,7 @@ def build_demo() -> gr.Blocks:
                 ui_state,
                 browser_identity,
                 login_group,
-                practice_group,
+                taxonomy_group,
                 greeting,
                 resume_choice,
                 user_message,
@@ -2305,14 +2345,24 @@ def build_demo() -> gr.Blocks:
         )
         taxonomy.click(
             navigation_click,
-            outputs=[
-                scale_selector,
-                schema_choice,
-                modality_choice,
-                activity_choice,
-                scale_choice,
-                path_selection_message,
-            ],
+            outputs=navigation_outputs,
+        ).then(
+            lambda: (
+                gr.update(visible=False),
+                gr.update(visible=True),
+            ),
+            outputs=[taxonomy_group, scale_group],
+        )
+        category_continue_button.click(
+            navigation_text,
+            inputs=[schema_choice, modality_choice],
+            outputs=navigation_outputs,
+        ).then(
+            lambda: (
+                gr.update(visible=False),
+                gr.update(visible=True),
+            ),
+            outputs=[taxonomy_group, scale_group],
         )
         scale_selector.click(
             scale_selector_click,
@@ -2323,6 +2373,16 @@ def build_demo() -> gr.Blocks:
                 scale_choice,
                 path_selection_message,
             ],
+        ).then(
+            start_session,
+            inputs=[
+                ui_state,
+                schema_choice,
+                modality_choice,
+                activity_choice,
+                scale_choice,
+            ],
+            outputs=exercise_outputs,
         )
         schema_choice.change(
             update_schema,
@@ -2344,22 +2404,6 @@ def build_demo() -> gr.Blocks:
             inputs=[schema_choice, modality_choice, activity_choice],
             outputs=scale_choice,
         )
-
-        exercise_outputs = [
-            ui_state,
-            practice_group,
-            exercise_group,
-            summary_group,
-            breadcrumb,
-            exercise_progress,
-            descriptor,
-            level_choice,
-            attempt_label,
-            feedback,
-            submit_button,
-            continue_button,
-            user_message,
-        ]
         start_button.click(
             start_session,
             inputs=[
@@ -2370,12 +2414,23 @@ def build_demo() -> gr.Blocks:
                 scale_choice,
             ],
             outputs=exercise_outputs,
-        ).then(lambda: gr.update(visible=False), outputs=selection_group)
+        )
+        back_to_taxonomy_button.click(
+            lambda: (
+                gr.update(visible=True),
+                gr.update(visible=False),
+                "",
+            ),
+            outputs=[taxonomy_group, scale_group, path_selection_message],
+        )
         resume_button.click(
             resume_session,
             inputs=[ui_state, resume_choice],
             outputs=exercise_outputs,
-        ).then(lambda: gr.update(visible=False), outputs=selection_group)
+        ).then(
+            lambda: gr.update(visible=False),
+            outputs=taxonomy_group,
+        )
         submit_button.click(
             submit_answer,
             inputs=[ui_state, level_choice],
@@ -2446,31 +2501,42 @@ def build_demo() -> gr.Blocks:
             repeat_selected_descriptors,
             inputs=[ui_state, repeat_choices],
             outputs=exercise_outputs,
-        ).then(lambda: gr.update(visible=False), outputs=selection_group)
+        )
         dashboard_button.click(
             back_to_practice,
             inputs=ui_state,
             outputs=[
                 ui_state,
-                practice_group,
+                taxonomy_group,
                 summary_group,
                 user_message,
             ],
-        ).then(lambda: gr.update(visible=True), outputs=selection_group)
-        logout_button.click(
-            logout,
-            outputs=[
-                ui_state,
-                browser_identity,
-                login_group,
-                practice_group,
-                exercise_group,
-                summary_group,
-                name,
-                consent,
-                user_message,
-            ],
+        ).then(
+            lambda: gr.update(visible=False),
+            outputs=scale_group,
         )
+
+        def bind_logout(button):
+            button.click(
+                logout,
+                outputs=[
+                    ui_state,
+                    browser_identity,
+                    login_group,
+                    taxonomy_group,
+                    exercise_group,
+                    summary_group,
+                    name,
+                    consent,
+                    user_message,
+                ],
+            ).then(
+                lambda: gr.update(visible=False),
+                outputs=scale_group,
+            )
+
+        bind_logout(taxonomy_logout_button)
+        bind_logout(scale_logout_button)
 
     with demo.route(
         "Il mio percorso",

@@ -46,6 +46,10 @@ di ricerca.
 - La pagina principale serve a scegliere una scala e svolgere gli esercizi.
   Percentuali, mappa completa, cronologia e sessioni precedenti sono raccolte
   nella pagina personale separata `/percorso`.
+- La scelta nella pagina principale è progressiva: identificazione, quadro
+  degli ambiti disponibili e, in una schermata successiva, scale dell’ambito
+  selezionato. Le sottocategorie inesistenti sotto `Competenza generale` non
+  vengono mostrate come contenuti «non ancora disponibili».
 - Gli eventi nuovi usano lo schema `2.0` e conservano fotografia del
   descrittore, numero di esposizione, distanza della risposta dal target,
   tempi server e versioni. I dati precedenti in schema `1.0` restano leggibili.
