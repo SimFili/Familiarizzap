@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import inspect
+
+import app
 from app import (
     CSS,
     MAP_JS,
@@ -71,9 +74,31 @@ def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
         for item in column["items"]
         if item["label"] == "Mediazione"
     )
-    assert general["items"] == []
+    assert [item["label"] for item in general["items"]] == [
+        "Sapere",
+        "Saper fare",
+        "Saper essere",
+    ]
+    assert all(not item["available"] for item in general["items"])
+    assert all(
+        item["show_availability"] is False for item in general["items"]
+    )
+    assert "{{#if show_availability}}" in TAXONOMY_TEMPLATE
     assert reception["available"] is True
     assert mediation["available"] is False
+
+
+def test_home_places_general_navigation_after_identification() -> None:
+    source = inspect.getsource(app.build_demo)
+    login_start = source.index("with gr.Group(visible=True) as login_group")
+    taxonomy_start = source.index(
+        "with gr.Group(visible=False) as taxonomy_group"
+    )
+    hero_start = source.index('<section class="hero">')
+    page_links_start = source.index('aria-label="Altre pagine"')
+
+    assert login_start < taxonomy_start < hero_start
+    assert taxonomy_start < page_links_start
 
 
 def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
@@ -97,6 +122,7 @@ def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
         ".tax-linguistic",
         ".tax-sociolinguistic",
         ".tax-pragmatic",
+        ".tax-general",
     ):
         assert "!important;" in _css_rule(selector)
 

@@ -18,6 +18,22 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-12 — Catalogo completo online e correzione della prima pagina 0.5.1
+
+Fabio ha confermato che la prima schermata deve contenere soltanto
+l’identificazione. Il quadro degli ambiti compare esclusivamente dopo che il
+docente ha inserito il nome e confermato l’informativa. Sotto `Competenza
+generale` sono nuovamente visibili `Sapere`, `Saper fare` e `Saper essere`, ma
+come mattoncini disattivati e senza la scritta «Non ancora disponibile».
+
+Il catalogo validato di **831 esercizi e 52 scale** viene ora distribuito come
+file strutturato insieme allo Space e caricato automaticamente. Questa scelta
+rende pubblici nel repository GitHub e nello Space i testi del catalogo; la
+verifica dei diritti di pubblicazione resta quindi necessaria prima dell’uso
+pubblico definitivo. Un Dataset Hugging Face privato rimane una possibile
+migrazione futura. Il Dataset degli eventi è invece ancora da configurare per
+rendere durevoli i dati dei partecipanti.
+
 ## 2026-08-12 — Distribuzione dei livelli e percorso senza “+”
 
 Le opzioni di risposta mostrano ora il numero di descrittori della sessione per
@@ -44,13 +60,12 @@ Il convertitore `tools/build_catalog.py` ha validato il database Excel pulito:
 **831 esercizi**, **52 scale**, nessuna riga scartata e soltanto i livelli A1,
 A2, A2+, B1, B1+ e B2. Le celle vuote nelle colonne intermedie vengono colmate
 solo nella navigazione; i valori originali restano nei campi `source_*` e negli
-eventi. Il JSON completo e i dati di collaudo sono ignorati da Git.
+eventi. Il rapporto di conversione e i dati di collaudo sono ignorati da Git.
 
 L’app 0.5.0 può caricare il catalogo completo da `CONTENT_FILE_PATH` in locale
-o da `CONTENT_REPO_ID` nello Space. L’attivazione online resta sospesa finché
-non esistono un Dataset Hugging Face privato configurato e la conferma dei
-diritti sui testi. Il codice applicativo fa parte del branch
-`agent/navigazione-progressiva`; il catalogo completo resta escluso da Git.
+o da `CONTENT_REPO_ID` nello Space. La decisione successiva 0.5.1 qui sopra ha
+poi autorizzato la distribuzione del file strutturato insieme allo Space; resta
+aperta la verifica dei diritti sui testi.
 
 ## 2026-08-04 — Navigazione progressiva 0.4.2
 
@@ -62,10 +77,9 @@ pagina principale ora mostra, nell’ordine:
 3. scale appartenenti all’ambito selezionato;
 4. esercizio avviato scegliendo la scala.
 
-Le voci `Sapere`, `Saper fare`, `Saper essere` e `Saper apprendere` non vengono
-più mostrate come «Non ancora disponibile» sotto `Competenza generale`, perché
-non sono descrittori esistenti. Resta visibile soltanto il titolo della colonna
-come riferimento al quadro generale.
+La decisione successiva 0.5.1 ha ripristinato le sole voci `Sapere`, `Saper
+fare` e `Saper essere` come riferimenti disattivati e senza l’etichetta «Non
+ancora disponibile».
 
 La navigazione mantiene una selezione testuale accessibile, il ritorno al
 livello precedente e la ripresa delle sessioni dopo l’identificazione. La

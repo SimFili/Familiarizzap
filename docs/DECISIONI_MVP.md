@@ -48,8 +48,9 @@ di ricerca.
   nella pagina personale separata `/percorso`.
 - La scelta nella pagina principale è progressiva: identificazione, quadro
   degli ambiti disponibili e, in una schermata successiva, scale dell’ambito
-  selezionato. Le sottocategorie inesistenti sotto `Competenza generale` non
-  vengono mostrate come contenuti «non ancora disponibili».
+  selezionato. Sotto `Competenza generale` restano visibili `Sapere`, `Saper
+  fare` e `Saper essere` come riferimenti non cliccabili, senza l’etichetta
+  «Non ancora disponibile», perché non esistono descrittori associati.
 - Gli eventi nuovi usano lo schema `2.0` e conservano fotografia del
   descrittore, numero di esposizione, distanza della risposta dal target,
   tempi server e versioni. I dati precedenti in schema `1.0` restano leggibili.

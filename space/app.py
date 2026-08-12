@@ -342,6 +342,10 @@ button.primary {
 .tax-linguistic { background: var(--fapp-linguistic) !important; }
 .tax-sociolinguistic { background: var(--fapp-sociolinguistic) !important; }
 .tax-pragmatic { background: var(--fapp-pragmatic) !important; }
+.tax-general {
+  background: #d8dde2 !important;
+  color: #263238 !important;
+}
 .tax-neutral {
   background: #e9e4da !important;
   color: #263238 !important;
@@ -494,6 +498,7 @@ body.dark label.selected {
   .journey-metric { color: var(--fapp-ink) !important; }
   .taxonomy-title { color: #0f1720 !important; }
   .taxonomy-item { color: #fff !important; }
+  .tax-general { color: #263238 !important; }
   .tax-neutral { color: #263238 !important; }
   .scale-choice-button { color: #fff !important; }
   .journey-metric { background: #22352e !important; }
@@ -603,9 +608,11 @@ TAXONOMY_TEMPLATE = """
               data-modality="{{modality}}"
               {{#unless available}}disabled{{/unless}}>
         {{label}}
+        {{#if show_availability}}
         <span class="availability">
           {{#if available}}Disponibile{{else}}Non ancora disponibile{{/if}}
         </span>
+        {{/if}}
       </button>
     {{/each}}
   </section>
@@ -791,10 +798,17 @@ def _taxonomy_data() -> list[dict[str, Any]]:
     columns = [
         {
             "title": "Competenza generale",
-            # Queste sottocategorie non appartengono al catalogo dei
-            # descrittori. La colonna resta come riferimento visivo del quadro,
-            # ma non deve suggerire che esistano contenuti futuri da attivare.
-            "items": [],
+            "items": [
+                {
+                    "label": label,
+                    "color": "general",
+                    "schema": "Competenza generale",
+                    "modality": label,
+                    "available": False,
+                    "show_availability": False,
+                }
+                for label in ("Sapere", "Saper fare", "Saper essere")
+            ],
         },
         {
             "title": "Competenze linguistico-comunicative",
@@ -887,6 +901,9 @@ def _taxonomy_data() -> list[dict[str, Any]]:
             ],
         },
     ]
+    for column in columns:
+        for item in column["items"]:
+            item.setdefault("show_availability", True)
     return columns
 
 
@@ -1241,9 +1258,14 @@ def resume_requested_session(
     return resume_session(state, session_id)
 
 
-def taxonomy_after_requested_resume(request: gr.Request):
+def taxonomy_after_requested_resume(
+    state: dict[str, Any], request: gr.Request
+):
     query = getattr(request, "query_params", {}) or {}
-    return gr.update(visible=not bool(str(query.get("resume", "") or "")))
+    return gr.update(
+        visible=bool(state.get("participant_id"))
+        and not bool(str(query.get("resume", "") or ""))
+    )
 
 
 def _register_identity(
@@ -2370,19 +2392,6 @@ def build_demo() -> gr.Blocks:
             storage_key="familiarizzapp-personal-name",
             secret=SETTINGS.effective_hash_salt,
         )
-        gr.HTML(
-            """
-            <section class="hero">
-              <div class="hero-kicker">Familiarizzazione CEFR</div>
-              <h1>FamiliarizzApp</h1>
-              <p>Esplora i descrittori, riconosci il livello e usa i feedback
-              progressivi per affinare la tua lettura. Nessun voto, nessuna
-              graduatoria.</p>
-            </section>
-            """
-        )
-        gr.Markdown(_storage_banner(), elem_classes="storage-banner")
-
         with gr.Group(visible=True) as login_group:
             gr.Markdown(
                 "## Identificati per iniziare\n"
@@ -2406,6 +2415,18 @@ def build_demo() -> gr.Blocks:
             )
 
         with gr.Group(visible=False) as taxonomy_group:
+            gr.HTML(
+                """
+                <section class="hero">
+                  <div class="hero-kicker">Familiarizzazione CEFR</div>
+                  <h1>FamiliarizzApp</h1>
+                  <p>Esplora i descrittori, riconosci il livello e usa i
+                  feedback progressivi per affinare la tua lettura. Nessun
+                  voto, nessuna graduatoria.</p>
+                </section>
+                """
+            )
+            gr.Markdown(_storage_banner(), elem_classes="storage-banner")
             greeting = gr.Markdown()
             gr.Markdown(
                 "## Descrittori disponibili\n"
@@ -2443,6 +2464,13 @@ def build_demo() -> gr.Blocks:
                 )
                 resume_button = gr.Button("Riprendi")
             taxonomy_logout_button = gr.Button("Cambia nome")
+            gr.HTML(
+                '<nav class="page-links" aria-label="Altre pagine">'
+                '<a class="researcher-link" href="/percorso">'
+                "Il mio percorso completo →</a>"
+                '<a class="researcher-link" href="/ricercatore" '
+                'target="_blank">Panoramica ricercatore ↗</a></nav>'
+            )
 
         with gr.Group(visible=False) as scale_group:
             gr.Markdown(
@@ -2553,13 +2581,6 @@ def build_demo() -> gr.Blocks:
             )
 
         user_message = gr.Markdown()
-        gr.HTML(
-            '<nav class="page-links" aria-label="Altre pagine">'
-            '<a class="researcher-link" href="/percorso">'
-            "Il mio percorso completo →</a>"
-            '<a class="researcher-link" href="/ricercatore" target="_blank">'
-            "Panoramica ricercatore ↗</a></nav>"
-        )
 
         exercise_outputs = [
             ui_state,
@@ -2604,6 +2625,7 @@ def build_demo() -> gr.Blocks:
             outputs=exercise_outputs,
         ).then(
             taxonomy_after_requested_resume,
+            inputs=ui_state,
             outputs=taxonomy_group,
         )
 

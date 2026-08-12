@@ -3,7 +3,6 @@
 .env.local
 *.key
 secrets.json
-space/data/catalog.full.json
 space/data/catalog.full.report.json
 space/data/runtime*/
 

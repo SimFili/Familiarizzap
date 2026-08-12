@@ -149,18 +149,33 @@ def test_requested_resume_hides_the_taxonomy():
     class Request:
         query_params = {"resume": "session-123"}
 
-    update = app.taxonomy_after_requested_resume(Request())
+    update = app.taxonomy_after_requested_resume(
+        {"participant_id": "participant"}, Request()
+    )
 
     assert update["visible"] is False
 
 
-def test_normal_home_keeps_the_taxonomy_visible():
+def test_normal_home_keeps_the_taxonomy_visible_after_identification():
     class Request:
         query_params = {}
 
-    update = app.taxonomy_after_requested_resume(Request())
+    update = app.taxonomy_after_requested_resume(
+        {"participant_id": "participant"}, Request()
+    )
 
     assert update["visible"] is True
+
+
+def test_normal_home_hides_taxonomy_before_identification():
+    class Request:
+        query_params = {}
+
+    update = app.taxonomy_after_requested_resume(
+        app._empty_ui_state(), Request()
+    )
+
+    assert update["visible"] is False
 
 
 def test_resume_without_saved_identity_does_not_show_scale_selection():

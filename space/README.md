@@ -20,13 +20,12 @@ Il codice viene pubblicato automaticamente da
 direttamente nello Space: ogni modifica verrebbe sovrascritta alla pubblicazione
 successiva.
 
-Il catalogo incluso è la prova dimostrativa 2.0: contiene una scala per ciascuna
-delle tre sottocategorie di ricezione (orale, audiovisiva e scritta). I feedback
+Il catalogo incluso contiene 831 esercizi appartenenti a 52 scale. I feedback
 sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
-prima dell’uso pubblico. Quando Dataset e secret non sono configurati,
-l’interfaccia segnala che gli eventi non sono durevoli.
+prima dell’uso pubblico. Quando il Dataset degli eventi e i secret non sono
+configurati, l’interfaccia segnala che gli eventi non sono durevoli.
 
-La versione 0.5.0 separa la navigazione in passaggi successivi: prima
+La versione 0.5.1 separa la navigazione in passaggi successivi: prima
 l’identificazione, poi gli ambiti disponibili e infine le scale dell’ambito
 scelto. Percentuali, mappa e cronologia restano nella pagina personale separata
 `/percorso`; la panoramica del ricercatore resta nella pagina riservata
@@ -35,7 +34,7 @@ immutabili, mostra riepiloghi cliccabili ed è ottimizzata per smartphone e tema
 scuro. La cronologia personale usa schede leggibili e consente di riprendere
 direttamente una sessione in corso. Le opzioni di risposta indicano quanti
 descrittori della sessione appartengono a ciascun livello; prima dell’avvio il
-docente può inoltre scegliere di escludere A2+ e B1+. Il codice supporta il catalogo
-completo privato con i livelli A1, A2, A2+, B1, B1+ e B2; i testi completi non
-sono inclusi nel repository pubblico. Nessuna di queste funzioni usa AI durante
-la sessione.
+docente può inoltre scegliere di escludere A2+ e B1+. Il catalogo completo usa
+i livelli A1, A2, A2+, B1, B1+ e B2; i testi completi non
+sono inseriti nel codice Python ma letti dal catalogo strutturato distribuito
+con lo Space. Nessuna di queste funzioni usa AI durante la sessione.

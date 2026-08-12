@@ -9,6 +9,20 @@ from src.catalog import Catalog, CatalogError, DEMO_CEFR_LEVELS
 from src.settings import Settings
 
 
+def test_settings_selects_the_bundled_full_catalog_by_default(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("CONTENT_FILE_PATH", raising=False)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "catalog.full.json").write_text("[]", encoding="utf-8")
+
+    settings = Settings.from_env(tmp_path)
+
+    assert settings.content_file_path == "data/catalog.full.json"
+    assert settings.app_version == "0.5.1"
+
+
 def test_catalog_filters_unusable_rows_and_orders_levels(tmp_path: Path):
     required = {
         "schema": "Schema",

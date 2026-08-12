@@ -208,7 +208,11 @@ def load_catalog(settings: Settings) -> CatalogLoadResult:
                 allowed_statuses=("approved",),
                 allowed_levels=PILOT_CEFR_LEVELS,
             ),
-            source_label=f"file locale {path.name}",
+            source_label=(
+                "completo incluso (831 esercizi, 52 scale)"
+                if path.name == "catalog.full.json"
+                else f"file {path.name}"
+            ),
             is_demo=False,
         )
 

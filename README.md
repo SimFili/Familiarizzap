@@ -5,7 +5,7 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione locale 0.5.0 include:
+La versione 0.5.1 include:
 
 - accesso al proprio percorso tramite il solo nome;
 - navigazione progressiva: identificazione, ambiti disponibili e infine scale;
@@ -21,7 +21,7 @@ La versione locale 0.5.0 include:
   risposta;
 - scelta facoltativa, prima di ogni sessione, per escludere A2+ e B1+;
 - cronologia a schede e ripresa diretta di una sessione in corso;
-- supporto dell’intero catalogo privato: 831 descrittori, 52 scale e livelli
+- intero catalogo distribuito con lo Space: 831 descrittori, 52 scale e livelli
   `A1`, `A2`, `A2+`, `B1`, `B1+`, `B2`;
 - dashboard del ricercatore con filtri, timestamp esatti, dati grezzi,
   controllo d’integrità ed esportazione ZIP.
@@ -30,27 +30,27 @@ La versione locale 0.5.0 include:
 
 ## Stato del rilascio
 
-La prova 2.0 pubblica include 22 descrittori, ricavati da tre scale di
-ricezione del database fornito dal gruppo di ricerca: comprensione orale
-generale, comprensione audiovisiva e comprensione generale di un testo scritto.
-I feedback sono provvisori. Provenienza e diritti di pubblicazione dei testi
-devono essere verificati prima di rendere pubblica questa versione.
+La versione pubblica include 831 descrittori ricavati dal database validato del
+gruppo di ricerca, organizzati in 52 scale. I feedback sono provvisori.
+Provenienza e diritti di pubblicazione dei testi devono essere verificati prima
+dell’uso pubblico definitivo.
 
 Per il pilot reale devono essere configurati:
 
-- un Dataset Hugging Face privato per il catalogo approvato;
 - un Dataset Hugging Face privato per registro partecipanti ed eventi;
 - i secret dello Space descritti in `space/.env.example`;
 - informativa, consenso, conservazione e licenze approvati dal progetto.
 
-Se questi elementi non sono presenti, l’app mostra esplicitamente la modalità
-dimostrativa e usa uno storage temporaneo.
+Se lo storage remoto e i relativi secret non sono presenti, l’app usa il
+catalogo completo ma mostra esplicitamente che i dati del percorso sono
+temporanei.
 
 Il convertitore `tools/build_catalog.py` legge il foglio di lavoro approvato e
-produce `space/data/catalog.full.json`. Questo file e il relativo rapporto sono
-ignorati da Git: i testi completi non devono entrare nel repository pubblico.
-Per provarlo soltanto in locale si imposta `CONTENT_FILE_PATH`; nello Space si
-usa invece `CONTENT_REPO_ID` con un Dataset Hugging Face privato.
+produce `space/data/catalog.full.json`. Il file completo è incluso nello Space
+per rendere disponibili tutti gli esercizi; il rapporto locale di conversione
+resta ignorato da Git. `CONTENT_FILE_PATH` può selezionare un file diverso in
+locale; `CONTENT_REPO_ID` resta disponibile per una futura migrazione a un
+Dataset Hugging Face privato.
 
 La modalità locale e quella dimostrativa servono esclusivamente al collaudo:
 la continuità dei dati della ricerca richiede il Dataset privato configurato.
@@ -90,7 +90,7 @@ python app.py
 
 L’app locale salva gli eventi in `space/data/runtime/`, cartella ignorata da Git.
 
-Per preparare il catalogo completo senza pubblicarlo:
+Per rigenerare il catalogo completo distribuito con lo Space:
 
 ```powershell
 python tools\build_catalog.py "PERCORSO\database descrittori app final.xlsx" `

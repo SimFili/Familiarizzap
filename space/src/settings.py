@@ -32,8 +32,15 @@ class Settings:
         return cls(
             base_dir=base_dir,
             app_env=app_env,
-            app_version=os.getenv("APP_VERSION", "0.5.0").strip(),
-            content_file_path=os.getenv("CONTENT_FILE_PATH", "").strip(),
+            app_version=os.getenv("APP_VERSION", "0.5.1").strip(),
+            content_file_path=os.getenv(
+                "CONTENT_FILE_PATH",
+                (
+                    "data/catalog.full.json"
+                    if (base_dir / "data" / "catalog.full.json").exists()
+                    else ""
+                ),
+            ).strip(),
             content_repo_id=os.getenv("CONTENT_REPO_ID", "").strip(),
             content_revision=os.getenv("CONTENT_REVISION", "main").strip(),
             events_repo_id=os.getenv("EVENTS_REPO_ID", "").strip(),
