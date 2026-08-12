@@ -2067,6 +2067,7 @@ def pause_session_and_choose_scale(state: dict[str, Any]):
         navigation = _navigation_selection(*_first_path_values()[1:3])
     return (
         updated,
+        gr.update(visible=False),
         gr.update(visible=True),
         gr.update(visible=False),
         gr.update(visible=False),
@@ -2865,6 +2866,7 @@ def build_demo() -> gr.Blocks:
             inputs=ui_state,
             outputs=[
                 ui_state,
+                taxonomy_group,
                 scale_group,
                 exercise_group,
                 leave_exercise_confirmation,

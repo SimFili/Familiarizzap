@@ -51,12 +51,13 @@ def test_pausing_exercise_returns_to_selected_scale_without_losing_session():
     result = app.pause_session_and_choose_scale(state)
 
     assert result[0]["session"] is None
-    assert result[1]["visible"] is True
-    assert result[2]["visible"] is False
-    assert result[7].value == "Comprensione orale"
-    assert result[8].value == "Comprensione orale generale"
-    assert "messa in pausa" in result[9]
-    assert result[10].value == session["session_id"]
+    assert result[1]["visible"] is False
+    assert result[2]["visible"] is True
+    assert result[3]["visible"] is False
+    assert result[8].value == "Comprensione orale"
+    assert result[9].value == "Comprensione orale generale"
+    assert "messa in pausa" in result[10]
+    assert result[11].value == session["session_id"]
     restored = app.SESSIONS.restore_session(
         "pause-participant", "Anna", session["session_id"]
     )
