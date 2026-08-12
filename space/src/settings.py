@@ -10,6 +10,7 @@ class Settings:
     base_dir: Path
     app_env: str
     app_version: str
+    content_file_path: str
     content_repo_id: str
     content_revision: str
     events_repo_id: str
@@ -31,7 +32,8 @@ class Settings:
         return cls(
             base_dir=base_dir,
             app_env=app_env,
-            app_version=os.getenv("APP_VERSION", "0.4.2").strip(),
+            app_version=os.getenv("APP_VERSION", "0.5.0").strip(),
+            content_file_path=os.getenv("CONTENT_FILE_PATH", "").strip(),
             content_repo_id=os.getenv("CONTENT_REPO_ID", "").strip(),
             content_revision=os.getenv("CONTENT_REVISION", "main").strip(),
             events_repo_id=os.getenv("EVENTS_REPO_ID", "").strip(),

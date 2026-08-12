@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.analytics import (
+    FOCUS_OUTCOMES,
     descriptor_history,
     exact_timestamp,
     integrity_report,
@@ -11,6 +12,10 @@ from src.analytics import (
     scale_map,
     session_records,
 )
+
+
+def test_focus_excludes_descriptors_never_seen() -> None:
+    assert FOCUS_OUTCOMES == {"second", "third", "unresolved"}
 from src.catalog import Catalog, DEMO_CEFR_LEVELS
 from src.event_store import LocalEventStore
 from src.session_service import SessionService

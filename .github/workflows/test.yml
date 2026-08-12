@@ -14,11 +14,13 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: space/requirements.txt
+          cache-dependency-path: |
+            space/requirements.txt
+            requirements-dev.txt
       - name: Installa dipendenze
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r space/requirements.txt pytest
+          python -m pip install -r requirements-dev.txt
       - name: Esegui test
         run: python -m pytest -q
       - name: Verifica import dell'app

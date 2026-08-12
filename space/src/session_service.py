@@ -4,7 +4,7 @@ import copy
 import random
 import secrets
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
@@ -79,24 +79,43 @@ class SessionService:
         participant_id: str,
         display_name: str,
         descriptors: list[dict[str, Any]],
+        *,
+        include_plus_levels: bool = True,
     ) -> dict[str, Any]:
+        if not include_plus_levels:
+            descriptors = [
+                item
+                for item in descriptors
+                if item["correct_level"] not in {"A2+", "B1+"}
+            ]
         if not descriptors:
-            raise SessionError("La scala selezionata non contiene descrittori.")
+            raise SessionError(
+                "La scala selezionata non contiene descrittori con i livelli "
+                "scelti. Riattiva A2+ e B1+."
+            )
         seed = secrets.randbits(63)
         descriptor_ids = [item["descriptor_id"] for item in descriptors]
         random.Random(seed).shuffle(descriptor_ids)
         session_id = str(uuid.uuid4())
         first = self.catalog.get(descriptor_ids[0])
-        scale_descriptor_ids = [
-            item["descriptor_id"]
-            for item in self.catalog.for_scale(
-                first["schema"],
-                first["modality"],
-                first["activity"],
-                first["scale"],
-            )
-        ]
-        answer_levels = self.catalog.levels_for(scale_descriptor_ids)
+        scale_descriptors = self.catalog.for_scale(
+            first["schema"],
+            first["modality"],
+            first["activity"],
+            first["scale"],
+        )
+        if not include_plus_levels:
+            scale_descriptors = [
+                item
+                for item in scale_descriptors
+                if item["correct_level"] not in {"A2+", "B1+"}
+            ]
+        answer_levels = self.catalog.levels_for(
+            [item["descriptor_id"] for item in scale_descriptors]
+        )
+        level_counts = Counter(
+            item["correct_level"] for item in descriptors
+        )
         now = utc_now()
         exposure_counts: dict[str, int] = defaultdict(int)
         prior_sessions: set[str] = set()
@@ -116,6 +135,8 @@ class SessionService:
             "seed": seed,
             "descriptor_ids": descriptor_ids,
             "available_levels": answer_levels,
+            "level_counts": dict(level_counts),
+            "include_plus_levels": include_plus_levels,
             "current_index": 0,
             "attempts": [],
             "feedbacks": [],
@@ -137,9 +158,14 @@ class SessionService:
             modality=state["modality"],
             activity=state["activity"],
             scale=state["scale"],
+            source_schema=first.get("source_schema", first["schema"]),
+            source_modality=first.get("source_modality", first["modality"]),
+            source_activity=first.get("source_activity", first["activity"]),
             seed=seed,
             descriptor_order=descriptor_ids,
             answer_levels=answer_levels,
+            level_counts=dict(level_counts),
+            include_plus_levels=include_plus_levels,
             descriptor_count=len(descriptor_ids),
             prior_session_count=len(prior_sessions),
             occurred_at=now,
@@ -231,6 +257,15 @@ class SessionService:
                     modality=descriptor["modality"],
                     activity=descriptor["activity"],
                     scale=descriptor["scale"],
+                    source_schema=descriptor.get(
+                        "source_schema", descriptor["schema"]
+                    ),
+                    source_modality=descriptor.get(
+                        "source_modality", descriptor["modality"]
+                    ),
+                    source_activity=descriptor.get(
+                        "source_activity", descriptor["activity"]
+                    ),
                     content_version=descriptor["content_version"],
                     source=descriptor["source"],
                     source_version=descriptor["source_version"],
@@ -346,6 +381,18 @@ class SessionService:
             state.get("available_levels")
             or self.catalog.levels_for(state["descriptor_ids"])
         )
+
+    def level_counts(self, state: dict[str, Any]) -> dict[str, int]:
+        stored = state.get("level_counts")
+        if stored:
+            return {
+                str(level): int(count) for level, count in stored.items()
+            }
+        counts = Counter(
+            self.catalog.get(item_id)["correct_level"]
+            for item_id in state["descriptor_ids"]
+        )
+        return dict(counts)
 
     def summary(self, state: dict[str, Any]) -> dict[str, Any]:
         records = state.get("completed_records", [])
@@ -479,6 +526,16 @@ class SessionService:
                 start.get("answer_levels")
                 or self.catalog.levels_for(order)
             ),
+            "level_counts": dict(
+                start.get("level_counts")
+                or Counter(
+                    self.catalog.get(item_id)["correct_level"]
+                    for item_id in order
+                )
+            ),
+            "include_plus_levels": bool(
+                start.get("include_plus_levels", True)
+            ),
             "current_index": current_index,
             "attempts": [event["selected_level"] for event in answers],
             "feedbacks": [event["feedback_text"] for event in answers],
@@ -529,6 +586,13 @@ class SessionService:
             modality=descriptor["modality"],
             activity=descriptor["activity"],
             scale=descriptor["scale"],
+            source_schema=descriptor.get("source_schema", descriptor["schema"]),
+            source_modality=descriptor.get(
+                "source_modality", descriptor["modality"]
+            ),
+            source_activity=descriptor.get(
+                "source_activity", descriptor["activity"]
+            ),
             correct_level=descriptor["correct_level"],
             descriptor_text=descriptor["descriptor_text"],
             content_version=descriptor["content_version"],

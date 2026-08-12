@@ -7,6 +7,7 @@ from app import (
     SCALE_SELECTOR_TEMPLATE,
     TAXONOMY_TEMPLATE,
     _taxonomy_data,
+    _journey_sessions_html,
     build_demo,
 )
 
@@ -22,7 +23,7 @@ def test_light_surfaces_keep_dark_text_in_dark_mode() -> None:
     hero_rule = _css_rule(".hero h1")
 
     assert "color: var(--fapp-ink) !important;" in descriptor_rule
-    assert "color: var(--fapp-ink) !important;" in hero_rule
+    assert "color: var(--fapp-hero-ink) !important;" in hero_rule
 
 
 def test_mobile_container_does_not_overflow_due_to_padding() -> None:
@@ -107,3 +108,35 @@ def test_journey_and_researcher_overviews_are_separate_pages() -> None:
     assert ("", "Home") in pages
     assert ("percorso", "Il mio percorso") in pages
     assert ("ricercatore", "Panoramica ricercatore") in pages
+
+
+def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> None:
+    assert "--fapp-paper: #17251f;" in CSS
+    assert "--fapp-unseen: #34433f;" in CSS
+    assert "--fapp-unseen-text: #f1f5f9;" in CSS
+    assert "body.dark label.selected" in CSS
+    assert "background: #0b665e !important;" in CSS
+    assert "color: #fff !important;" in CSS
+
+
+def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
+    rendered = _journey_sessions_html(
+        [
+            {
+                "session_id": "session 1",
+                "scale": "Comprensione orale generale",
+                "status": "in_progress",
+                "status_label": "In corso",
+                "descriptors_completed": 1,
+                "descriptors_planned": 8,
+                "first": 1,
+                "first_attempt_rate": 100,
+                "last_activity_at": "2026-08-12T08:00:00+00:00",
+            }
+        ]
+    )
+
+    assert "journey-session-card" in rendered
+    assert "Riprendi questa sessione" in rendered
+    assert "/?resume=session%201" in rendered
+    assert "CSV" not in rendered

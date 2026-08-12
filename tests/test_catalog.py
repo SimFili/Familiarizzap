@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from src.catalog import Catalog, CatalogError, DEMO_CEFR_LEVELS
+from src.settings import Settings
 
 
 def test_catalog_filters_unusable_rows_and_orders_levels(tmp_path: Path):
@@ -156,3 +157,30 @@ def test_pilot_catalog_rejects_levels_above_b2():
 
     with pytest.raises(CatalogError, match="Livello CEFR non valido"):
         Catalog([row])
+
+
+def test_choices_can_filter_an_explicit_empty_parent_value():
+    row = {
+        "descriptor_id": "blank-parent",
+        "schema": "Schema",
+        "modality": "",
+        "activity": "Pragmatica",
+        "scale": "Scala",
+        "correct_level": "A1",
+        "descriptor_text": "Descrittore",
+        "rationale": "Motivazione",
+        "hint_1": "Primo indizio",
+        "hint_2": "Secondo indizio",
+        "language": "it",
+        "source": "Test",
+        "source_version": "1",
+        "license_or_permission": "Test",
+        "content_version": "1",
+        "status": "approved",
+        "active": True,
+    }
+    catalog = Catalog([row])
+
+    assert catalog.choices("activity", schema="Schema", modality="") == [
+        "Pragmatica"
+    ]

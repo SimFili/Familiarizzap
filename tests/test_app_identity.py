@@ -117,3 +117,58 @@ def test_storage_error_keeps_the_name_form_visible(monkeypatch):
 
     assert result[1] == {"name": ""}
     assert "archivio non disponibile" in result[-1]
+
+
+def test_saved_identity_opens_personal_page_without_second_consent(
+    monkeypatch,
+):
+    expected = tuple(range(13))
+    monkeypatch.setattr(app, "identify_participant", lambda name, consent, state: expected)
+
+    result = app.restore_personal_identity(
+        {"name": "Anna"}, app._empty_ui_state()
+    )
+
+    assert result == ("Anna", *expected)
+
+
+def test_saved_identity_opens_practice_page_without_second_consent(
+    monkeypatch,
+):
+    expected = tuple(range(7))
+    monkeypatch.setattr(app, "identify_for_practice", lambda name, consent, state: expected)
+
+    result = app.restore_practice_identity(
+        {"name": "Anna"}, app._empty_ui_state()
+    )
+
+    assert result == ("Anna", *expected)
+
+
+def test_requested_resume_hides_the_taxonomy():
+    class Request:
+        query_params = {"resume": "session-123"}
+
+    update = app.taxonomy_after_requested_resume(Request())
+
+    assert update["visible"] is False
+
+
+def test_normal_home_keeps_the_taxonomy_visible():
+    class Request:
+        query_params = {}
+
+    update = app.taxonomy_after_requested_resume(Request())
+
+    assert update["visible"] is True
+
+
+def test_resume_without_saved_identity_does_not_show_scale_selection():
+    class Request:
+        query_params = {"resume": "session-123"}
+
+    result = app.resume_requested_session(app._empty_ui_state(), Request())
+
+    assert result[1]["visible"] is False
+    assert result[2]["visible"] is False
+    assert "identificati" in result[-1]

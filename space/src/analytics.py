@@ -18,7 +18,7 @@ OUTCOME_LABELS = {
     "unseen": "Non ancora incontrato",
 }
 
-FOCUS_OUTCOMES = {"second", "third", "unresolved", "unseen"}
+FOCUS_OUTCOMES = {"second", "third", "unresolved"}
 
 
 def parse_timestamp(value: str | None) -> datetime | None:

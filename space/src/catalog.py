@@ -30,6 +30,16 @@ REQUIRED_FIELDS = {
     "status",
     "active",
 }
+TEXT_FIELDS = {
+    "schema",
+    "modality",
+    "activity",
+    "scale",
+    "descriptor_text",
+    "rationale",
+    "hint_1",
+    "hint_2",
+}
 
 
 class CatalogError(ValueError):
@@ -66,6 +76,8 @@ class Catalog:
                     "Campi mancanti nel catalogo: " + ", ".join(sorted(missing))
                 )
             item = dict(raw)
+            for field in TEXT_FIELDS:
+                item[field] = str(item[field] or "").strip()
             descriptor_id = str(item["descriptor_id"]).strip()
             if not descriptor_id or descriptor_id in seen_ids:
                 raise CatalogError(
@@ -147,9 +159,15 @@ class Catalog:
             "activity": activity,
         }
         for key, value in filters.items():
-            if value:
+            if value is not None:
                 items = [item for item in items if item[key] == value]
-        return sorted({str(item[field]) for item in items})
+        return sorted(
+            {
+                str(item[field]).strip()
+                for item in items
+                if str(item[field]).strip()
+            }
+        )
 
     def for_scale(
         self, schema: str, modality: str, activity: str, scale: str
@@ -180,6 +198,20 @@ class Catalog:
 
 
 def load_catalog(settings: Settings) -> CatalogLoadResult:
+    if settings.content_file_path:
+        path = Path(settings.content_file_path).expanduser()
+        if not path.is_absolute():
+            path = settings.base_dir / path
+        return CatalogLoadResult(
+            catalog=Catalog.from_json(
+                path,
+                allowed_statuses=("approved",),
+                allowed_levels=PILOT_CEFR_LEVELS,
+            ),
+            source_label=f"file locale {path.name}",
+            is_demo=False,
+        )
+
     if settings.content_repo_id:
         try:
             from huggingface_hub import hf_hub_download

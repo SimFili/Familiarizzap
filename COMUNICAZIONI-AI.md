@@ -18,6 +18,40 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-12 — Distribuzione dei livelli e percorso senza “+”
+
+Le opzioni di risposta mostrano ora il numero di descrittori della sessione per
+ciascun livello, ad esempio `B2 · 2 descrittori`. Il valore registrato resta il
+livello CEFR (`B2`), non l’etichetta estesa.
+
+Prima di avviare ogni nuova scala il docente può disattivare l’opzione
+`Includi anche i livelli A2+ e B1+`. In tal caso gli esercizi A2+/B1+ e i
+relativi pulsanti non entrano nella sessione. La scelta viene registrata negli
+eventi e rispettata anche dopo una ripresa o una ripetizione mirata. Per
+impostazione predefinita i livelli “+” restano inclusi. Le modifiche fanno parte
+del branch `agent/navigazione-progressiva`; diventano online soltanto dopo
+l’integrazione in `main` e la pubblicazione automatica dello Space.
+
+## 2026-08-12 — Percorso personale e catalogo completo 0.5.0
+
+Sono state preparate localmente le correzioni della pagina `/percorso`:
+contrasto esplicito in tema scuro, etichette più chiare, filtro “Da
+consolidare” senza includere i descrittori mai incontrati, cronologia a schede
+e ripresa diretta con un solo clic. Il nome ricordato dal browser apre home e
+percorso personale senza una seconda conferma del consenso.
+
+Il convertitore `tools/build_catalog.py` ha validato il database Excel pulito:
+**831 esercizi**, **52 scale**, nessuna riga scartata e soltanto i livelli A1,
+A2, A2+, B1, B1+ e B2. Le celle vuote nelle colonne intermedie vengono colmate
+solo nella navigazione; i valori originali restano nei campi `source_*` e negli
+eventi. Il JSON completo e i dati di collaudo sono ignorati da Git.
+
+L’app 0.5.0 può caricare il catalogo completo da `CONTENT_FILE_PATH` in locale
+o da `CONTENT_REPO_ID` nello Space. L’attivazione online resta sospesa finché
+non esistono un Dataset Hugging Face privato configurato e la conferma dei
+diritti sui testi. Il codice applicativo fa parte del branch
+`agent/navigazione-progressiva`; il catalogo completo resta escluso da Git.
+
 ## 2026-08-04 — Navigazione progressiva 0.4.2
 
 Fabio ha chiesto di separare la scelta iniziale in schermate successive. La

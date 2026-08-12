@@ -5,7 +5,7 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione locale 0.4.2 include:
+La versione locale 0.5.0 include:
 
 - accesso al proprio percorso tramite il solo nome;
 - navigazione progressiva: identificazione, ambiti disponibili e infine scale;
@@ -17,6 +17,12 @@ La versione locale 0.4.2 include:
 - mappa cliccabile della scala con esito e data relativa;
 - percentuale di riconoscimento al primo tentativo, senza voto composito;
 - ripetizione mirata dei descrittori da consolidare;
+- conteggio dei descrittori presenti per ciascun livello nelle opzioni di
+  risposta;
+- scelta facoltativa, prima di ogni sessione, per escludere A2+ e B1+;
+- cronologia a schede e ripresa diretta di una sessione in corso;
+- supporto dell’intero catalogo privato: 831 descrittori, 52 scale e livelli
+  `A1`, `A2`, `A2+`, `B1`, `B1+`, `B2`;
 - dashboard del ricercatore con filtri, timestamp esatti, dati grezzi,
   controllo d’integrità ed esportazione ZIP.
 
@@ -24,7 +30,7 @@ La versione locale 0.4.2 include:
 
 ## Stato del rilascio
 
-La prova 2.0 include localmente 22 descrittori, ricavati da tre scale di
+La prova 2.0 pubblica include 22 descrittori, ricavati da tre scale di
 ricezione del database fornito dal gruppo di ricerca: comprensione orale
 generale, comprensione audiovisiva e comprensione generale di un testo scritto.
 I feedback sono provvisori. Provenienza e diritti di pubblicazione dei testi
@@ -39,6 +45,12 @@ Per il pilot reale devono essere configurati:
 
 Se questi elementi non sono presenti, l’app mostra esplicitamente la modalità
 dimostrativa e usa uno storage temporaneo.
+
+Il convertitore `tools/build_catalog.py` legge il foglio di lavoro approvato e
+produce `space/data/catalog.full.json`. Questo file e il relativo rapporto sono
+ignorati da Git: i testi completi non devono entrare nel repository pubblico.
+Per provarlo soltanto in locale si imposta `CONTENT_FILE_PATH`; nello Space si
+usa invece `CONTENT_REPO_ID` con un Dataset Hugging Face privato.
 
 La modalità locale e quella dimostrativa servono esclusivamente al collaudo:
 la continuità dei dati della ricerca richiede il Dataset privato configurato.
@@ -70,14 +82,23 @@ Richiede Python 3.12.
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r space\requirements.txt
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -m pytest
 Set-Location space
 python app.py
 ```
 
 L’app locale salva gli eventi in `space/data/runtime/`, cartella ignorata da Git.
+
+Per preparare il catalogo completo senza pubblicarlo:
+
+```powershell
+python tools\build_catalog.py "PERCORSO\database descrittori app final.xlsx" `
+  "space\data\catalog.full.json"
+$env:CONTENT_FILE_PATH="data/catalog.full.json"
+Set-Location space
+python app.py
+```
 
 ## Flusso di lavoro
 

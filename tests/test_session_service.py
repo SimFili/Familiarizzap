@@ -185,3 +185,52 @@ def test_access_event_is_append_only_and_does_not_contain_name(tmp_path: Path):
     events = store.list_events("participant")
     assert [event["event_type"] for event in events] == ["participant_accessed"]
     assert "Nome Privato" not in json.dumps(events, ensure_ascii=False)
+
+
+def test_level_counts_are_stored_for_the_selected_scale(tmp_path: Path):
+    _, store, service, descriptors = make_service(tmp_path)
+
+    state = service.start_session("participant", "Nome Privato", descriptors)
+    expected = {
+        level: sum(item["correct_level"] == level for item in descriptors)
+        for level in service.available_levels(state)
+    }
+
+    assert service.level_counts(state) == expected
+    start = next(
+        event
+        for event in store.list_events("participant")
+        if event["event_type"] == "session_started"
+    )
+    assert start["level_counts"] == expected
+
+
+def test_plus_levels_can_be_excluded_and_remain_excluded_after_resume(
+    tmp_path: Path,
+):
+    _, store, service, descriptors = make_service(tmp_path)
+
+    state = service.start_session(
+        "participant",
+        "Nome Privato",
+        descriptors,
+        include_plus_levels=False,
+    )
+
+    assert "A2+" not in service.available_levels(state)
+    assert "B1+" not in service.available_levels(state)
+    assert all(
+        service.catalog.get(item_id)["correct_level"] not in {"A2+", "B1+"}
+        for item_id in state["descriptor_ids"]
+    )
+    restored = service.restore_session(
+        "participant", "Nome Privato", state["session_id"]
+    )
+    assert restored["include_plus_levels"] is False
+    assert service.available_levels(restored) == service.available_levels(state)
+    start = next(
+        event
+        for event in store.list_events("participant")
+        if event["event_type"] == "session_started"
+    )
+    assert start["include_plus_levels"] is False

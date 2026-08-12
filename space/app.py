@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import gradio as gr
@@ -79,6 +80,9 @@ CSS = """
   --fapp-ink: #16322f;
   --fapp-muted: #58716d;
   --fapp-paper: #fbfdfb;
+  --fapp-hero-ink: #16322f;
+  --fapp-hero-muted: #58716d;
+  --fapp-hero-accent: #167c70;
   --fapp-mint: #dff4ec;
   --fapp-teal: #167c70;
   --fapp-coral: #df6b57;
@@ -88,6 +92,10 @@ CSS = """
   --fapp-third: #ffe69c;
   --fapp-unresolved: #f8d7da;
   --fapp-unseen: #e9ecef;
+  --fapp-second-text: #102d1d;
+  --fapp-third-text: #332700;
+  --fapp-unresolved-text: #481319;
+  --fapp-unseen-text: #263238;
   --fapp-reception: #3b57ed;
   --fapp-production: #f13312;
   --fapp-interaction: #50139c;
@@ -112,11 +120,11 @@ CSS = """
     radial-gradient(circle at 88% 10%, rgba(255,255,255,.9) 0 6%, transparent 7%),
     linear-gradient(135deg, #dff4ec 0%, #f9f4dd 100%);
   border: 1px solid var(--fapp-line);
-  color: var(--fapp-ink) !important;
+  color: var(--fapp-hero-ink) !important;
   margin-bottom: 1rem;
 }
 .hero-kicker {
-  color: var(--fapp-teal) !important;
+  color: var(--fapp-hero-accent) !important;
   font-weight: 750;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -124,12 +132,12 @@ CSS = """
 }
 .hero h1 {
   margin: .25rem 0 .35rem;
-  color: var(--fapp-ink) !important;
+  color: var(--fapp-hero-ink) !important;
   font-size: clamp(2rem, 6vw, 3.25rem);
 }
 .hero p {
   margin: 0;
-  color: var(--fapp-muted) !important;
+  color: var(--fapp-hero-muted) !important;
   max-width: 48rem;
 }
 .descriptor-card {
@@ -276,10 +284,10 @@ button.primary {
   font-weight: 500;
 }
 .status-first { background: var(--fapp-first); color: #fff; }
-.status-second { background: var(--fapp-second); color: #102d1d; }
-.status-third { background: var(--fapp-third); color: #332700; }
-.status-unresolved { background: var(--fapp-unresolved); color: #481319; }
-.status-unseen { background: var(--fapp-unseen); color: #263238; }
+.status-second { background: var(--fapp-second); color: var(--fapp-second-text); }
+.status-third { background: var(--fapp-third); color: var(--fapp-third-text); }
+.status-unresolved { background: var(--fapp-unresolved); color: var(--fapp-unresolved-text); }
+.status-unseen { background: var(--fapp-unseen); color: var(--fapp-unseen-text); }
 .taxonomy-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(155px, 1fr));
@@ -389,16 +397,94 @@ button.primary {
   font-weight: 720;
   text-decoration: none !important;
 }
+.journey-sessions {
+  display: grid;
+  gap: .7rem;
+}
+.journey-session-card {
+  border: 1px solid var(--fapp-line);
+  border-radius: .9rem;
+  padding: .85rem 1rem;
+  background: var(--fapp-paper);
+  color: var(--fapp-ink) !important;
+}
+.journey-session-card * { color: inherit !important; }
+.journey-session-head {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  align-items: start;
+}
+.journey-session-title { font-weight: 780; }
+.journey-session-meta {
+  margin-top: .35rem;
+  color: var(--fapp-muted) !important;
+  font-size: .9rem;
+}
+.journey-session-action {
+  display: inline-flex;
+  margin-top: .65rem;
+  padding: .55rem .75rem;
+  border: 1px solid var(--fapp-line);
+  border-radius: .65rem;
+  background: #e7f5ef !important;
+  color: #0f665c !important;
+  font-weight: 750;
+  text-decoration: none !important;
+}
 .page-links {
   display: flex;
   flex-wrap: wrap;
   gap: .65rem;
   margin-top: 1rem;
 }
+body.dark {
+  --fapp-ink: #e6f1ee;
+  --fapp-muted: #b7cbc6;
+  --fapp-paper: #17251f;
+  --fapp-line: #48645d;
+  --fapp-unseen: #34433f;
+  --fapp-second-text: #f7fffb;
+  --fapp-third-text: #fff9dd;
+  --fapp-unresolved-text: #fff7f8;
+  --fapp-unseen-text: #f1f5f9;
+}
+body.dark .hero,
+body.dark .hero h1 { color: #16322f !important; }
+body.dark .hero p { color: #58716d !important; }
+body.dark .hero-kicker { color: #167c70 !important; }
+body.dark .journey-metric { background: #22352e !important; }
+body.dark .status-second { background: #315b49; color: #f7fffb; }
+body.dark .status-third { background: #65572d; color: #fff9dd; }
+body.dark .status-unresolved { background: #6d3c43; color: #fff7f8; }
+body.dark .status-unseen { background: #34433f; color: #f1f5f9; }
+body.dark .journey-session-action {
+  background: #214039 !important;
+  color: #dffbf4 !important;
+}
+body.dark label.selected {
+  background: #0b665e !important;
+  color: #fff !important;
+}
 @media (prefers-color-scheme: dark) {
+  :root {
+    --fapp-ink: #e6f1ee;
+    --fapp-muted: #b7cbc6;
+    --fapp-paper: #17251f;
+    --fapp-line: #48645d;
+    --fapp-unseen: #34433f;
+    --fapp-second-text: #f7fffb;
+    --fapp-third-text: #fff9dd;
+    --fapp-unresolved-text: #fff7f8;
+    --fapp-unseen-text: #f1f5f9;
+  }
   .gradio-container {
     color: #f1f5f9 !important;
   }
+  .hero,
+  .hero h1 { color: #16322f !important; }
+  .hero p { color: #58716d !important; }
+  .hero-kicker { color: #167c70 !important; }
   .journey-overview,
   .descriptor-card,
   .scale-branch,
@@ -410,6 +496,19 @@ button.primary {
   .taxonomy-item { color: #fff !important; }
   .tax-neutral { color: #263238 !important; }
   .scale-choice-button { color: #fff !important; }
+  .journey-metric { background: #22352e !important; }
+  .status-second { background: #315b49; color: #f7fffb; }
+  .status-third { background: #65572d; color: #fff9dd; }
+  .status-unresolved { background: #6d3c43; color: #fff7f8; }
+  .status-unseen { background: #34433f; color: #f1f5f9; }
+  .journey-session-action {
+    background: #214039 !important;
+    color: #dffbf4 !important;
+  }
+  label.selected {
+    background: #0b665e !important;
+    color: #fff !important;
+  }
 }
 @media (max-width: 720px) {
   .gradio-container { padding: .65rem !important; }
@@ -822,6 +921,7 @@ def _progress_html(
     primary_count: int,
     primary_label: str,
     subtitle: str,
+    total_label: str = "descrittori considerati",
 ) -> str:
     safe_total = max(total, 0)
     first_rate = primary_count / safe_total * 100 if safe_total else 0.0
@@ -841,7 +941,7 @@ def _progress_html(
         f'<div class="journey-metric"><strong>{first_rate:.1f}%</strong>'
         f"{html.escape(primary_label)} · {primary_count} su {safe_total}</div>"
         f'<div class="journey-metric"><strong>{safe_total}</strong>'
-        "descrittori considerati</div>"
+        f"{html.escape(total_label)}</div>"
         "</div>"
         f'<div class="stacked-bar" aria-label="{html.escape(primary_label)}">'
         + "".join(segments)
@@ -887,6 +987,7 @@ def _scale_progress_html(
             "Il 100% si raggiunge quando tutti risultano riconosciuti al primo "
             "tentativo nell’incontro più recente."
         ),
+        total_label="descrittori nella scala selezionata",
     )
 
 
@@ -936,6 +1037,52 @@ def _resume_dropdown(participant: str) -> gr.Dropdown:
     )
 
 
+def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
+    if not sessions:
+        return (
+            '<p class="non-evaluation">Non hai ancora avviato sessioni. '
+            "Scegli una scala per iniziare il percorso.</p>"
+        )
+    cards = []
+    for session in sessions[:20]:
+        completed = int(session.get("descriptors_completed", 0))
+        planned = int(session.get("descriptors_planned", 0))
+        first = int(session.get("first", 0))
+        first_rate = (
+            f"{float(session.get('first_attempt_rate', 0)):.1f}% "
+            f"({first}/{completed})"
+            if completed
+            else "non ancora calcolabile"
+        )
+        action = ""
+        if session.get("status") == "in_progress":
+            session_id = quote(str(session.get("session_id", "")), safe="")
+            action = (
+                f'<a class="journey-session-action" href="/?resume={session_id}">'
+                "Riprendi questa sessione →</a>"
+            )
+        cards.append(
+            '<article class="journey-session-card">'
+            '<div class="journey-session-head">'
+            f'<span class="journey-session-title">{html.escape(str(session.get("scale", "Scala")))}</span>'
+            f'<span>{html.escape(str(session.get("status_label", "")))}</span>'
+            "</div>"
+            '<div class="journey-session-meta">'
+            f'{html.escape(relative_timestamp(str(session.get("last_activity_at", ""))))} · '
+            f'{completed}/{planned} descrittori · '
+            f"al primo tentativo: {html.escape(first_rate)}"
+            "</div>"
+            f"{action}</article>"
+        )
+    remainder = len(sessions) - len(cards)
+    more = (
+        f'<p class="non-evaluation">Altre {remainder} sessioni non mostrate.</p>'
+        if remainder > 0
+        else ""
+    )
+    return '<div class="journey-sessions">' + "".join(cards) + "</div>" + more
+
+
 def _personal_view(
     participant: str,
     selected_path_value: str | None = None,
@@ -977,31 +1124,18 @@ def _personal_view(
         latest_counts,
         overview["descriptors_available"],
         primary_count=overview["latest_first_count"],
-        primary_label="riconoscimento senza suggerimenti",
+        primary_label=(
+            "descrittori riconosciuti al primo tentativo "
+            "nell’incontro più recente"
+        ),
         subtitle=(
             "Il colore riporta l’esito più recente di ogni descrittore. "
             "Non è un voto e non confronta il percorso con quello dei colleghi."
         ),
+        total_label="descrittori nell’intero catalogo",
     )
     overview_html += _session_trend_html(sessions)
-    session_rows = [
-        [
-            relative_timestamp(session["last_activity_at"]),
-            session["scale"],
-            session["status_label"],
-            (
-                f"{session['descriptors_completed']}/"
-                f"{session['descriptors_planned']}"
-            ),
-            (
-                f"{session['first_attempt_rate']:.1f}% "
-                f"({session['first']}/{session['descriptors_completed']})"
-                if session["descriptors_completed"]
-                else "—"
-            ),
-        ]
-        for session in sessions
-    ]
+    session_cards = _journey_sessions_html(sessions)
     return (
         overview_html,
         gr.Dropdown(
@@ -1011,7 +1145,7 @@ def _personal_view(
         ),
         scale_progress,
         rows,
-        session_rows,
+        session_cards,
         _resume_dropdown(participant),
     )
 
@@ -1019,6 +1153,97 @@ def _personal_view(
 def prefill_identity(saved: dict[str, str] | None):
     saved = saved or {}
     return saved.get("name", "")
+
+
+def restore_personal_identity(
+    saved: dict[str, str] | None,
+    state: dict[str, Any] | None,
+):
+    name = prefill_identity(saved)
+    state = state or _empty_ui_state()
+    if not name:
+        return (
+            "",
+            state,
+            saved or _empty_browser_identity(),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "",
+            "",
+            gr.Dropdown(choices=[], value=None),
+            "",
+            [],
+            "",
+            gr.Dropdown(choices=[], value=None),
+            "",
+            "",
+        )
+    return (name, *identify_participant(name, True, state))
+
+
+def restore_practice_identity(
+    saved: dict[str, str] | None,
+    state: dict[str, Any] | None,
+):
+    name = prefill_identity(saved)
+    state = state or _empty_ui_state()
+    if not name:
+        return (
+            "",
+            state,
+            saved or _empty_browser_identity(),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "",
+            gr.Dropdown(choices=[], value=None),
+            "",
+        )
+    return (name, *identify_for_practice(name, True, state))
+
+
+def resume_requested_session(
+    state: dict[str, Any], request: gr.Request
+):
+    query = getattr(request, "query_params", {}) or {}
+    session_id = str(query.get("resume", "") or "")
+    if not session_id:
+        return (
+            state,
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            "",
+            "",
+            "",
+            gr.Radio(choices=[]),
+            "",
+            "",
+            gr.Button(visible=False),
+            gr.Button(visible=False),
+            "",
+        )
+    if not state.get("participant_id"):
+        return (
+            state,
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            "",
+            "",
+            "",
+            gr.Radio(choices=[]),
+            "",
+            "",
+            gr.Button(visible=False),
+            gr.Button(visible=False),
+            "Per riprendere la sessione, identificati prima con lo stesso nome.",
+        )
+    return resume_session(state, session_id)
+
+
+def taxonomy_after_requested_resume(request: gr.Request):
+    query = getattr(request, "query_params", {}) or {}
+    return gr.update(visible=not bool(str(query.get("resume", "") or "")))
 
 
 def _register_identity(
@@ -1349,6 +1574,15 @@ def _exercise_view(session: dict[str, Any]):
         feedback_parts.append(f"#### {label}\n{text}")
     feedback = "\n\n".join(feedback_parts)
     levels = SESSIONS.available_levels(session)
+    level_counts = SESSIONS.level_counts(session)
+    level_choices = [
+        (
+            f"{level} · {level_counts.get(level, 0)} "
+            f"{'descrittore' if level_counts.get(level, 0) == 1 else 'descrittori'}",
+            level,
+        )
+        for level in levels
+    ]
     continue_label = (
         "Vedi il riepilogo"
         if position == total
@@ -1359,10 +1593,13 @@ def _exercise_view(session: dict[str, Any]):
         progress,
         descriptor_text,
         gr.Radio(
-            choices=levels,
+            choices=level_choices,
             value=None,
             interactive=not finished,
-            label="A quale livello appartiene?",
+            label=(
+                "A quale livello appartiene? Il numero indica quanti "
+                "descrittori della scala hanno quel livello."
+            ),
         ),
         attempt_label,
         feedback,
@@ -1387,10 +1624,15 @@ def start_session(
     modality: str,
     activity: str,
     scale: str,
+    include_plus_levels: bool,
 ):
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
-        return _start_descriptors(state, descriptors)
+        return _start_descriptors(
+            state,
+            descriptors,
+            include_plus_levels=include_plus_levels,
+        )
     except (KeyError, SessionError, EventStoreError, CatalogError) as exc:
         return _exercise_error(
             state, f"⚠️ La sessione non è stata avviata: {exc}"
@@ -1398,12 +1640,16 @@ def start_session(
 
 
 def _start_descriptors(
-    state: dict[str, Any], descriptors: list[dict[str, Any]]
+    state: dict[str, Any],
+    descriptors: list[dict[str, Any]],
+    *,
+    include_plus_levels: bool = True,
 ):
     session = SESSIONS.start_session(
         participant_id=state["participant_id"],
         display_name=state["display_name"],
         descriptors=descriptors,
+        include_plus_levels=include_plus_levels,
     )
     updated = dict(state)
     updated["session"] = session
@@ -1727,7 +1973,13 @@ def repeat_selected_descriptors(
         )
     try:
         descriptors = [CATALOG.get(item_id) for item_id in descriptor_ids]
-        return _start_descriptors(state, descriptors)
+        return _start_descriptors(
+            state,
+            descriptors,
+            include_plus_levels=bool(
+                state.get("session", {}).get("include_plus_levels", True)
+            ),
+        )
     except (CatalogError, SessionError, EventStoreError) as exc:
         return _exercise_error(
             state, f"⚠️ Ripetizione non avviata: {exc}"
@@ -2223,6 +2475,15 @@ def build_demo() -> gr.Blocks:
                     value=scale,
                     label="Scala",
                 )
+            include_plus_levels = gr.Checkbox(
+                value=True,
+                label="Includi anche i livelli A2+ e B1+",
+                info=(
+                    "Disattiva questa opzione se preferisci lavorare soltanto "
+                    "su A1, A2, B1 e B2. Puoi cambiarla prima di ogni nuova "
+                    "sessione."
+                ),
+            )
             with gr.Row():
                 start_button = gr.Button(
                     "Inizia la scala selezionata", variant="primary"
@@ -2300,12 +2561,6 @@ def build_demo() -> gr.Blocks:
             "Panoramica ricercatore ↗</a></nav>"
         )
 
-        demo.load(
-            prefill_identity,
-            inputs=browser_identity,
-            outputs=name,
-        )
-
         exercise_outputs = [
             ui_state,
             scale_group,
@@ -2329,6 +2584,28 @@ def build_demo() -> gr.Blocks:
             scale_choice,
             path_selection_message,
         ]
+
+        demo.load(
+            restore_practice_identity,
+            inputs=[browser_identity, ui_state],
+            outputs=[
+                name,
+                ui_state,
+                browser_identity,
+                login_group,
+                taxonomy_group,
+                greeting,
+                resume_choice,
+                user_message,
+            ],
+        ).then(
+            resume_requested_session,
+            inputs=ui_state,
+            outputs=exercise_outputs,
+        ).then(
+            taxonomy_after_requested_resume,
+            outputs=taxonomy_group,
+        )
 
         identify_button.click(
             identify_for_practice,
@@ -2381,6 +2658,7 @@ def build_demo() -> gr.Blocks:
                 modality_choice,
                 activity_choice,
                 scale_choice,
+                include_plus_levels,
             ],
             outputs=exercise_outputs,
         )
@@ -2412,6 +2690,7 @@ def build_demo() -> gr.Blocks:
                 modality_choice,
                 activity_choice,
                 scale_choice,
+                include_plus_levels,
             ],
             outputs=exercise_outputs,
         )
@@ -2593,10 +2872,10 @@ def build_demo() -> gr.Blocks:
                     choices=_scale_choices(),
                     label="Scala da esplorare",
                 )
-                journey_filter = gr.Radio(
+            journey_filter = gr.Radio(
                     choices=[
                         ("Mostra tutto", "all"),
-                        ("Concentrati", "focus"),
+                        ("Da consolidare", "focus"),
                         ("Da rivedere", "unresolved"),
                         ("Mai incontrati", "unseen"),
                     ],
@@ -2610,31 +2889,12 @@ def build_demo() -> gr.Blocks:
                 js_on_load=MAP_JS,
             )
             journey_detail = gr.Markdown()
-            with gr.Accordion("Sessioni precedenti", open=False):
-                journey_sessions = gr.Dataframe(
-                    headers=[
-                        "Quando",
-                        "Scala",
-                        "Stato",
-                        "Descrittori",
-                        "Senza suggerimenti",
-                    ],
-                    datatype=["str", "str", "str", "str", "str"],
-                    interactive=False,
-                    wrap=True,
-                    show_search="filter",
-                )
-            with gr.Accordion("Sessioni da riprendere", open=False):
-                journey_resume_choice = gr.Dropdown(
-                    choices=[],
-                    label="Sessione in corso",
-                    interactive=False,
-                )
-                gr.Markdown(
-                    "Per riprendere una sessione torna alla "
-                    "[pagina principale](/), conferma il nome e usa "
-                    "“Riprendi una sessione”."
-                )
+            with gr.Accordion("Le mie sessioni", open=False):
+                journey_sessions = gr.HTML()
+            journey_resume_choice = gr.Dropdown(
+                choices=[],
+                visible=False,
+            )
             with gr.Row():
                 gr.HTML(
                     '<a class="researcher-link" href="/">'
@@ -2649,9 +2909,24 @@ def build_demo() -> gr.Blocks:
         )
 
         demo.load(
-            prefill_identity,
-            inputs=journey_browser_identity,
-            outputs=journey_name,
+            restore_personal_identity,
+            inputs=[journey_browser_identity, journey_state],
+            outputs=[
+                journey_name,
+                journey_state,
+                journey_browser_identity,
+                journey_login_group,
+                journey_content,
+                journey_greeting,
+                journey_progress_dashboard,
+                journey_scale_choice,
+                journey_scale_summary,
+                journey_map,
+                journey_sessions,
+                journey_resume_choice,
+                journey_detail,
+                journey_message,
+            ],
         )
         journey_identify_button.click(
             identify_participant,

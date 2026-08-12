@@ -28,6 +28,7 @@ di oggetti. Campi obbligatori:
 | `license_or_permission` | base editoriale per l’uso |
 | `content_version` | versione editoriale |
 | `status`, `active` | nel catalogo remoto soltanto `approved` e `true` vengono pubblicati; il catalogo incluso usa `demo` |
+| `source_schema`, `source_modality`, `source_activity` | valori originali B-C-D; conservano anche le celle vuote della fonte quando le etichette operative di navigazione vengono completate |
 
 Il catalogo remoto del pilot accetta soltanto `A1`, `A2`, `A2+`, `B1`,
 `B1+` e `B2`. L’ordine degli oggetti nella stessa scala conserva l’ordine della
@@ -92,13 +93,17 @@ Tipi implementati:
 ### `session_started`
 
 Registra gerarchia e scala, seme casuale, ordine dei descrittori, livelli
-selezionabili, numero di descrittori e numero di sessioni precedenti.
+selezionabili, numero di descrittori per livello, scelta di includere o
+escludere `A2+` e `B1+`, numero totale di descrittori e numero di sessioni
+precedenti.
 
 ### `descriptor_presented`
 
 Registra posizione, numero dell’esposizione e una fotografia del contenuto
 effettivamente mostrato: testo, livello, gerarchia, versione, fonte e revisione.
 Questo permette di ricostruire lo studio anche se il catalogo viene aggiornato.
+Gli eventi includono inoltre i campi `source_*`, quando presenti, per conservare
+la classificazione originale distinta dalle etichette operative di navigazione.
 
 ### `answer_submitted`
 
