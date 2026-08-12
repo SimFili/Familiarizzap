@@ -18,6 +18,13 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-12 — Uscita confermata dall’esercizio 0.5.3
+
+Durante un esercizio è disponibile `Torna alla scelta della scala`. Prima di
+uscire l’app chiede conferma e chiarisce che i tentativi già registrati non
+vengono cancellati. Confermando, la sessione rimane incompleta e può essere
+ripresa dall’elenco dedicato; annullando si continua l’esercizio corrente.
+
 ## 2026-08-12 — Identificazione sempre esplicita 0.5.2
 
 Anche quando il browser ricorda il nome, la home mostra sempre per primo il

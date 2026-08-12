@@ -101,6 +101,15 @@ def test_home_places_general_navigation_after_identification() -> None:
     assert taxonomy_start < page_links_start
 
 
+def test_exercise_exit_handlers_are_registered_on_the_home_route() -> None:
+    source = inspect.getsource(app.build_demo)
+    personal_route = source.index('with demo.route(\n        "Il mio percorso"')
+
+    assert source.index("leave_exercise_button.click") < personal_route
+    assert source.index("cancel_leave_exercise_button.click") < personal_route
+    assert source.index("confirm_leave_exercise_button.click") < personal_route
+
+
 def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
     expected = {
         "--fapp-taxonomy": "#d1c29f",

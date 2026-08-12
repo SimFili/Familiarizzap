@@ -25,7 +25,7 @@ sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
 prima dell’uso pubblico. Quando il Dataset degli eventi e i secret non sono
 configurati, l’interfaccia segnala che gli eventi non sono durevoli.
 
-La versione 0.5.2 separa la navigazione in passaggi successivi: prima
+La versione 0.5.3 separa la navigazione in passaggi successivi: prima
 l’identificazione, poi gli ambiti disponibili e infine le scale dell’ambito
 scelto. Percentuali, mappa e cronologia restano nella pagina personale separata
 `/percorso`; la panoramica del ricercatore resta nella pagina riservata

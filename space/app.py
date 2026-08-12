@@ -2020,6 +2020,61 @@ def back_to_practice(state: dict[str, Any]):
     )
 
 
+def open_exercise_exit_confirmation():
+    return gr.update(visible=True)
+
+
+def cancel_exercise_exit():
+    return gr.update(visible=False)
+
+
+def pause_session_and_choose_scale(state: dict[str, Any]):
+    """Leave the exercise UI without deleting its immutable session events."""
+    session = state.get("session") or {}
+    updated = dict(state)
+    updated["session"] = None
+    path = (
+        str(session.get("schema", "")),
+        str(session.get("modality", "")),
+        str(session.get("activity", "")),
+        str(session.get("scale", "")),
+    )
+    if all(path):
+        navigation = _navigation_selection(path[0], path[1])
+        scales = CATALOG.choices(
+            "scale",
+            schema=path[0],
+            modality=path[1],
+            activity=path[2],
+        )
+        navigation = (
+            navigation[0],
+            navigation[1],
+            navigation[2],
+            gr.Dropdown(
+                choices=CATALOG.choices(
+                    "activity", schema=path[0], modality=path[1]
+                ),
+                value=path[2],
+            ),
+            gr.Dropdown(choices=scales, value=path[3]),
+            (
+                "Sessione messa in pausa. I tentativi già registrati restano "
+                "salvati e puoi riprenderla dall’elenco delle sessioni."
+            ),
+        )
+    else:
+        navigation = _navigation_selection(*_first_path_values()[1:3])
+    return (
+        updated,
+        gr.update(visible=True),
+        gr.update(visible=False),
+        gr.update(visible=False),
+        *navigation,
+        _resume_dropdown(str(updated.get("participant_id", ""))),
+    )
+
+
 def logout():
     return (
         _empty_ui_state(),
@@ -2541,6 +2596,22 @@ def build_demo() -> gr.Blocks:
                     visible=False,
                     variant="primary",
                 )
+            leave_exercise_button = gr.Button(
+                "Torna alla scelta della scala"
+            )
+            with gr.Group(visible=False) as leave_exercise_confirmation:
+                gr.Markdown(
+                    "### Mettere in pausa questa sessione?\n"
+                    "I tentativi già registrati non verranno cancellati. "
+                    "Potrai riprendere la sessione in seguito."
+                )
+                with gr.Row():
+                    confirm_leave_exercise_button = gr.Button(
+                        "Sì, torna alle scale", variant="primary"
+                    )
+                    cancel_leave_exercise_button = gr.Button(
+                        "No, continua l’esercizio"
+                    )
 
         with gr.Group(visible=False) as summary_group:
             summary_stats = gr.HTML()
@@ -2779,6 +2850,31 @@ def build_demo() -> gr.Blocks:
                 repeat_choices,
                 repeat_button,
                 user_message,
+            ],
+        )
+        leave_exercise_button.click(
+            open_exercise_exit_confirmation,
+            outputs=leave_exercise_confirmation,
+        )
+        cancel_leave_exercise_button.click(
+            cancel_exercise_exit,
+            outputs=leave_exercise_confirmation,
+        )
+        confirm_leave_exercise_button.click(
+            pause_session_and_choose_scale,
+            inputs=ui_state,
+            outputs=[
+                ui_state,
+                scale_group,
+                exercise_group,
+                leave_exercise_confirmation,
+                scale_selector,
+                schema_choice,
+                modality_choice,
+                activity_choice,
+                scale_choice,
+                path_selection_message,
+                resume_choice,
             ],
         )
 
