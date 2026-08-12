@@ -153,6 +153,104 @@ CSS = """
   word-break: normal;
 }
 .descriptor-card * { color: inherit !important; }
+.exercise-progress-card {
+  margin: .2rem 0 .85rem;
+  color: var(--fapp-ink) !important;
+}
+.exercise-progress-heading {
+  margin: 0 0 .5rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.exercise-progress-track {
+  display: flex;
+  align-items: center;
+  gap: .38rem;
+  min-height: 3.4rem;
+  padding: .45rem .3rem .6rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+.exercise-step {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  scroll-snap-align: center;
+}
+.exercise-step-unseen {
+  width: .78rem;
+  height: .78rem;
+  border: 2px solid #879993;
+  border-radius: 999px;
+  background: transparent;
+}
+.exercise-step-current {
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 4px solid var(--fapp-teal);
+  border-radius: 999px;
+  background: var(--fapp-paper);
+  color: var(--fapp-teal) !important;
+  font-weight: 850;
+  box-shadow: 0 0 0 4px rgba(22,124,112,.14);
+}
+.exercise-step-done {
+  min-width: 2.8rem;
+  height: 2.15rem;
+  padding: 0 .48rem;
+  border: 1px solid rgba(22,50,47,.28);
+  border-radius: .72rem;
+  font-size: .88rem;
+  font-weight: 850;
+}
+.exercise-step-done.progress-first {
+  background: var(--fapp-first);
+  color: #fff !important;
+}
+.exercise-step-done.progress-second {
+  background: var(--fapp-second);
+  color: var(--fapp-second-text) !important;
+}
+.exercise-step-done.progress-third {
+  background: var(--fapp-third);
+  color: var(--fapp-third-text) !important;
+}
+.exercise-step-done.progress-unresolved {
+  background: var(--fapp-unresolved);
+  color: var(--fapp-unresolved-text) !important;
+}
+.exercise-step-done.progress-current {
+  outline: 3px solid var(--fapp-teal);
+  outline-offset: 2px;
+}
+.exercise-step-badge {
+  position: absolute;
+  top: -.46rem;
+  right: -.34rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 .18rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: var(--fapp-paper);
+  color: var(--fapp-ink) !important;
+  font-size: .63rem;
+  line-height: 1;
+  font-weight: 900;
+}
+.exercise-progress-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem .75rem;
+  color: var(--fapp-muted) !important;
+  font-size: .76rem;
+}
+.exercise-progress-legend span { white-space: nowrap; }
 .non-evaluation {
   color: var(--fapp-muted);
   font-size: .92rem;
@@ -462,6 +560,8 @@ body.dark .status-second { background: #315b49; color: #f7fffb; }
 body.dark .status-third { background: #65572d; color: #fff9dd; }
 body.dark .status-unresolved { background: #6d3c43; color: #fff7f8; }
 body.dark .status-unseen { background: #34433f; color: #f1f5f9; }
+body.dark .exercise-step-current,
+body.dark .exercise-step-badge { background: #17251f; }
 body.dark .journey-session-action {
   background: #214039 !important;
   color: #dffbf4 !important;
@@ -506,6 +606,8 @@ body.dark label.selected {
   .status-third { background: #65572d; color: #fff9dd; }
   .status-unresolved { background: #6d3c43; color: #fff7f8; }
   .status-unseen { background: #34433f; color: #f1f5f9; }
+  .exercise-step-current,
+  .exercise-step-badge { background: #17251f; }
   .journey-session-action {
     background: #214039 !important;
     color: #dffbf4 !important;
@@ -552,6 +654,10 @@ body.dark label.selected {
   .taxonomy-title { min-height: 4.8rem; }
   .taxonomy-item { min-height: 4.15rem; }
   .scale-selector { grid-template-columns: 1fr; }
+  .exercise-progress-track {
+    margin-inline: -.25rem;
+    padding-inline: .45rem;
+  }
 }
 """
 
@@ -676,6 +782,17 @@ const bindScales = () => {
 };
 bindScales();
 watch('value', bindScales);
+"""
+
+EXERCISE_PROGRESS_JS = """
+const revealCurrentStep = () => {
+  const current = element.querySelector('.progress-current');
+  if (current) {
+    current.scrollIntoView({behavior: 'smooth', block: 'nearest', inline: 'center'});
+  }
+};
+revealCurrentStep();
+watch('value', revealCurrentStep);
 """
 
 
@@ -1555,6 +1672,78 @@ def update_activity(schema: str, modality: str, activity: str):
     )
 
 
+def _exercise_progress_data(session: dict[str, Any]) -> dict[str, Any]:
+    current_index = int(session.get("current_index", 0))
+    current_finished = bool(session.get("descriptor_finished"))
+    records = {
+        str(record.get("descriptor_id", "")): record
+        for record in session.get("completed_records", [])
+    }
+    steps = []
+    for index, descriptor_id in enumerate(session["descriptor_ids"]):
+        record = records.get(str(descriptor_id))
+        is_current = index == current_index
+        if record:
+            attempt = record.get("resolved_on_attempt")
+            outcome = f"{attempt}° tentativo" if attempt else "da rivedere"
+            status = {
+                1: "progress-first",
+                2: "progress-second",
+                3: "progress-third",
+            }.get(attempt, "progress-unresolved")
+            level = str(
+                record.get("correct_level")
+                or CATALOG.get(descriptor_id)["correct_level"]
+            )
+            steps.append(
+                {
+                    "kind": "done",
+                    "done": True,
+                    "active": False,
+                    "status": status,
+                    "current": is_current,
+                    "level": level,
+                    "badge": str(attempt or "!"),
+                    "aria": (
+                        f"Descrittore {index + 1}: livello {level}, "
+                        f"{outcome}"
+                    ),
+                }
+            )
+        elif is_current:
+            steps.append(
+                {
+                    "kind": "current",
+                    "done": False,
+                    "active": True,
+                    "status": "",
+                    "current": True,
+                    "level": "",
+                    "badge": "",
+                    "aria": f"Descrittore {index + 1}: in corso",
+                }
+            )
+        else:
+            steps.append(
+                {
+                    "kind": "unseen",
+                    "done": False,
+                    "active": False,
+                    "status": "",
+                    "current": False,
+                    "level": "",
+                    "badge": "",
+                    "aria": f"Descrittore {index + 1}: non ancora affrontato",
+                }
+            )
+    return {
+        "position": current_index + 1,
+        "total": len(session["descriptor_ids"]),
+        "current_finished": current_finished,
+        "steps": steps,
+    }
+
+
 def _exercise_view(session: dict[str, Any]):
     descriptor = SESSIONS.current_descriptor(session)
     total = len(session["descriptor_ids"])
@@ -1563,10 +1752,7 @@ def _exercise_view(session: dict[str, Any]):
         f"**{session['schema']}**  \n"
         f"{session['modality']} → {session['activity']} → {session['scale']}"
     )
-    progress = (
-        f"### Descrittore {position} di {total}\n\n"
-        f"`{'●' * position}{'○' * (total - position)}`"
-    )
+    progress = _exercise_progress_data(session)
     descriptor_text = (
         f'<div class="descriptor-card">'
         f'{html.escape(descriptor["descriptor_text"])}</div>'
@@ -1734,6 +1920,7 @@ def submit_answer(state: dict[str, Any], selected_level: str | None):
     if not session:
         return (
             state,
+            {"position": 0, "total": 0, "steps": []},
             gr.Radio(choices=[]),
             "",
             "",
@@ -1745,6 +1932,7 @@ def submit_answer(state: dict[str, Any], selected_level: str | None):
         view = _exercise_view(session)
         return (
             state,
+            view[1],
             view[3],
             view[4],
             view[5],
@@ -1759,6 +1947,7 @@ def submit_answer(state: dict[str, Any], selected_level: str | None):
         view = _exercise_view(updated_session)
         return (
             updated,
+            view[1],
             view[3],
             view[4],
             view[5],
@@ -1770,6 +1959,7 @@ def submit_answer(state: dict[str, Any], selected_level: str | None):
         view = _exercise_view(session)
         return (
             state,
+            view[1],
             view[3],
             view[4],
             view[5],
@@ -2580,7 +2770,52 @@ def build_demo() -> gr.Blocks:
 
         with gr.Group(visible=False) as exercise_group:
             breadcrumb = gr.Markdown()
-            exercise_progress = gr.Markdown()
+            exercise_progress = gr.HTML(
+                _exercise_progress_data(
+                    {
+                        "descriptor_ids": ["placeholder"],
+                        "current_index": 0,
+                        "descriptor_finished": False,
+                        "completed_records": [],
+                    }
+                ),
+                html_template="""
+                <section class="exercise-progress-card"
+                         aria-label="Percorso nella scala">
+                  <h3 class="exercise-progress-heading">
+                    Descrittore {{value.position}} di {{value.total}}
+                  </h3>
+                  <div class="exercise-progress-track">
+                  {{#each value.steps}}
+                    {{#if done}}
+                      <span class="exercise-step exercise-step-done {{status}}
+                                   {{#if current}}progress-current{{/if}}"
+                            aria-label="{{aria}}" title="{{aria}}">
+                        {{level}}
+                        <span class="exercise-step-badge">{{badge}}</span>
+                      </span>
+                    {{else}}
+                      {{#if active}}
+                        <span class="exercise-step exercise-step-current
+                                     progress-current"
+                              aria-label="{{aria}}" title="{{aria}}">●</span>
+                      {{else}}
+                        <span class="exercise-step exercise-step-unseen"
+                              aria-label="{{aria}}" title="{{aria}}"></span>
+                      {{/if}}
+                    {{/if}}
+                  {{/each}}
+                  </div>
+                  <div class="exercise-progress-legend" aria-label="Legenda">
+                    <span>1 = riconosciuto subito</span>
+                    <span>2 = al secondo tentativo</span>
+                    <span>3 = al terzo tentativo</span>
+                    <span>! = soluzione mostrata</span>
+                  </div>
+                </section>
+                """,
+                js_on_load=EXERCISE_PROGRESS_JS,
+            )
             descriptor = gr.HTML()
             attempt_label = gr.Markdown()
             level_choice = gr.Radio(
@@ -2818,6 +3053,7 @@ def build_demo() -> gr.Blocks:
             inputs=[ui_state, level_choice],
             outputs=[
                 ui_state,
+                exercise_progress,
                 level_choice,
                 attempt_label,
                 feedback,

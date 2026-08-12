@@ -32,7 +32,7 @@ class Settings:
         return cls(
             base_dir=base_dir,
             app_env=app_env,
-            app_version=os.getenv("APP_VERSION", "0.5.3").strip(),
+            app_version=os.getenv("APP_VERSION", "0.5.4").strip(),
             content_file_path=os.getenv(
                 "CONTENT_FILE_PATH",
                 (

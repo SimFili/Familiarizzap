@@ -18,6 +18,16 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-12 — Mappa progressiva dei descrittori 0.5.4
+
+La fila di pallini nell’esercizio è diventata una mappa progressiva. Il
+descrittore corrente è ingrandito, quelli futuri restano pallini vuoti e quelli
+conclusi mostrano il livello corretto scoperto. Colore e simbolo indicano il
+percorso: `1`, `2`, `3` per il tentativo risolutivo e `!` quando la soluzione è
+stata mostrata dopo tre tentativi. Una legenda testuale evita di affidare
+l’informazione al solo colore. Sulle scale lunghe la mappa scorre in orizzontale
+e centra automaticamente il descrittore corrente.
+
 ## 2026-08-12 — Uscita confermata dall’esercizio 0.5.3
 
 Durante un esercizio è disponibile `Torna alla scelta della scala`. Prima di

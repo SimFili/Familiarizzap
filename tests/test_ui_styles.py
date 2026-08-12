@@ -9,6 +9,7 @@ from app import (
     MAP_TEMPLATE,
     SCALE_SELECTOR_TEMPLATE,
     TAXONOMY_TEMPLATE,
+    EXERCISE_PROGRESS_JS,
     _taxonomy_data,
     _journey_sessions_html,
     build_demo,
@@ -48,6 +49,22 @@ def test_outcome_colors_have_text_labels_and_dark_mode_contrast() -> None:
     ):
         assert label in MAP_TEMPLATE
     assert "trigger('click'" in MAP_JS
+
+
+def test_exercise_progress_is_scrollable_and_not_color_only() -> None:
+    assert ".exercise-progress-track" in CSS
+    assert "overflow-x: auto;" in _css_rule(".exercise-progress-track")
+    assert ".exercise-step-done.progress-first" in CSS
+    assert ".exercise-step-done.progress-unresolved" in CSS
+    assert "scrollIntoView" in EXERCISE_PROGRESS_JS
+    source = inspect.getsource(app.build_demo)
+    for label in (
+        "1 = riconosciuto subito",
+        "2 = al secondo tentativo",
+        "3 = al terzo tentativo",
+        "! = soluzione mostrata",
+    ):
+        assert label in source
 
 
 def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
