@@ -1204,18 +1204,19 @@ def restore_practice_identity(
 ):
     name = prefill_identity(saved)
     state = state or _empty_ui_state()
-    if not name:
-        return (
-            "",
-            state,
-            saved or _empty_browser_identity(),
-            gr.update(visible=True),
-            gr.update(visible=False),
-            "",
-            gr.Dropdown(choices=[], value=None),
-            "",
-        )
-    return (name, *identify_for_practice(name, True, state))
+    # Il nome ricordato aiuta a ritrovare il percorso, ma non deve saltare
+    # automaticamente il primo passaggio. Ogni apertura della home richiede
+    # una conferma esplicita prima di mostrare il catalogo.
+    return (
+        name,
+        state,
+        saved or _empty_browser_identity(),
+        gr.update(visible=True),
+        gr.update(visible=False),
+        "",
+        gr.Dropdown(choices=[], value=None),
+        "",
+    )
 
 
 def resume_requested_session(
@@ -2641,6 +2642,14 @@ def build_demo() -> gr.Blocks:
                 resume_choice,
                 user_message,
             ],
+        ).then(
+            resume_requested_session,
+            inputs=ui_state,
+            outputs=exercise_outputs,
+        ).then(
+            taxonomy_after_requested_resume,
+            inputs=ui_state,
+            outputs=taxonomy_group,
         )
         taxonomy.click(
             navigation_click,

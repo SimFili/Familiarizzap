@@ -18,6 +18,14 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-12 — Identificazione sempre esplicita 0.5.2
+
+Anche quando il browser ricorda il nome, la home mostra sempre per primo il
+solo passaggio di identificazione. Il nome può essere precompilato, ma il
+docente deve confermare esplicitamente prima di vedere il catalogo. I link di
+ripresa continuano a funzionare: dopo la conferma aprono direttamente la
+sessione richiesta.
+
 ## 2026-08-12 — Catalogo completo online e correzione della prima pagina 0.5.1
 
 Fabio ha confermato che la prima schermata deve contenere soltanto

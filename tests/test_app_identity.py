@@ -132,17 +132,16 @@ def test_saved_identity_opens_personal_page_without_second_consent(
     assert result == ("Anna", *expected)
 
 
-def test_saved_identity_opens_practice_page_without_second_consent(
-    monkeypatch,
-):
-    expected = tuple(range(7))
-    monkeypatch.setattr(app, "identify_for_practice", lambda name, consent, state: expected)
-
+def test_saved_identity_prefills_practice_but_keeps_first_step_visible():
     result = app.restore_practice_identity(
         {"name": "Anna"}, app._empty_ui_state()
     )
 
-    assert result == ("Anna", *expected)
+    assert result[0] == "Anna"
+    assert result[1] == app._empty_ui_state()
+    assert result[2] == {"name": "Anna"}
+    assert result[3]["visible"] is True
+    assert result[4]["visible"] is False
 
 
 def test_requested_resume_hides_the_taxonomy():

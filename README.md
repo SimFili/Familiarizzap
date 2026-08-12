@@ -5,7 +5,7 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione 0.5.1 include:
+La versione 0.5.2 include:
 
 - accesso al proprio percorso tramite il solo nome;
 - navigazione progressiva: identificazione, ambiti disponibili e infine scale;
