@@ -869,15 +869,13 @@ def _available_schemas() -> list[str]:
 
 
 def _first_path_values() -> tuple[list[str], str, str, str, str]:
+    available_paths = [
+        path
+        for path in _catalog_paths()
+        if not _is_sign_language_schema(path[0])
+    ]
     schemas = _available_schemas()
-    schema = schemas[0]
-    modality = CATALOG.choices("modality", schema=schema)[0]
-    activity = CATALOG.choices(
-        "activity", schema=schema, modality=modality
-    )[0]
-    scale = CATALOG.choices(
-        "scale", schema=schema, modality=modality, activity=activity
-    )[0]
+    schema, modality, activity, scale = available_paths[0]
     return schemas, schema, modality, activity, scale
 
 
@@ -897,7 +895,7 @@ def _decode_path(value: str | None) -> tuple[str, str, str, str] | None:
     return tuple(str(part) for part in parts)  # type: ignore[return-value]
 
 
-def _catalog_paths() -> list[tuple[str, str, str, str]]:
+def _all_catalog_paths() -> list[tuple[str, str, str, str]]:
     paths: list[tuple[str, str, str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
     for item in CATALOG.all():
@@ -913,13 +911,25 @@ def _catalog_paths() -> list[tuple[str, str, str, str]]:
     return paths
 
 
-def _scale_choices() -> list[tuple[str, str]]:
+def _catalog_paths() -> list[tuple[str, str, str, str]]:
+    return [
+        path
+        for path in _all_catalog_paths()
+        if len(CATALOG.for_scale(*path)) >= 4
+    ]
+
+
+def _scale_choices(
+    *, include_closed: bool = False
+) -> list[tuple[str, str]]:
+    paths = _all_catalog_paths() if include_closed else _catalog_paths()
     return [
         (
             f"{path[1]} · {path[2]} · {path[3]}",
             _path_value(path),
         )
-        for path in _catalog_paths()
+        for path in paths
+        if include_closed or not _is_sign_language_schema(path[0])
     ]
 
 
@@ -1043,12 +1053,38 @@ def _taxonomy_data() -> list[dict[str, Any]]:
     return columns
 
 
+def _available_activities(schema: str, modality: str) -> list[str]:
+    return sorted(
+        {
+            activity
+            for stored_schema, stored_modality, activity, _ in _catalog_paths()
+            if stored_schema == schema and stored_modality == modality
+        }
+    )
+
+
+def _available_scales(
+    schema: str, modality: str, activity: str
+) -> list[str]:
+    return sorted(
+        {
+            scale
+            for stored_schema, stored_modality, stored_activity, scale
+            in _catalog_paths()
+            if stored_schema == schema
+            and stored_modality == modality
+            and stored_activity == activity
+        }
+    )
+
+
 def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
-    grouped: dict[str, list[str]] = defaultdict(list)
+    grouped: dict[str, dict[str, int]] = defaultdict(dict)
     for item in CATALOG.all():
         if item["schema"] == schema and item["modality"] == modality:
-            if item["scale"] not in grouped[item["activity"]]:
-                grouped[item["activity"]].append(item["scale"])
+            grouped[item["activity"]][item["scale"]] = (
+                grouped[item["activity"]].get(item["scale"], 0) + 1
+            )
     return [
         {
             "activity": activity,
@@ -1061,10 +1097,12 @@ def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
                     "color": _taxonomy_color(modality),
                     "tone": _sign_scale_tone(schema, activity),
                 }
-                for scale in scales
+                for scale, descriptor_count in scales.items()
+                if descriptor_count >= 4
             ],
         }
         for activity, scales in grouped.items()
+        if any(count >= 4 for count in scales.values())
     ]
 
 
@@ -1136,6 +1174,7 @@ def _legend_html(counts: dict[str, int] | Counter[str]) -> str:
             f'<span class="legend-item legend-{key}">'
             f"{html.escape(OUTCOME_LABELS[key])}: {int(counts.get(key, 0))}</span>"
             for key in ("first", "second", "third", "unresolved", "unseen")
+            if int(counts.get(key, 0)) > 0
         )
         + "</div>"
     )
@@ -1153,19 +1192,19 @@ def _scale_progress_html(
         if record["descriptor_id"] in descriptor_ids
     }
     counts = Counter(record["outcome"] for record in latest.values())
-    counts["unseen"] = max(len(descriptors) - len(latest), 0)
+    encountered = len(latest)
     return _progress_html(
         f"Percorso sulla scala · {path[3]}",
         counts,
-        len(descriptors),
+        encountered,
         primary_count=counts["first"],
         primary_label="descrittori attualmente riconosciuti senza suggerimenti",
+        # Il denominatore comprende soltanto ciò che il docente ha incontrato.
         subtitle=(
-            "Conta l’esito più recente di ciascun descrittore della scala. "
-            "Il 100% si raggiunge quando tutti risultano riconosciuti al primo "
-            "tentativo nell’incontro più recente."
+            "Conta l’esito più recente dei soli descrittori già incontrati. "
+            "Quelli mai affrontati non modificano la percentuale."
         ),
-        total_label="descrittori nella scala selezionata",
+        total_label="descrittori incontrati nella scala",
     )
 
 
@@ -1207,6 +1246,7 @@ def _resume_dropdown(participant: str) -> gr.Dropdown:
         session
         for session in SESSIONS.incomplete_sessions(participant)
         if not _is_sign_language_schema(session.get("schema"))
+        and int(session.get("descriptor_count", 0)) >= 4
     ]
     choices = [
         (session["label"], session["session_id"]) for session in incomplete
@@ -1288,6 +1328,7 @@ def _personal_view(
     rows = scale_map(
         CATALOG, events, path, outcome_filter=outcome_filter
     )
+    rows = [row for row in rows if row["status"] != "unseen"]
     scale_progress = _scale_progress_html(events, path)
     latest_counts = Counter(
         record["outcome"]
@@ -1296,25 +1337,20 @@ def _personal_view(
             for item in descriptor_history(events, CATALOG)
         }.values()
     )
-    latest_counts["unseen"] = max(
-        overview["descriptors_available"]
-        - overview["descriptors_encountered"],
-        0,
-    )
     overview_html = _progress_html(
         "Il mio percorso complessivo",
         latest_counts,
-        overview["descriptors_available"],
+        overview["descriptors_encountered"],
         primary_count=overview["latest_first_count"],
         primary_label=(
             "descrittori riconosciuti al primo tentativo "
             "nell’incontro più recente"
         ),
         subtitle=(
-            "Il colore riporta l’esito più recente di ogni descrittore. "
-            "Non è un voto e non confronta il percorso con quello dei colleghi."
+            "Il colore riporta l’esito più recente dei soli descrittori "
+            "incontrati. Quelli mai affrontati non entrano nel calcolo."
         ),
-        total_label="descrittori nell’intero catalogo",
+        total_label="descrittori incontrati",
     )
     overview_html += _session_trend_html(sessions)
     session_cards = _journey_sessions_html(sessions)
@@ -1553,6 +1589,7 @@ def update_personal_path(
             path,
             outcome_filter=outcome_filter,
         )
+        rows = [row for row in rows if row["status"] != "unseen"]
         return _scale_progress_html(events, path), rows, ""
     except (EventStoreError, CatalogError) as exc:
         return "", [], f"⚠️ Percorso non disponibile: {exc}"
@@ -1616,13 +1653,9 @@ def _descriptor_detail_markdown(
 def _navigation_selection(schema: str, modality: str):
     if _is_sign_language_schema(schema):
         _, schema, modality, _, _ = _first_path_values()
-    activities = CATALOG.choices(
-        "activity", schema=schema, modality=modality
-    )
+    activities = _available_activities(schema, modality)
     activity = activities[0] if activities else None
-    scales = CATALOG.choices(
-        "scale", schema=schema, modality=modality, activity=activity
-    )
+    scales = _available_scales(schema, modality, activity)
     return (
         _scale_selector_data(schema, modality),
         gr.Dropdown(choices=_available_schemas(), value=schema),
@@ -1661,18 +1694,11 @@ def scale_selector_click(evt: gr.EventData):
             value=modality,
         ),
         gr.Dropdown(
-            choices=CATALOG.choices(
-                "activity", schema=schema, modality=modality
-            ),
+            choices=_available_activities(schema, modality),
             value=activity,
         ),
         gr.Dropdown(
-            choices=CATALOG.choices(
-                "scale",
-                schema=schema,
-                modality=modality,
-                activity=activity,
-            ),
+            choices=_available_scales(schema, modality, activity),
             value=scale,
         ),
         f"Scala selezionata: **{scale}**.",
@@ -1684,13 +1710,9 @@ def update_schema(schema: str):
         schema = _first_path_values()[1]
     modalities = CATALOG.choices("modality", schema=schema)
     modality = modalities[0] if modalities else None
-    activities = CATALOG.choices(
-        "activity", schema=schema, modality=modality
-    )
+    activities = _available_activities(schema, modality)
     activity = activities[0] if activities else None
-    scales = CATALOG.choices(
-        "scale", schema=schema, modality=modality, activity=activity
-    )
+    scales = _available_scales(schema, modality, activity)
     return (
         gr.Dropdown(choices=modalities, value=modality),
         gr.Dropdown(choices=activities, value=activity),
@@ -1700,13 +1722,9 @@ def update_schema(schema: str):
 
 
 def update_modality(schema: str, modality: str):
-    activities = CATALOG.choices(
-        "activity", schema=schema, modality=modality
-    )
+    activities = _available_activities(schema, modality)
     activity = activities[0] if activities else None
-    scales = CATALOG.choices(
-        "scale", schema=schema, modality=modality, activity=activity
-    )
+    scales = _available_scales(schema, modality, activity)
     return (
         gr.Dropdown(choices=activities, value=activity),
         gr.Dropdown(choices=scales, value=scales[0] if scales else None),
@@ -1715,9 +1733,7 @@ def update_modality(schema: str, modality: str):
 
 
 def update_activity(schema: str, modality: str, activity: str):
-    scales = CATALOG.choices(
-        "scale", schema=schema, modality=modality, activity=activity
-    )
+    scales = _available_scales(schema, modality, activity)
     return gr.Dropdown(
         choices=scales,
         value=scales[0] if scales else None,
@@ -1901,6 +1917,12 @@ def start_session(
         )
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
+        if len(descriptors) < 4:
+            return _exercise_error(
+                state,
+                "Questa scala contiene meno di quattro descrittori e non è "
+                "disponibile nel percorso di familiarizzazione.",
+            )
         session = SESSIONS.start_progressive_session(
             state["participant_id"], state["display_name"], descriptors
         )
@@ -1975,6 +1997,12 @@ def resume_session(state: dict[str, Any], session_id: str | None):
                 state,
                 "Le competenze nelle lingue dei segni sono temporaneamente "
                 "chiuse in attesa della validazione degli esperti.",
+            )
+        if len(session.get("descriptor_ids", [])) < 4:
+            return _exercise_error(
+                state,
+                "Questa vecchia sessione contiene meno di quattro descrittori "
+                "e non può essere ripresa nel nuovo percorso.",
             )
         updated = dict(state)
         updated["session"] = session
@@ -2063,6 +2091,7 @@ def _session_map(
         session_id=session["session_id"],
         outcome_filter=outcome_filter,
     )
+    rows = [row for row in rows if row["status"] != "unseen"]
     if level_filter != "all":
         rows = [row for row in rows if row["level"] == level_filter]
     return rows
@@ -2358,20 +2387,13 @@ def pause_session_and_choose_scale(state: dict[str, Any]):
     )
     if all(path):
         navigation = _navigation_selection(path[0], path[1])
-        scales = CATALOG.choices(
-            "scale",
-            schema=path[0],
-            modality=path[1],
-            activity=path[2],
-        )
+        scales = _available_scales(path[0], path[1], path[2])
         navigation = (
             navigation[0],
             navigation[1],
             navigation[2],
             gr.Dropdown(
-                choices=CATALOG.choices(
-                    "activity", schema=path[0], modality=path[1]
-                ),
+                choices=_available_activities(path[0], path[1]),
                 value=path[2],
             ),
             gr.Dropdown(choices=scales, value=path[3]),
@@ -2505,7 +2527,10 @@ def researcher_login(access_key: str):
     ]
     first_participant = participant_choices[0][1] if participant_choices else None
     global_html = _research_global_html(participants, events, issues)
-    scale_choices = [("Tutte le scale", "all"), *_scale_choices()]
+    scale_choices = [
+        ("Tutte le scale", "all"),
+        *_scale_choices(include_closed=True),
+    ]
     issue_rows = [
         [item["severity"], item["scope"], item["message"]] for item in issues
     ]
@@ -3382,7 +3407,6 @@ def build_demo() -> gr.Blocks:
                         ("Mostra tutto", "all"),
                         ("Da consolidare", "focus"),
                         ("Da rivedere", "unresolved"),
-                        ("Mai incontrati", "unseen"),
                     ],
                     value="all",
                     label="Filtro",

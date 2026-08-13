@@ -37,7 +37,12 @@ descrittori della scala appartengono a ciascun livello. Il percorso decide
 automaticamente la progressione: comincia dai livelli canonici presenti,
 introduce la varietà interna e solo dopo aggiunge A2+ e B1+ con i livelli
 vicini; in seguito ripropone anche gli elementi riconosciuti subito per ridurre
-l’effetto del guessing. Le scale mantengono il colore della categoria, con una
+l’effetto del guessing. Gli incontri contengono sempre da 4 a 6 descrittori
+distinti; le scale con meno
+di 4 descrittori non sono selezionabili. Percentuali e riepiloghi personali
+considerano soltanto i descrittori già incontrati.
+
+Le scale mantengono il colore della categoria, con una
 sfumatura distinta tra ricezione e produzione nelle competenze in lingua dei
 segni. Queste competenze restano temporaneamente non disponibili nell’app in
 attesa della validazione umana delle sottodimensioni e delle traiettorie. Il

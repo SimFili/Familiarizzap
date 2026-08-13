@@ -188,6 +188,36 @@ def test_participant_has_no_manual_progression_settings():
     assert "Ripeti i descrittori selezionati" in source
 
 
+def test_session_summary_map_omits_descriptors_never_encountered():
+    participant_id = f"summary-seen-only-{uuid.uuid4()}"
+    result = app.start_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": participant_id,
+            "display_name": "Anna",
+        },
+        next(
+            schema
+            for schema in app.CATALOG.choices("schema")
+            if "attivit" in schema.casefold()
+        ),
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+    session = result[0]["session"]
+    correct = app.SESSIONS.current_descriptor(session)["correct_level"]
+    session = app.SESSIONS.submit_answer(session, correct)
+
+    rows = app._session_map(session)
+
+    assert rows
+    assert all(row["status"] != "unseen" for row in rows)
+    assert {row["descriptor_id"] for row in rows}.issubset(
+        set(session["descriptor_ids"])
+    )
+
+
 def test_completed_encounter_offers_a_disjoint_next_step():
     participant_id = f"next-progressive-{uuid.uuid4()}"
     first_result = app.start_session(
@@ -215,5 +245,9 @@ def test_completed_encounter_offers_a_disjoint_next_step():
 
     next_result = app.continue_with_next_block(state)
     next_session = next_result[0]["session"]
-    assert set(next_session["descriptor_ids"]).isdisjoint(first_ids)
+    assert 4 <= len(next_session["descriptor_ids"]) <= 6
+    assert len(next_session["descriptor_ids"]) == len(
+        set(next_session["descriptor_ids"])
+    )
+    assert set(next_session["descriptor_ids"]) - first_ids
     assert next_session["progression_phase"] == "canonical_variation"

@@ -361,7 +361,7 @@ def participant_overview(
         "descriptors_available": all_descriptors,
         "latest_first_count": first_count,
         "latest_first_rate": (
-            first_count / all_descriptors * 100 if all_descriptors else 0.0
+            first_count / encountered * 100 if encountered else 0.0
         ),
         "last_activity_at": max(
             (event.get("occurred_at", "") for event in events_list),

@@ -8,6 +8,7 @@ from src.analytics import (
     descriptor_history,
     exact_timestamp,
     integrity_report,
+    participant_overview,
     relative_timestamp,
     scale_map,
     session_records,
@@ -93,3 +94,13 @@ def test_integrity_check_accepts_a_consistent_archive(tmp_path: Path):
     assert integrity_report(
         store.list_events(), store.list_participants()
     ) == []
+
+
+def test_personal_rate_uses_only_encountered_descriptors(tmp_path: Path):
+    catalog, store, _ = _completed_session(tmp_path)
+
+    overview = participant_overview(store.list_events("p1"), catalog)
+
+    assert overview["descriptors_encountered"] == 1
+    assert overview["descriptors_available"] > 1
+    assert overview["latest_first_rate"] == 100

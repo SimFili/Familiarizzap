@@ -169,6 +169,49 @@ def test_sign_language_schema_is_not_offered_by_text_navigation() -> None:
     assert app._is_sign_language_schema(sign_schema) is True
 
 
+def test_scales_with_fewer_than_four_descriptors_are_not_selectable() -> None:
+    all_choices = [label for label, _ in app._scale_choices()]
+    production = app._scale_selector_data(
+        "AttivitÃ  linguistico-comunicative", "Produzione"
+    )
+    visible_scales = {
+        item["scale"]
+        for activity in production
+        for item in activity["scales"]
+    }
+
+    assert all("Annunci pubblici" not in label for label in all_choices)
+    assert all(
+        not app._is_sign_language_schema(app._decode_path(value)[0])
+        for _, value in app._scale_choices()
+    )
+    assert "Annunci pubblici" not in visible_scales
+    assert "Annunci pubblici" not in app._available_scales(
+        "AttivitÃ  linguistico-comunicative",
+        "Produzione",
+        "Produzione orale",
+    )
+
+
+def test_zero_unseen_items_are_absent_from_summary_legend() -> None:
+    legend = app._legend_html(
+        {"first": 2, "second": 0, "third": 0, "unresolved": 0, "unseen": 0}
+    )
+
+    assert "1° tentativo" in legend
+    assert "Non ancora incontrato" not in legend
+
+
+def test_researcher_choices_keep_closed_scales_for_historical_data() -> None:
+    researcher_values = [
+        app._decode_path(value)
+        for _, value in app._scale_choices(include_closed=True)
+    ]
+
+    assert any(app._is_sign_language_schema(path[0]) for path in researcher_values)
+    assert any(path[3] == "Annunci pubblici" for path in researcher_values)
+
+
 def test_scale_buttons_inherit_category_colors_and_sign_language_tones() -> None:
     for selector in (
         '.scale-choice-button[data-modality="Ricezione"]',

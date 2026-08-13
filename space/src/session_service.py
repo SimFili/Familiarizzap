@@ -14,6 +14,8 @@ from .event_store import EventStore
 
 EVENT_NAMESPACE = uuid.UUID("a302ad37-79ac-4ce0-96f6-1721259d980d")
 CANONICAL_LEVELS = ("A1", "A2", "B1", "B2")
+MIN_PROGRESSIVE_DESCRIPTORS = 4
+MAX_PROGRESSIVE_DESCRIPTORS = 6
 
 
 class SessionError(RuntimeError):
@@ -352,10 +354,19 @@ class SessionService:
         ]
         if missing_orientation:
             chosen = [unseen_for(level)[0] for level in missing_orientation]
+            chosen, reviews = self._complete_progressive_encounter(
+                descriptors,
+                chosen,
+                assigned,
+                completions,
+                last_assigned,
+                randomizer,
+                allowed_levels=set(canonical_present),
+            )
             return self._progressive_plan_result(
                 descriptors,
                 chosen,
-                [],
+                reviews,
                 "orientation",
                 "Primi passi",
                 "Cominciamo dalle differenze più riconoscibili tra i livelli.",
@@ -372,10 +383,19 @@ class SessionService:
             if encountered < 2 and candidates:
                 variation.append(candidates[0])
         if variation:
+            variation, reviews = self._complete_progressive_encounter(
+                descriptors,
+                variation,
+                assigned,
+                completions,
+                last_assigned,
+                randomizer,
+                allowed_levels=set(canonical_present),
+            )
             return self._progressive_plan_result(
                 descriptors,
                 variation,
-                [],
+                reviews,
                 "canonical_variation",
                 "Altri modi di esprimere lo stesso livello",
                 "Uno stesso livello può presentarsi attraverso descrittori diversi.",
@@ -415,10 +435,22 @@ class SessionService:
                     or level in canonical_present
                     or level == plus_level
                 ]
-                return self._progressive_plan_result(
+                chosen, added_reviews = self._complete_progressive_encounter(
                     descriptors,
                     [plus_candidates[0], *reviews],
-                    [item["descriptor_id"] for item in reviews],
+                    assigned,
+                    completions,
+                    last_assigned,
+                    randomizer,
+                    allowed_levels=set(introduced_answers),
+                )
+                review_ids = {
+                    item["descriptor_id"] for item in reviews
+                } | set(added_reviews)
+                return self._progressive_plan_result(
+                    descriptors,
+                    chosen,
+                    list(review_ids),
                     f"introduce_{plus_level.casefold().replace('+', '_plus')}",
                     label,
                     note,
@@ -431,12 +463,23 @@ class SessionService:
         ]
         if unseen:
             chosen = self._balanced_selection(
-                unseen, min(6, len(unseen)), randomizer, assigned
+                unseen,
+                min(MAX_PROGRESSIVE_DESCRIPTORS, len(unseen)),
+                randomizer,
+                assigned,
+            )
+            chosen, reviews = self._complete_progressive_encounter(
+                descriptors,
+                chosen,
+                assigned,
+                completions,
+                last_assigned,
+                randomizer,
             )
             return self._progressive_plan_result(
                 descriptors,
                 chosen,
-                [],
+                reviews,
                 "deepening",
                 "Nuovi incontri",
                 "Continuiamo a scoprire la varietà dei descrittori della scala.",
@@ -447,11 +490,11 @@ class SessionService:
         due = self._review_candidates(
             descriptors, completions, last_assigned, randomizer
         )
-        chosen = due[: min(6, len(due))]
+        chosen = due[: min(MAX_PROGRESSIVE_DESCRIPTORS, len(due))]
         if not chosen:
             chosen = list(descriptors)
             randomizer.shuffle(chosen)
-            chosen = chosen[: min(4, len(chosen))]
+            chosen = chosen[: min(MIN_PROGRESSIVE_DESCRIPTORS, len(chosen))]
             phase = "maintenance"
             label = "Un piccolo giro per mantenere la familiarità"
             note = "Ritroviamo alcuni descrittori già conosciuti, senza fretta."
@@ -459,16 +502,126 @@ class SessionService:
             phase = "consolidation"
             label = "Ritroviamo ciò che abbiamo già incontrato"
             note = "Un ritorno distanziato aiuta a confermare la familiarità, anche dopo una risposta immediata."
+        chosen, added_reviews = self._complete_progressive_encounter(
+            descriptors,
+            chosen,
+            assigned,
+            completions,
+            last_assigned,
+            randomizer,
+        )
         return self._progressive_plan_result(
             descriptors,
             chosen,
-            [item["descriptor_id"] for item in chosen],
+            list(
+                {item["descriptor_id"] for item in chosen}
+                | set(added_reviews)
+            ),
             phase,
             label,
             note,
             assigned,
             [level for level in self.catalog.level_order if groups.get(level)],
         )
+
+    def _complete_progressive_encounter(
+        self,
+        descriptors: list[dict[str, Any]],
+        chosen: list[dict[str, Any]],
+        assigned: Counter[str],
+        completions: dict[str, list[dict[str, Any]]],
+        last_assigned: dict[str, str],
+        randomizer: random.Random,
+        allowed_levels: set[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Complete an encounter to 4–6 distinct descriptors when possible."""
+        eligible = [
+            item for item in descriptors
+            if allowed_levels is None
+            or item["correct_level"] in allowed_levels
+        ]
+        by_id = {item["descriptor_id"]: item for item in eligible}
+        result: list[dict[str, Any]] = []
+        chosen_ids: set[str] = set()
+        for item in chosen:
+            item_id = item["descriptor_id"]
+            if item_id in by_id and item_id not in chosen_ids:
+                result.append(by_id[item_id])
+                chosen_ids.add(item_id)
+        result = result[:MAX_PROGRESSIVE_DESCRIPTORS]
+        chosen_ids = {item["descriptor_id"] for item in result}
+        review_ids: list[str] = []
+
+        if len(result) < MIN_PROGRESSIVE_DESCRIPTORS:
+            unseen = [
+                item for item in eligible
+                if item["descriptor_id"] not in chosen_ids
+                and assigned[item["descriptor_id"]] == 0
+            ]
+            additions = self._balanced_selection(
+                unseen,
+                min(MIN_PROGRESSIVE_DESCRIPTORS - len(result), len(unseen)),
+                randomizer,
+                assigned,
+            )
+            result.extend(additions)
+            chosen_ids.update(item["descriptor_id"] for item in additions)
+
+        if len(result) < MIN_PROGRESSIVE_DESCRIPTORS:
+            reviews = [
+                item for item in self._review_candidates(
+                    eligible, completions, last_assigned, randomizer
+                )
+                if item["descriptor_id"] not in chosen_ids
+            ]
+            additions = reviews[: MIN_PROGRESSIVE_DESCRIPTORS - len(result)]
+            result.extend(additions)
+            review_ids.extend(item["descriptor_id"] for item in additions)
+            chosen_ids.update(item["descriptor_id"] for item in additions)
+
+        if len(result) < MIN_PROGRESSIVE_DESCRIPTORS:
+            remaining = [
+                item for item in eligible
+                if item["descriptor_id"] not in chosen_ids
+            ]
+            randomizer.shuffle(remaining)
+            additions = remaining[: MIN_PROGRESSIVE_DESCRIPTORS - len(result)]
+            result.extend(additions)
+            review_ids.extend(
+                item["descriptor_id"]
+                for item in additions
+                if assigned[item["descriptor_id"]] > 0
+            )
+
+        if (
+            len(result) < MIN_PROGRESSIVE_DESCRIPTORS
+            and allowed_levels is not None
+        ):
+            # Caso limite: la scala ha almeno quattro descrittori, ma meno di
+            # quattro appartengono ai livelli già introdotti. Anticipiamo il
+            # minimo numero di livelli “+” necessario, senza duplicazioni.
+            fallback = [
+                item for item in descriptors
+                if item["descriptor_id"] not in chosen_ids
+            ]
+            randomizer.shuffle(fallback)
+            fallback.sort(
+                key=lambda item: (
+                    assigned[item["descriptor_id"]] > 0,
+                    self.catalog.level_order.index(item["correct_level"]),
+                )
+            )
+            additions = fallback[: MIN_PROGRESSIVE_DESCRIPTORS - len(result)]
+            result.extend(additions)
+            review_ids.extend(
+                item["descriptor_id"]
+                for item in additions
+                if assigned[item["descriptor_id"]] > 0
+            )
+
+        # Non duplichiamo mai un esercizio nello stesso incontro: una scala
+        # con tre soli descrittori viene esclusa dalla selezione dell'app.
+        return result[:MAX_PROGRESSIVE_DESCRIPTORS], review_ids
 
     def _progressive_plan_result(
         self,
@@ -482,6 +635,12 @@ class SessionService:
         answer_levels: list[str],
     ) -> dict[str, Any]:
         chosen_ids = [item["descriptor_id"] for item in chosen]
+        chosen_levels = {item["correct_level"] for item in chosen}
+        answer_levels = [
+            level
+            for level in self.catalog.level_order
+            if level in set(answer_levels) | chosen_levels
+        ]
         remaining_new = sum(
             assigned[item["descriptor_id"]] == 0
             and item["descriptor_id"] not in chosen_ids
@@ -845,6 +1004,11 @@ class SessionService:
                         "session_id": session_id,
                         "schema": start.get("schema", ""),
                         "modality": start.get("modality", ""),
+                        "activity": start.get("activity", ""),
+                        "scale": start.get("scale", ""),
+                        "descriptor_count": len(
+                            start.get("descriptor_order", [])
+                        ),
                         "label": (
                             f"{start.get('scale', 'Scala')} · "
                             f"{finished_count}/{len(start.get('descriptor_order', []))} "

@@ -324,10 +324,13 @@ def test_progressive_path_introduces_variation_before_plus_levels(
     )
     assert variation["progression_phase"] == "canonical_variation"
     assert service.available_levels(variation) == ["A1", "A2", "B1", "B2"]
-    assert {
+    variation_levels = {
         service.catalog.get(item_id)["correct_level"]
         for item_id in variation["descriptor_ids"]
-    } == {"A1", "B2"}
+    }
+    assert {"A1", "B2"}.issubset(variation_levels)
+    assert variation_levels.issubset({"A1", "A2", "B1", "B2"})
+    assert 4 <= len(variation["descriptor_ids"]) <= 6
     finish_correctly(service, variation)
 
     a2_plus = service.start_progressive_session(
@@ -335,10 +338,13 @@ def test_progressive_path_introduces_variation_before_plus_levels(
     )
     assert a2_plus["progression_phase"] == "introduce_a2_plus"
     assert service.available_levels(a2_plus) == ["A1", "A2", "A2+", "B1", "B2"]
-    assert {
+    a2_plus_levels = {
         service.catalog.get(item_id)["correct_level"]
         for item_id in a2_plus["descriptor_ids"]
-    } == {"A2", "A2+", "B1"}
+    }
+    assert {"A2", "A2+", "B1"}.issubset(a2_plus_levels)
+    assert "B1+" not in a2_plus_levels
+    assert 4 <= len(a2_plus["descriptor_ids"]) <= 6
     finish_correctly(service, a2_plus)
 
     b1_plus = service.start_progressive_session(
@@ -348,10 +354,55 @@ def test_progressive_path_introduces_variation_before_plus_levels(
     assert service.available_levels(b1_plus) == [
         "A1", "A2", "A2+", "B1", "B1+", "B2"
     ]
-    assert {
+    b1_plus_levels = {
         service.catalog.get(item_id)["correct_level"]
         for item_id in b1_plus["descriptor_ids"]
-    } == {"B1", "B1+", "B2"}
+    }
+    assert {"B1", "B1+", "B2"}.issubset(b1_plus_levels)
+    assert 4 <= len(b1_plus["descriptor_ids"]) <= 6
+
+
+def test_every_progressive_flow_has_between_four_and_six_descriptors(
+    tmp_path: Path,
+):
+    _, _, service, descriptors = make_service(tmp_path)
+
+    for _ in range(10):
+        state = service.start_progressive_session(
+            "bounded", "Nome Privato", descriptors
+        )
+        assert 4 <= len(state["descriptor_ids"]) <= 6
+        assert len(state["descriptor_ids"]) == len(set(state["descriptor_ids"]))
+        finish_correctly(service, state)
+
+
+def test_plus_level_is_used_only_to_reach_minimum_on_a_four_item_scale(
+    tmp_path: Path,
+):
+    _, _, _, source = make_service(tmp_path)
+    raw = []
+    for index, level in enumerate(("A2", "B1", "B1+", "B2"), start=1):
+        item = dict(source[index - 1])
+        item["descriptor_id"] = f"short-{index}"
+        item["correct_level"] = level
+        item["scale"] = "Scala minima con livello più"
+        raw.append(item)
+    catalog = Catalog(
+        raw,
+        allowed_statuses=("demo",),
+        allowed_levels=DEMO_CEFR_LEVELS,
+    )
+    service = SessionService(
+        catalog, LocalEventStore(tmp_path / "short"), "test", "demo"
+    )
+
+    state = service.start_progressive_session("short", "Nome Privato", raw)
+
+    assert len(state["descriptor_ids"]) == 4
+    assert {
+        catalog.get(item_id)["correct_level"]
+        for item_id in state["descriptor_ids"]
+    } == {"A2", "B1", "B1+", "B2"}
 
 
 def test_first_attempt_answers_return_later_for_consolidation(tmp_path: Path):

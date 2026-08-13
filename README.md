@@ -25,7 +25,9 @@ La versione 0.7.0 include:
 - uscita confermata da un esercizio con sessione conservata e riprendibile;
 - mappa progressiva dell’esercizio con livello scoperto ed esito per tentativo;
 - incontri brevi di dimensione adattiva, senza impostazioni tecniche richieste
-  al docente e senza ripetizioni artificiali per raggiungere una quota fissa;
+  al docente: sempre da 4 a 6 descrittori distinti; le scale con meno di 4
+  descrittori non vengono proposte;
+- riepiloghi personali calcolati soltanto sui descrittori già incontrati;
 - scale colorate come la categoria selezionata, con sfumature coordinate per
   ricezione e produzione nelle competenze in lingua dei segni;
 - competenze nella lingua dei segni temporaneamente non disponibili, in attesa
