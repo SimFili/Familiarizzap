@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import uuid
 
 import app
 
@@ -149,3 +150,81 @@ def test_exit_confirmation_can_be_opened_and_cancelled():
 
     assert opened["visible"] is True
     assert cancelled["visible"] is False
+
+
+def test_app_starts_six_descriptor_block_by_default():
+    participant_id = f"block-default-{uuid.uuid4()}"
+    result = app.start_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": participant_id,
+            "display_name": "Anna",
+        },
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+        True,
+        False,
+    )
+
+    assert len(result[0]["session"]["descriptor_ids"]) == 6
+    assert result[0]["session"]["session_mode"] == "block"
+    assert result[5]["total"] == 6
+
+
+def test_app_can_start_the_full_scale_on_request():
+    descriptors = app.CATALOG.for_scale(
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+    result = app.start_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": f"full-request-{uuid.uuid4()}",
+            "display_name": "Anna",
+        },
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+        True,
+        True,
+    )
+
+    assert len(result[0]["session"]["descriptor_ids"]) == len(descriptors)
+    assert result[0]["session"]["session_mode"] == "full"
+
+
+def test_completed_block_offers_a_disjoint_next_block():
+    participant_id = f"next-block-{uuid.uuid4()}"
+    first_result = app.start_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": participant_id,
+            "display_name": "Anna",
+        },
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+        True,
+        False,
+    )
+    state = first_result[0]
+    first_ids = set(state["session"]["descriptor_ids"])
+    while not state["session"]["session_finished"]:
+        session = state["session"]
+        correct = app.SESSIONS.current_descriptor(session)["correct_level"]
+        session = app.SESSIONS.submit_answer(session, correct)
+        session = app.SESSIONS.advance(session)
+        state = {**state, "session": session}
+
+    summary = app._summary_components(state["session"])
+    assert summary[-1].visible is True
+
+    next_result = app.continue_with_next_block(state)
+    next_session = next_result[0]["session"]
+    assert set(next_session["descriptor_ids"]).isdisjoint(first_ids)

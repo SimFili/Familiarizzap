@@ -234,3 +234,62 @@ def test_plus_levels_can_be_excluded_and_remain_excluded_after_resume(
         if event["event_type"] == "session_started"
     )
     assert start["include_plus_levels"] is False
+
+
+def test_block_session_selects_six_descriptors_balanced_across_levels(
+    tmp_path: Path,
+):
+    _, store, service, descriptors = make_service(tmp_path)
+
+    state = service.start_session(
+        "participant",
+        "Nome Privato",
+        descriptors,
+        session_size=6,
+    )
+    selected_levels = {
+        service.catalog.get(item_id)["correct_level"]
+        for item_id in state["descriptor_ids"]
+    }
+
+    assert len(state["descriptor_ids"]) == 6
+    assert selected_levels == set(service.available_levels(state))
+    assert state["session_mode"] == "block"
+    assert state["scale_descriptor_count"] == len(descriptors)
+    assert state["remaining_new_after_batch"] == len(descriptors) - 6
+
+    start = next(
+        event
+        for event in store.list_events("participant")
+        if event["event_type"] == "session_started"
+    )
+    assert start["session_mode"] == "block"
+    assert start["descriptor_count"] == 6
+
+
+def test_next_block_avoids_every_descriptor_already_presented(tmp_path: Path):
+    _, _, service, descriptors = make_service(tmp_path)
+
+    first = service.start_session(
+        "participant", "Nome Privato", descriptors, session_size=6
+    )
+    second = service.start_session(
+        "participant", "Nome Privato", descriptors, session_size=6
+    )
+
+    assert set(first["descriptor_ids"]).isdisjoint(second["descriptor_ids"])
+    assert len(second["descriptor_ids"]) == len(descriptors) - 6
+    assert second["remaining_new_after_batch"] == 0
+
+
+def test_full_session_still_includes_every_eligible_descriptor(tmp_path: Path):
+    _, _, service, descriptors = make_service(tmp_path)
+
+    state = service.start_session(
+        "participant", "Nome Privato", descriptors, session_size=None
+    )
+
+    assert set(state["descriptor_ids"]) == {
+        item["descriptor_id"] for item in descriptors
+    }
+    assert state["session_mode"] == "full"

@@ -20,7 +20,7 @@ def test_settings_selects_the_bundled_full_catalog_by_default(
     settings = Settings.from_env(tmp_path)
 
     assert settings.content_file_path == "data/catalog.full.json"
-    assert settings.app_version == "0.5.4"
+    assert settings.app_version == "0.6.0"
 
 
 def test_catalog_filters_unusable_rows_and_orders_levels(tmp_path: Path):

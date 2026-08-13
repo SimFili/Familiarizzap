@@ -5,7 +5,7 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione 0.5.4 include:
+La versione 0.6.0 include:
 
 - accesso al proprio percorso tramite il solo nome;
 - navigazione progressiva: identificazione, ambiti disponibili e infine scale;
@@ -22,6 +22,8 @@ La versione 0.5.4 include:
 - scelta facoltativa, prima di ogni sessione, per escludere A2+ e B1+;
 - uscita confermata da un esercizio con sessione conservata e riprendibile;
 - mappa progressiva dell’esercizio con livello scoperto ed esito per tentativo;
+- sessioni predefinite in blocchi bilanciati di 6 descrittori, senza ripetizioni
+  finché restano descrittori nuovi, con opzione per affrontare l’intera scala;
 - cronologia a schede e ripresa diretta di una sessione in corso;
 - intero catalogo distribuito con lo Space: 831 descrittori, 52 scale e livelli
   `A1`, `A2`, `A2+`, `B1`, `B1+`, `B2`;

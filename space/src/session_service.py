@@ -81,6 +81,7 @@ class SessionService:
         descriptors: list[dict[str, Any]],
         *,
         include_plus_levels: bool = True,
+        session_size: int | None = None,
     ) -> dict[str, Any]:
         if not include_plus_levels:
             descriptors = [
@@ -93,9 +94,56 @@ class SessionService:
                 "La scala selezionata non contiene descrittori con i livelli "
                 "scelti. Riattiva A2+ e B1+."
             )
+        all_events = self.event_store.list_events(participant_id)
+        exposure_counts: dict[str, int] = defaultdict(int)
+        encounter_counts: dict[str, int] = defaultdict(int)
+        prior_sessions: set[str] = set()
+        for event in all_events:
+            if event.get("event_type") == "descriptor_completed":
+                exposure_counts[str(event.get("descriptor_id", ""))] += 1
+            if event.get("event_type") == "descriptor_presented":
+                encounter_counts[str(event.get("descriptor_id", ""))] += 1
+            if event.get("event_type") == "session_started":
+                prior_sessions.add(str(event.get("session_id", "")))
+                if event.get("session_mode") == "block":
+                    for item_id in event.get("descriptor_order", []):
+                        encounter_counts[str(item_id)] += 1
+
         seed = secrets.randbits(63)
-        descriptor_ids = [item["descriptor_id"] for item in descriptors]
-        random.Random(seed).shuffle(descriptor_ids)
+        randomizer = random.Random(seed)
+        eligible_descriptors = list(descriptors)
+        unseen_descriptors = [
+            item
+            for item in eligible_descriptors
+            if encounter_counts[item["descriptor_id"]] == 0
+        ]
+        requested_size = (
+            max(int(session_size), 1) if session_size is not None else None
+        )
+        if requested_size is None:
+            selected_descriptors = eligible_descriptors
+            session_mode = "full"
+        else:
+            selection_pool = unseen_descriptors or eligible_descriptors
+            selected_descriptors = self._balanced_selection(
+                selection_pool,
+                min(requested_size, len(selection_pool)),
+                randomizer,
+                encounter_counts,
+            )
+            session_mode = "block"
+
+        descriptor_ids = [
+            item["descriptor_id"] for item in selected_descriptors
+        ]
+        randomizer.shuffle(descriptor_ids)
+        remaining_new_after_batch = max(
+            len(unseen_descriptors)
+            - sum(
+                encounter_counts[item_id] == 0 for item_id in descriptor_ids
+            ),
+            0,
+        )
         session_id = str(uuid.uuid4())
         first = self.catalog.get(descriptor_ids[0])
         scale_descriptors = self.catalog.for_scale(
@@ -114,16 +162,9 @@ class SessionService:
             [item["descriptor_id"] for item in scale_descriptors]
         )
         level_counts = Counter(
-            item["correct_level"] for item in descriptors
+            item["correct_level"] for item in eligible_descriptors
         )
         now = utc_now()
-        exposure_counts: dict[str, int] = defaultdict(int)
-        prior_sessions: set[str] = set()
-        for event in self.event_store.list_events(participant_id):
-            if event.get("event_type") == "descriptor_completed":
-                exposure_counts[str(event.get("descriptor_id", ""))] += 1
-            if event.get("event_type") == "session_started":
-                prior_sessions.add(str(event.get("session_id", "")))
         state = {
             "participant_id": participant_id,
             "display_name": display_name,
@@ -137,6 +178,10 @@ class SessionService:
             "available_levels": answer_levels,
             "level_counts": dict(level_counts),
             "include_plus_levels": include_plus_levels,
+            "session_mode": session_mode,
+            "session_size_requested": requested_size,
+            "scale_descriptor_count": len(eligible_descriptors),
+            "remaining_new_after_batch": remaining_new_after_batch,
             "current_index": 0,
             "attempts": [],
             "feedbacks": [],
@@ -166,6 +211,10 @@ class SessionService:
             answer_levels=answer_levels,
             level_counts=dict(level_counts),
             include_plus_levels=include_plus_levels,
+            session_mode=session_mode,
+            session_size_requested=requested_size,
+            scale_descriptor_count=len(eligible_descriptors),
+            remaining_new_after_batch=remaining_new_after_batch,
             descriptor_count=len(descriptor_ids),
             prior_session_count=len(prior_sessions),
             occurred_at=now,
@@ -173,6 +222,38 @@ class SessionService:
         presented_event = self._presented_event(state)
         self.event_store.append_events([start_event, presented_event])
         return state
+
+    def _balanced_selection(
+        self,
+        descriptors: list[dict[str, Any]],
+        limit: int,
+        randomizer: random.Random,
+        encounter_counts: dict[str, int],
+    ) -> list[dict[str, Any]]:
+        """Sample levels round-robin, preferring less exposed descriptors."""
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for descriptor in descriptors:
+            groups[str(descriptor["correct_level"])].append(descriptor)
+        levels = [
+            level for level in self.catalog.level_order if groups.get(level)
+        ]
+        randomizer.shuffle(levels)
+        for level in levels:
+            randomizer.shuffle(groups[level])
+            groups[level].sort(
+                key=lambda item: encounter_counts[item["descriptor_id"]]
+            )
+
+        selected: list[dict[str, Any]] = []
+        while len(selected) < limit:
+            added = False
+            for level in levels:
+                if groups[level] and len(selected) < limit:
+                    selected.append(groups[level].pop(0))
+                    added = True
+            if not added:
+                break
+        return selected
 
     def submit_answer(
         self, state: dict[str, Any], selected_level: str
@@ -535,6 +616,14 @@ class SessionService:
             ),
             "include_plus_levels": bool(
                 start.get("include_plus_levels", True)
+            ),
+            "session_mode": str(start.get("session_mode", "full")),
+            "session_size_requested": start.get("session_size_requested"),
+            "scale_descriptor_count": int(
+                start.get("scale_descriptor_count", len(order))
+            ),
+            "remaining_new_after_batch": int(
+                start.get("remaining_new_after_batch", 0)
             ),
             "current_index": current_index,
             "attempts": [event["selected_level"] for event in answers],

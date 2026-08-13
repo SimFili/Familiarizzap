@@ -18,6 +18,16 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-13 — Sessioni a blocchi di sei 0.6.0
+
+Le scale non vengono più proposte integralmente per impostazione predefinita.
+Ogni sessione contiene fino a 6 descrittori, distribuiti tra i livelli
+disponibili. I blocchi successivi evitano descrittori già assegnati finché ne
+restano di nuovi; l’ultimo blocco può essere più corto. Prima dell’avvio resta
+disponibile l’opzione per affrontare l’intera scala in una sola sessione. Il
+riepilogo di un blocco completato permette di continuare con i descrittori
+successivi.
+
 ## 2026-08-12 — Mappa progressiva dei descrittori 0.5.4
 
 La fila di pallini nell’esercizio è diventata una mappa progressiva. Il

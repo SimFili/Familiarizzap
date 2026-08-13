@@ -1739,6 +1739,11 @@ def _exercise_progress_data(session: dict[str, Any]) -> dict[str, Any]:
     return {
         "position": current_index + 1,
         "total": len(session["descriptor_ids"]),
+        "scale_total": int(
+            session.get("scale_descriptor_count", len(session["descriptor_ids"]))
+        ),
+        "remaining_new": int(session.get("remaining_new_after_batch", 0)),
+        "is_block": session.get("session_mode") == "block",
         "current_finished": current_finished,
         "steps": steps,
     }
@@ -1834,6 +1839,7 @@ def start_session(
     activity: str,
     scale: str,
     include_plus_levels: bool,
+    full_scale: bool,
 ):
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
@@ -1841,6 +1847,7 @@ def start_session(
             state,
             descriptors,
             include_plus_levels=include_plus_levels,
+            session_size=None if full_scale else 6,
         )
     except (KeyError, SessionError, EventStoreError, CatalogError) as exc:
         return _exercise_error(
@@ -1853,12 +1860,14 @@ def _start_descriptors(
     descriptors: list[dict[str, Any]],
     *,
     include_plus_levels: bool = True,
+    session_size: int | None = None,
 ):
     session = SESSIONS.start_session(
         participant_id=state["participant_id"],
         display_name=state["display_name"],
         descriptors=descriptors,
         include_plus_levels=include_plus_levels,
+        session_size=session_size,
     )
     updated = dict(state)
     updated["session"] = session
@@ -2004,7 +2013,11 @@ def _summary_components(session: dict[str, Any]):
     }
     total = summary["descriptors_completed"]
     stats = _progress_html(
-        f"Sessione completata · {session['scale']}",
+        (
+            f"Blocco completato · {session['scale']}"
+            if session.get("session_mode") == "block"
+            else f"Sessione completata · {session['scale']}"
+        ),
         counts,
         total,
         primary_count=counts["first"],
@@ -2015,6 +2028,21 @@ def _summary_components(session: dict[str, Any]):
             "valutazione professionale."
         ),
     )
+    remaining_new = int(session.get("remaining_new_after_batch", 0))
+    if session.get("session_mode") == "block":
+        stats += (
+            '<p class="non-evaluation">'
+            + (
+                f"Restano {remaining_new} descrittori nuovi in questa scala. "
+                "Puoi continuare con il blocco successivo."
+                if remaining_new
+                else (
+                    "Hai affrontato tutti i descrittori disponibili di questa "
+                    "scala con le opzioni attuali."
+                )
+            )
+            + "</p>"
+        )
     button_updates = [
         gr.Button(
             f"{OUTCOME_LABELS[key]} · {counts[key]}",
@@ -2058,6 +2086,15 @@ def _summary_components(session: dict[str, Any]):
             interactive=bool(focus_choices),
             variant="primary",
         ),
+        gr.Button(
+            "Continua con i prossimi descrittori",
+            visible=(
+                session.get("session_mode") == "block"
+                and remaining_new > 0
+            ),
+            interactive=remaining_new > 0,
+            variant="primary",
+        ),
     )
 
 
@@ -2072,6 +2109,7 @@ def continue_session(state: dict[str, Any]):
         gr.Dropdown(choices=[]),
         [],
         gr.CheckboxGroup(choices=[], visible=False),
+        gr.Button(visible=False),
         gr.Button(visible=False),
     )
     if not session:
@@ -2192,6 +2230,7 @@ def repeat_selected_descriptors(
             include_plus_levels=bool(
                 state.get("session", {}).get("include_plus_levels", True)
             ),
+            session_size=None,
         )
     except (CatalogError, SessionError, EventStoreError) as exc:
         return _exercise_error(
@@ -2208,6 +2247,31 @@ def back_to_practice(state: dict[str, Any]):
         gr.update(visible=False),
         "",
     )
+
+
+def continue_with_next_block(state: dict[str, Any]):
+    session = state.get("session") or {}
+    if not session or session.get("session_mode") != "block":
+        return _exercise_error(
+            state, "Il blocco successivo non è disponibile."
+        )
+    try:
+        descriptors = CATALOG.for_scale(
+            session["schema"],
+            session["modality"],
+            session["activity"],
+            session["scale"],
+        )
+        return _start_descriptors(
+            state,
+            descriptors,
+            include_plus_levels=bool(session.get("include_plus_levels", True)),
+            session_size=6,
+        )
+    except (CatalogError, SessionError, EventStoreError, KeyError) as exc:
+        return _exercise_error(
+            state, f"⚠️ Blocco successivo non avviato: {exc}"
+        )
 
 
 def open_exercise_exit_confirmation():
@@ -2759,6 +2823,15 @@ def build_demo() -> gr.Blocks:
                     "sessione."
                 ),
             )
+            full_scale = gr.Checkbox(
+                value=False,
+                label="Affronta l’intera scala in una sola sessione",
+                info=(
+                    "Per impostazione predefinita l’app propone un blocco "
+                    "bilanciato di 6 descrittori e conserva gli altri per i "
+                    "blocchi successivi."
+                ),
+            )
             with gr.Row():
                 start_button = gr.Button(
                     "Inizia la scala selezionata", variant="primary"
@@ -2785,6 +2858,13 @@ def build_demo() -> gr.Blocks:
                   <h3 class="exercise-progress-heading">
                     Descrittore {{value.position}} di {{value.total}}
                   </h3>
+                  {{#if value.is_block}}
+                    <p class="non-evaluation">
+                      Blocco da {{value.total}} su {{value.scale_total}}
+                      descrittori della scala · dopo questo blocco ne restano
+                      {{value.remaining_new}} nuovi.
+                    </p>
+                  {{/if}}
                   <div class="exercise-progress-track">
                   {{#each value.steps}}
                     {{#if done}}
@@ -2884,9 +2964,12 @@ def build_demo() -> gr.Blocks:
                 visible=False,
                 variant="primary",
             )
-            dashboard_button = gr.Button(
-                "Scegli un’altra scala", variant="primary"
+            next_block_button = gr.Button(
+                "Continua con i prossimi descrittori",
+                visible=False,
+                variant="primary",
             )
+            dashboard_button = gr.Button("Scegli un’altra scala")
 
         user_message = gr.Markdown()
 
@@ -2997,6 +3080,7 @@ def build_demo() -> gr.Blocks:
                 activity_choice,
                 scale_choice,
                 include_plus_levels,
+                full_scale,
             ],
             outputs=exercise_outputs,
         )
@@ -3029,6 +3113,7 @@ def build_demo() -> gr.Blocks:
                 activity_choice,
                 scale_choice,
                 include_plus_levels,
+                full_scale,
             ],
             outputs=exercise_outputs,
         )
@@ -3086,6 +3171,7 @@ def build_demo() -> gr.Blocks:
                 summary_map,
                 repeat_choices,
                 repeat_button,
+                next_block_button,
                 user_message,
             ],
         )
@@ -3158,6 +3244,11 @@ def build_demo() -> gr.Blocks:
         ).then(
             lambda: gr.update(visible=False),
             outputs=scale_group,
+        )
+        next_block_button.click(
+            continue_with_next_block,
+            inputs=ui_state,
+            outputs=exercise_outputs,
         )
 
         def bind_logout(button):
