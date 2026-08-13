@@ -25,8 +25,9 @@ La versione 0.7.0 include:
 - uscita confermata da un esercizio con sessione conservata e riprendibile;
 - mappa progressiva dell’esercizio con livello scoperto ed esito per tentativo;
 - incontri brevi di dimensione adattiva, senza impostazioni tecniche richieste
-  al docente: sempre da 4 a 6 descrittori distinti; le scale con meno di 4
-  descrittori non vengono proposte;
+  al docente: da 4 a 6 descrittori distinti, con la sola eccezione validata di
+  `Annunci pubblici`, che conserva i suoi 3 descrittori; le altre scale con
+  meno di 4 descrittori non vengono proposte;
 - riepiloghi personali calcolati soltanto sui descrittori già incontrati;
 - scale colorate come la categoria selezionata, con sfumature coordinate per
   ricezione e produzione nelle competenze in lingua dei segni;
@@ -52,6 +53,11 @@ Per il pilot reale devono essere configurati:
 - un Dataset Hugging Face privato per registro partecipanti ed eventi;
 - i secret dello Space descritti in `space/.env.example`;
 - informativa, consenso, conservazione e licenze approvati dal progetto.
+
+La procedura operativa e la verifica dopo il riavvio sono descritte in
+[docs/CONFIGURAZIONE_STORAGE_HF.md](docs/CONFIGURAZIONE_STORAGE_HF.md). L’app
+rifiuta un Dataset pubblico e mostra una fascia rossa se l’archivio configurato
+non è raggiungibile.
 
 Se lo storage remoto e i relativi secret non sono presenti, l’app usa il
 catalogo completo ma mostra esplicitamente che i dati del percorso sono

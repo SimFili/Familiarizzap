@@ -180,6 +180,67 @@ def test_app_starts_with_a_gentle_canonical_orientation():
     assert result[5]["total"] == 4
 
 
+def test_annunci_pubblici_starts_as_a_three_descriptor_exception():
+    participant_id = f"short-scale-exception-{uuid.uuid4()}"
+    activity_schema = next(
+        path[0]
+        for path in app._all_catalog_paths()
+        if path[1:] == (
+            "Produzione",
+            "Produzione orale",
+            "Annunci pubblici",
+        )
+    )
+    result = app.start_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": participant_id,
+            "display_name": "Anna",
+        },
+        activity_schema,
+        "Produzione",
+        "Produzione orale",
+        "Annunci pubblici",
+    )
+
+    session = result[0]["session"]
+    assert session is not None
+    assert session["scale"] == "Annunci pubblici"
+    assert len(session["descriptor_ids"]) == 3
+    assert len(session["descriptor_ids"]) == len(set(session["descriptor_ids"]))
+    assert {
+        app.CATALOG.get(item_id)["correct_level"]
+        for item_id in session["descriptor_ids"]
+    } == {"A2", "B1", "B2"}
+    assert result[5]["total"] == 3
+
+    resumed = app.resume_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": participant_id,
+            "display_name": "Anna",
+        },
+        session["session_id"],
+    )
+    assert resumed[0]["session"]["session_id"] == session["session_id"]
+
+    state = result[0]
+    while not state["session"]["session_finished"]:
+        active = state["session"]
+        correct = app.SESSIONS.current_descriptor(active)["correct_level"]
+        active = app.SESSIONS.submit_answer(active, correct)
+        active = app.SESSIONS.advance(active)
+        state = {**state, "session": active}
+
+    next_result = app.continue_with_next_block(state)
+    next_session = next_result[0]["session"]
+    assert next_session["scale"] == "Annunci pubblici"
+    assert len(next_session["descriptor_ids"]) == 3
+    assert len(next_session["descriptor_ids"]) == len(
+        set(next_session["descriptor_ids"])
+    )
+
+
 def test_participant_has_no_manual_progression_settings():
     source = inspect.getsource(app.build_demo)
 
@@ -251,3 +312,32 @@ def test_completed_encounter_offers_a_disjoint_next_step():
     )
     assert set(next_session["descriptor_ids"]) - first_ids
     assert next_session["progression_phase"] == "canonical_variation"
+
+
+def test_starting_the_same_scale_resumes_the_open_session():
+    participant_id = f"no-duplicate-scale-{uuid.uuid4()}"
+    state = {
+        **app._empty_ui_state(),
+        "participant_id": participant_id,
+        "display_name": "Anna",
+    }
+    path = (
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+
+    first = app.start_session(state, *path)
+    second = app.start_session(state, *path)
+
+    assert second[0]["session"]["session_id"] == first[0]["session"]["session_id"]
+    assert "già una sessione aperta" in second[-1]
+    starts = [
+        event
+        for event in app.STORE.list_events(participant_id)
+        if event.get("event_type") == "session_started"
+        and tuple(event.get(key) for key in ("schema", "modality", "activity", "scale"))
+        == path
+    ]
+    assert len(starts) == 1

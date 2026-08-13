@@ -24,6 +24,8 @@ Il catalogo incluso contiene 831 esercizi appartenenti a 52 scale. I feedback
 sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
 prima dell’uso pubblico. Quando il Dataset degli eventi e i secret non sono
 configurati, l’interfaccia segnala che gli eventi non sono durevoli.
+Quando l’archivio remoto è configurato, l’app verifica che il Dataset sia
+raggiungibile e privato prima di registrare nomi o tentativi.
 
 La versione 0.7.0 separa la navigazione in passaggi successivi: prima
 l’identificazione, poi gli ambiti disponibili e infine le scale dell’ambito
@@ -37,10 +39,11 @@ descrittori della scala appartengono a ciascun livello. Il percorso decide
 automaticamente la progressione: comincia dai livelli canonici presenti,
 introduce la varietà interna e solo dopo aggiunge A2+ e B1+ con i livelli
 vicini; in seguito ripropone anche gli elementi riconosciuti subito per ridurre
-l’effetto del guessing. Gli incontri contengono sempre da 4 a 6 descrittori
-distinti; le scale con meno
-di 4 descrittori non sono selezionabili. Percentuali e riepiloghi personali
-considerano soltanto i descrittori già incontrati.
+l’effetto del guessing. Gli incontri contengono da 4 a 6 descrittori distinti,
+con la sola eccezione validata di `Annunci pubblici`, che conserva i suoi 3
+descrittori; le altre scale con meno di 4 descrittori non sono selezionabili.
+Percentuali e riepiloghi personali considerano soltanto gli esiti conclusi;
+gli esercizi lasciati a metà restano visibili separatamente come in corso.
 
 Le scale mantengono il colore della categoria, con una
 sfumatura distinta tra ricezione e produzione nelle competenze in lingua dei

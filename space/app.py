@@ -14,6 +14,7 @@ import gradio as gr
 
 from src.analytics import (
     OUTCOME_LABELS,
+    descriptor_activity,
     descriptor_details,
     descriptor_history,
     exact_timestamp,
@@ -51,6 +52,15 @@ SESSIONS = SessionService(
     ),
 )
 ROME = ZoneInfo("Europe/Rome")
+MIN_PARTICIPANT_SCALE_DESCRIPTORS = 4
+SHORT_SCALE_EXCEPTIONS = {
+    (
+        "Attività linguistico-comunicative",
+        "Produzione",
+        "Produzione orale",
+        "Annunci pubblici",
+    ): 3,
+}
 
 
 try:
@@ -91,10 +101,12 @@ CSS = """
   --fapp-second: #c8e6c9;
   --fapp-third: #ffe69c;
   --fapp-unresolved: #f8d7da;
+  --fapp-in-progress: #dbeafe;
   --fapp-unseen: #e9ecef;
   --fapp-second-text: #102d1d;
   --fapp-third-text: #332700;
   --fapp-unresolved-text: #481319;
+  --fapp-in-progress-text: #123b63;
   --fapp-unseen-text: #263238;
   --fapp-reception: #3b57ed;
   --fapp-production: #f13312;
@@ -385,6 +397,7 @@ button.primary {
 .status-second { background: var(--fapp-second); color: var(--fapp-second-text); }
 .status-third { background: var(--fapp-third); color: var(--fapp-third-text); }
 .status-unresolved { background: var(--fapp-unresolved); color: var(--fapp-unresolved-text); }
+.status-in_progress { background: var(--fapp-in-progress); color: var(--fapp-in-progress-text); }
 .status-unseen { background: var(--fapp-unseen); color: var(--fapp-unseen-text); }
 .taxonomy-grid {
   display: grid;
@@ -548,6 +561,16 @@ button.primary {
   font-weight: 750;
   text-decoration: none !important;
 }
+.journey-resume-priority {
+  margin: .85rem 0;
+  border: 2px solid var(--fapp-teal);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: var(--fapp-mint);
+  color: var(--fapp-ink) !important;
+}
+.journey-resume-priority * { color: inherit; }
+.journey-resume-priority h3 { margin-top: 0; }
 .page-links {
   display: flex;
   flex-wrap: wrap;
@@ -560,9 +583,11 @@ body.dark {
   --fapp-paper: #17251f;
   --fapp-line: #48645d;
   --fapp-unseen: #34433f;
+  --fapp-in-progress: #284861;
   --fapp-second-text: #f7fffb;
   --fapp-third-text: #fff9dd;
   --fapp-unresolved-text: #fff7f8;
+  --fapp-in-progress-text: #eff8ff;
   --fapp-unseen-text: #f1f5f9;
 }
 body.dark .hero,
@@ -573,6 +598,7 @@ body.dark .journey-metric { background: #22352e !important; }
 body.dark .status-second { background: #315b49; color: #f7fffb; }
 body.dark .status-third { background: #65572d; color: #fff9dd; }
 body.dark .status-unresolved { background: #6d3c43; color: #fff7f8; }
+body.dark .status-in_progress { background: #284861; color: #eff8ff; }
 body.dark .status-unseen { background: #34433f; color: #f1f5f9; }
 body.dark .exercise-step-current,
 body.dark .exercise-step-badge { background: #17251f; }
@@ -591,9 +617,11 @@ body.dark label.selected {
     --fapp-paper: #17251f;
     --fapp-line: #48645d;
     --fapp-unseen: #34433f;
+    --fapp-in-progress: #284861;
     --fapp-second-text: #f7fffb;
     --fapp-third-text: #fff9dd;
     --fapp-unresolved-text: #fff7f8;
+    --fapp-in-progress-text: #eff8ff;
     --fapp-unseen-text: #f1f5f9;
   }
   .gradio-container {
@@ -618,6 +646,7 @@ body.dark label.selected {
   .status-second { background: #315b49; color: #f7fffb; }
   .status-third { background: #65572d; color: #fff9dd; }
   .status-unresolved { background: #6d3c43; color: #fff7f8; }
+  .status-in_progress { background: #284861; color: #eff8ff; }
   .status-unseen { background: #34433f; color: #f1f5f9; }
   .exercise-step-current,
   .exercise-step-badge { background: #17251f; }
@@ -836,9 +865,17 @@ def _storage_banner() -> str:
         else f"catalogo `{CATALOG_RESULT.source_label}`"
     )
     if SETTINGS.storage_mode == "huggingface":
+        healthy, _ = STORE.health_check()
+        if not healthy:
+            return (
+                f"🔴 **Archivio non disponibile:** {catalog_note}; lo Space "
+                "non riesce a confermare l’accesso al Dataset privato. Non "
+                "usare l’app per raccogliere dati finché il proprietario non "
+                "ha corretto la configurazione."
+            )
         return (
             f"🟢 **Modalità pilot:** {catalog_note}; percorso ed eventi vengono "
-            "salvati nel Dataset privato configurato."
+            "salvati in modo durevole nel Dataset privato configurato."
         )
     if SETTINGS.storage_mode == "local":
         return (
@@ -911,11 +948,24 @@ def _all_catalog_paths() -> list[tuple[str, str, str, str]]:
     return paths
 
 
+def _participant_scale_is_available(
+    path: tuple[str, str, str, str], descriptor_count: int | None = None
+) -> bool:
+    count = (
+        len(CATALOG.for_scale(*path))
+        if descriptor_count is None
+        else int(descriptor_count)
+    )
+    return count >= MIN_PARTICIPANT_SCALE_DESCRIPTORS or (
+        SHORT_SCALE_EXCEPTIONS.get(path) == count
+    )
+
+
 def _catalog_paths() -> list[tuple[str, str, str, str]]:
     return [
         path
         for path in _all_catalog_paths()
-        if len(CATALOG.for_scale(*path)) >= 4
+        if _participant_scale_is_available(path)
     ]
 
 
@@ -1098,11 +1148,18 @@ def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
                     "tone": _sign_scale_tone(schema, activity),
                 }
                 for scale, descriptor_count in scales.items()
-                if descriptor_count >= 4
+                if _participant_scale_is_available(
+                    (schema, modality, activity, scale), descriptor_count
+                )
             ],
         }
         for activity, scales in grouped.items()
-        if any(count >= 4 for count in scales.values())
+        if any(
+            _participant_scale_is_available(
+                (schema, modality, activity, scale), count
+            )
+            for scale, count in scales.items()
+        )
     ]
 
 
@@ -1138,9 +1195,19 @@ def _progress_html(
     primary_label: str,
     subtitle: str,
     total_label: str = "descrittori considerati",
+    extra_metrics: tuple[tuple[int, str], ...] = (),
 ) -> str:
     safe_total = max(total, 0)
     first_rate = primary_count / safe_total * 100 if safe_total else 0.0
+    primary_metric = (
+        f'<div class="journey-metric"><strong>{first_rate:.1f}%</strong>'
+        f"{html.escape(primary_label)} · {primary_count} su {safe_total}</div>"
+        if safe_total
+        else (
+            '<div class="journey-metric"><strong>—</strong>'
+            "percentuale disponibile dopo il primo descrittore completato</div>"
+        )
+    )
     segments = []
     for key in ("first", "second", "third", "unresolved", "unseen"):
         count = int(counts.get(key, 0))
@@ -1148,17 +1215,24 @@ def _progress_html(
         segments.append(
             f'<span class="stack-{key}" style="width:{width:.4f}%" '
             f'title="{html.escape(OUTCOME_LABELS[key])}: {count}"></span>'
+    )
+    metric_cards = (
+        primary_metric
+        + f'<div class="journey-metric"><strong>{safe_total}</strong>'
+        f"{html.escape(total_label)}</div>"
+        + "".join(
+            f'<div class="journey-metric"><strong>{int(value)}</strong>'
+            f"{html.escape(label)}</div>"
+            for value, label in extra_metrics
         )
+    )
     return (
         '<section class="journey-overview">'
         f"<h3>{html.escape(title)}</h3>"
         f"<p>{html.escape(subtitle)}</p>"
         '<div class="journey-metrics">'
-        f'<div class="journey-metric"><strong>{first_rate:.1f}%</strong>'
-        f"{html.escape(primary_label)} · {primary_count} su {safe_total}</div>"
-        f'<div class="journey-metric"><strong>{safe_total}</strong>'
-        f"{html.escape(total_label)}</div>"
-        "</div>"
+        + metric_cards
+        + "</div>"
         f'<div class="stacked-bar" aria-label="{html.escape(primary_label)}">'
         + "".join(segments)
         + "</div>"
@@ -1186,25 +1260,35 @@ def _scale_progress_html(
 ) -> str:
     descriptors = CATALOG.for_scale(*path)
     descriptor_ids = {item["descriptor_id"] for item in descriptors}
-    latest = {
+    latest_completed = {
         record["descriptor_id"]: record
         for record in descriptor_history(events, CATALOG)
         if record["descriptor_id"] in descriptor_ids
     }
-    counts = Counter(record["outcome"] for record in latest.values())
-    encountered = len(latest)
+    latest_activity = {
+        record["descriptor_id"]: record
+        for record in descriptor_activity(events, CATALOG)
+        if record["descriptor_id"] in descriptor_ids
+    }
+    counts = Counter(record["outcome"] for record in latest_completed.values())
+    completed = len(latest_completed)
+    in_progress = sum(
+        record["outcome"] == "in_progress"
+        for record in latest_activity.values()
+    )
     return _progress_html(
         f"Percorso sulla scala · {path[3]}",
         counts,
-        encountered,
+        completed,
         primary_count=counts["first"],
         primary_label="descrittori attualmente riconosciuti senza suggerimenti",
-        # Il denominatore comprende soltanto ciò che il docente ha incontrato.
         subtitle=(
-            "Conta l’esito più recente dei soli descrittori già incontrati. "
-            "Quelli mai affrontati non modificano la percentuale."
+            "Conta l’esito completato più recente di ogni descrittore. "
+            "Quelli in corso restano visibili ma non modificano la percentuale "
+            "finché non vengono conclusi."
         ),
-        total_label="descrittori incontrati nella scala",
+        total_label="descrittori completati nella scala",
+        extra_metrics=((in_progress, "descrittori in corso"),),
     )
 
 
@@ -1246,7 +1330,15 @@ def _resume_dropdown(participant: str) -> gr.Dropdown:
         session
         for session in SESSIONS.incomplete_sessions(participant)
         if not _is_sign_language_schema(session.get("schema"))
-        and int(session.get("descriptor_count", 0)) >= 4
+        and _participant_scale_is_available(
+            (
+                str(session.get("schema", "")),
+                str(session.get("modality", "")),
+                str(session.get("activity", "")),
+                str(session.get("scale", "")),
+            ),
+            int(session.get("descriptor_count", 0)),
+        )
     ]
     choices = [
         (session["label"], session["session_id"]) for session in incomplete
@@ -1269,6 +1361,11 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
     for session in sessions[:20]:
         completed = int(session.get("descriptors_completed", 0))
         planned = int(session.get("descriptors_planned", 0))
+        started = int(session.get("descriptors_started", completed))
+        in_progress = int(session.get("descriptors_in_progress", 0))
+        partial_attempts = int(
+            session.get("attempts_submitted_in_progress", 0)
+        )
         first = int(session.get("first", 0))
         first_rate = (
             f"{float(session.get('first_attempt_rate', 0)):.1f}% "
@@ -1283,6 +1380,14 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
                 f'<a class="journey-session-action" href="/?resume={session_id}">'
                 "Riprendi questa sessione →</a>"
             )
+        progress_meta = f"{completed}/{planned} descrittori completati"
+        if session.get("status") == "in_progress" and started:
+            progress_meta += f" · {started} iniziati"
+        if in_progress and partial_attempts:
+            progress_meta += (
+                f" · {partial_attempts} "
+                f"{'tentativo salvato' if partial_attempts == 1 else 'tentativi salvati'}"
+            )
         cards.append(
             '<article class="journey-session-card">'
             '<div class="journey-session-head">'
@@ -1291,7 +1396,7 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
             "</div>"
             '<div class="journey-session-meta">'
             f'{html.escape(relative_timestamp(str(session.get("last_activity_at", ""))))} · '
-            f'{completed}/{planned} descrittori · '
+            f'{html.escape(progress_meta)} · '
             f"al primo tentativo: {html.escape(first_rate)}"
             "</div>"
             f"{action}</article>"
@@ -1303,6 +1408,22 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
         else ""
     )
     return '<div class="journey-sessions">' + "".join(cards) + "</div>" + more
+
+
+def _resume_priority_html(sessions: list[dict[str, Any]]) -> str:
+    incomplete = [
+        session for session in sessions if session.get("status") == "in_progress"
+    ]
+    if not incomplete:
+        return ""
+    cards = _journey_sessions_html(incomplete[:3])
+    return (
+        '<section class="journey-resume-priority">'
+        "<h3>Continua da dove avevi lasciato</h3>"
+        "<p>I tentativi già fatti sono salvati. Riprendendo non perdi nulla e "
+        "non crei un secondo percorso sulla stessa scala.</p>"
+        f"{cards}</section>"
+    )
 
 
 def _personal_view(
@@ -1340,18 +1461,20 @@ def _personal_view(
     overview_html = _progress_html(
         "Il mio percorso complessivo",
         latest_counts,
-        overview["descriptors_encountered"],
+        overview["descriptors_completed"],
         primary_count=overview["latest_first_count"],
-        primary_label=(
-            "descrittori riconosciuti al primo tentativo "
-            "nell’incontro più recente"
-        ),
+        primary_label="descrittori attualmente riconosciuti al primo tentativo",
         subtitle=(
-            "Il colore riporta l’esito più recente dei soli descrittori "
-            "incontrati. Quelli mai affrontati non entrano nel calcolo."
+            "Il colore riporta l’esito completato più recente di ogni "
+            "descrittore. Quelli in corso restano visibili ma non entrano "
+            "nel calcolo finché non vengono conclusi."
         ),
-        total_label="descrittori incontrati",
+        total_label="descrittori completati",
+        extra_metrics=(
+            (overview["descriptors_in_progress"], "descrittori in corso"),
+        ),
     )
+    overview_html += _resume_priority_html(sessions)
     overview_html += _session_trend_html(sessions)
     session_cards = _journey_sessions_html(sessions)
     return (
@@ -1617,15 +1740,41 @@ def _descriptor_detail_markdown(
 ) -> str:
     descriptor = details["descriptor"]
     history = details["history"]
+    in_progress = details.get("in_progress", [])
     formatter = exact_timestamp if researcher else relative_timestamp
+    heading_level = (
+        "In corso"
+        if in_progress and not history
+        else descriptor.get("correct_level", "—")
+    )
     lines = [
-        f"### {descriptor.get('correct_level', '—')} · "
+        f"### {heading_level} · "
         f"{descriptor.get('scale', 'Descrittore')}",
         "",
         f"> {descriptor.get('descriptor_text', 'Testo non disponibile')}",
     ]
-    if not history:
+    if in_progress:
+        current = in_progress[-1]
+        session_id = quote(str(current.get("session_id", "")), safe="")
+        attempts = current.get("attempts", [])
+        lines.extend(
+            [
+                "",
+                "#### Esercizio in corso",
+                f"Hai iniziato questo descrittore {formatter(current['occurred_at'])}.",
+                (
+                    f"Tentativi già salvati: `{current['attempts_text']}`."
+                    if attempts
+                    else "Non hai ancora confermato una risposta."
+                ),
+                "Il livello corretto apparirà quando avrai concluso l’esercizio.",
+                f"[Riprendi questa sessione →](/?resume={session_id})",
+            ]
+        )
+    if not history and not in_progress:
         lines.extend(["", "**Non ancora incontrato.**"])
+        return "\n".join(lines)
+    if not history:
         return "\n".join(lines)
     lines.extend(["", "#### Cronologia"])
     for record in reversed(history):
@@ -1917,11 +2066,43 @@ def start_session(
         )
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
-        if len(descriptors) < 4:
+        path = (schema, modality, activity, scale)
+        if not _participant_scale_is_available(path, len(descriptors)):
             return _exercise_error(
                 state,
-                "Questa scala contiene meno di quattro descrittori e non è "
-                "disponibile nel percorso di familiarizzazione.",
+                "Questa scala non contiene abbastanza descrittori per il "
+                "percorso di familiarizzazione.",
+            )
+        existing = next(
+            (
+                item
+                for item in SESSIONS.incomplete_sessions(
+                    state["participant_id"]
+                )
+                if (
+                    item.get("schema"),
+                    item.get("modality"),
+                    item.get("activity"),
+                    item.get("scale"),
+                )
+                == path
+                and _participant_scale_is_available(
+                    path, int(item.get("descriptor_count", 0))
+                )
+            ),
+            None,
+        )
+        if existing:
+            session = SESSIONS.restore_session(
+                state["participant_id"],
+                state["display_name"],
+                str(existing["session_id"]),
+            )
+            return _start_session_view(
+                state,
+                session,
+                "Avevi già una sessione aperta su questa scala: "
+                "l’abbiamo ripresa dal punto in cui eri arrivato.",
             )
         session = SESSIONS.start_progressive_session(
             state["participant_id"], state["display_name"], descriptors
@@ -1950,7 +2131,9 @@ def _start_descriptors(
     return _start_session_view(state, session)
 
 
-def _start_session_view(state: dict[str, Any], session: dict[str, Any]):
+def _start_session_view(
+    state: dict[str, Any], session: dict[str, Any], message: str = ""
+):
     updated = dict(state)
     updated["session"] = session
     updated["summary_outcome_filter"] = "all"
@@ -1961,7 +2144,7 @@ def _start_session_view(state: dict[str, Any], session: dict[str, Any]):
         gr.update(visible=True),
         gr.update(visible=False),
         *_exercise_view(session),
-        "",
+        message,
     )
 
 
@@ -1998,11 +2181,19 @@ def resume_session(state: dict[str, Any], session_id: str | None):
                 "Le competenze nelle lingue dei segni sono temporaneamente "
                 "chiuse in attesa della validazione degli esperti.",
             )
-        if len(session.get("descriptor_ids", [])) < 4:
+        session_path = (
+            str(session.get("schema", "")),
+            str(session.get("modality", "")),
+            str(session.get("activity", "")),
+            str(session.get("scale", "")),
+        )
+        if not _participant_scale_is_available(
+            session_path, len(session.get("descriptor_ids", []))
+        ):
             return _exercise_error(
                 state,
-                "Questa vecchia sessione contiene meno di quattro descrittori "
-                "e non può essere ripresa nel nuovo percorso.",
+                "Questa vecchia sessione non rispetta la dimensione prevista "
+                "per il percorso e non può essere ripresa.",
             )
         updated = dict(state)
         updated["session"] = session
@@ -2333,7 +2524,7 @@ def back_to_practice(state: dict[str, Any]):
         updated,
         gr.update(visible=True),
         gr.update(visible=False),
-        "",
+        message,
     )
 
 
@@ -2866,7 +3057,7 @@ def build_demo() -> gr.Blocks:
             gr.HTML(
                 '<nav class="page-links" aria-label="Altre pagine">'
                 '<a class="researcher-link" href="/percorso">'
-                "Il mio percorso completo →</a>"
+                "Il mio percorso →</a>"
                 '<a class="researcher-link" href="/ricercatore" '
                 'target="_blank">Panoramica ricercatore ↗</a></nav>'
             )
@@ -3366,8 +3557,8 @@ def build_demo() -> gr.Blocks:
             <section class="hero">
               <div class="hero-kicker">Pagina personale</div>
               <h1>Il mio percorso</h1>
-              <p>Qui trovi percentuali, mappa completa delle scale, cronologia
-              e descrittori sui quali concentrarti.</p>
+              <p>Qui trovi percentuali, cronologia e la mappa dei descrittori
+              che hai già incontrato o lasciato in corso.</p>
             </section>
             """
         )

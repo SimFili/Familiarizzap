@@ -22,6 +22,10 @@ def utc_now() -> str:
 class EventStore(ABC):
     mode: str
 
+    def health_check(self) -> tuple[bool, str]:
+        """Return whether this backend can currently be used."""
+        return True, ""
+
     @abstractmethod
     def register_participant(
         self,
@@ -160,12 +164,22 @@ class LocalEventStore(EventStore):
 class HuggingFaceEventStore(EventStore):
     mode = "huggingface"
 
-    def __init__(self, repo_id: str, token: str):
-        from huggingface_hub import HfApi
+    def __init__(self, repo_id: str, token: str, api: Any | None = None):
+        if api is None:
+            from huggingface_hub import HfApi
 
+            api = HfApi(token=token)
         self.repo_id = repo_id
         self.token = token
-        self.api = HfApi(token=token)
+        self.api = api
+        self._private_repo_confirmed = False
+
+    def health_check(self) -> tuple[bool, str]:
+        try:
+            self._require_private_repo()
+            return True, ""
+        except EventStoreError as exc:
+            return False, str(exc)
 
     def register_participant(
         self,
@@ -173,6 +187,7 @@ class HuggingFaceEventStore(EventStore):
         display_name: str,
         name_lookup_hash: str | None = None,
     ) -> dict[str, Any]:
+        self._require_private_repo()
         path = f"participants/{participant_id}.json"
         existing = self._download_json(path) or {}
         record = _participant_record(
@@ -187,11 +202,13 @@ class HuggingFaceEventStore(EventStore):
     def get_participant(
         self, participant_id: str
     ) -> dict[str, Any] | None:
+        self._require_private_repo()
         return self._download_json(f"participants/{participant_id}.json")
 
     def append_events(self, events: list[dict[str, Any]]) -> None:
         if not events:
             return
+        self._require_private_repo()
         try:
             from huggingface_hub import CommitOperationAdd
 
@@ -236,6 +253,7 @@ class HuggingFaceEventStore(EventStore):
     def list_events(
         self, participant_id: str | None = None
     ) -> list[dict[str, Any]]:
+        self._require_private_repo()
         events: list[dict[str, Any]] = []
         for path in self._list_files(prefix="events/"):
             event = self._download_json(path)
@@ -249,12 +267,32 @@ class HuggingFaceEventStore(EventStore):
         return sorted(events, key=lambda item: item.get("occurred_at", ""))
 
     def list_participants(self) -> list[dict[str, Any]]:
+        self._require_private_repo()
         participants = [
             record
             for path in self._list_files(prefix="participants/")
             if (record := self._download_json(path))
         ]
         return sorted(participants, key=lambda item: item["display_name"].casefold())
+
+    def _require_private_repo(self) -> None:
+        if self._private_repo_confirmed:
+            return
+        try:
+            info = self.api.repo_info(
+                repo_id=self.repo_id,
+                repo_type="dataset",
+            )
+        except Exception as exc:
+            raise EventStoreError(
+                "Dataset degli eventi non raggiungibile o token non valido."
+            ) from exc
+        if getattr(info, "private", None) is not True:
+            raise EventStoreError(
+                "Il Dataset degli eventi deve essere privato prima di poter "
+                "registrare partecipanti."
+            )
+        self._private_repo_confirmed = True
 
     def _list_files(self, prefix: str) -> list[str]:
         try:

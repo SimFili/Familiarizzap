@@ -5,6 +5,8 @@ from pathlib import Path
 
 from src.analytics import (
     FOCUS_OUTCOMES,
+    descriptor_activity,
+    descriptor_details,
     descriptor_history,
     exact_timestamp,
     integrity_report,
@@ -104,3 +106,75 @@ def test_personal_rate_uses_only_encountered_descriptors(tmp_path: Path):
     assert overview["descriptors_encountered"] == 1
     assert overview["descriptors_available"] > 1
     assert overview["latest_first_rate"] == 100
+
+
+def test_partial_descriptor_is_visible_but_excluded_from_rate(tmp_path: Path):
+    catalog = _catalog()
+    store = LocalEventStore(tmp_path)
+    store.register_participant("p1", "Anna Rossi", "code-hash")
+    service = SessionService(catalog, store, "test-app", "test-content")
+    path = (
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione scritta",
+        "Comprensione generale di un testo scritto",
+    )
+    descriptors = catalog.for_scale(*path)[:4]
+    state = service.start_session("p1", "Anna Rossi", descriptors)
+    wrong = next(
+        level
+        for level in state["available_levels"]
+        if level != service.current_descriptor(state)["correct_level"]
+    )
+    service.submit_answer(state, wrong)
+    events = store.list_events("p1")
+
+    activities = descriptor_activity(events, catalog)
+    overview = participant_overview(events, catalog)
+    rows = scale_map(catalog, events, path)
+    details = descriptor_details(
+        state["descriptor_ids"][0], events, catalog
+    )
+
+    assert len(activities) == 1
+    assert activities[0]["outcome"] == "in_progress"
+    assert activities[0]["attempts"] == [wrong]
+    assert activities[0]["level"] == ""
+    assert overview["descriptors_encountered"] == 1
+    assert overview["descriptors_completed"] == 0
+    assert overview["descriptors_in_progress"] == 1
+    assert overview["latest_first_rate"] == 0
+    assert next(
+        row for row in rows if row["descriptor_id"] == state["descriptor_ids"][0]
+    )["level"] == "?"
+    assert details["history"] == []
+    assert details["in_progress"][0]["attempts"] == [wrong]
+
+
+def test_in_progress_session_reports_started_descriptor_and_saved_attempt(
+    tmp_path: Path,
+):
+    catalog = _catalog()
+    store = LocalEventStore(tmp_path)
+    store.register_participant("p1", "Anna Rossi", "code-hash")
+    service = SessionService(catalog, store, "test-app", "test-content")
+    descriptors = catalog.for_scale(
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione scritta",
+        "Comprensione generale di un testo scritto",
+    )[:4]
+    state = service.start_session("p1", "Anna Rossi", descriptors)
+    wrong = next(
+        level
+        for level in state["available_levels"]
+        if level != service.current_descriptor(state)["correct_level"]
+    )
+    service.submit_answer(state, wrong)
+
+    session = session_records(store.list_events("p1"), catalog)[0]
+
+    assert session["descriptors_completed"] == 0
+    assert session["descriptors_started"] == 1
+    assert session["descriptors_in_progress"] == 1
+    assert session["attempts_submitted_in_progress"] == 1

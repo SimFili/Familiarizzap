@@ -44,8 +44,9 @@ di ricerca.
 - La panoramica del ricercatore è nella pagina separata `/ricercatore` ed è
   protetta da un unico secret.
 - La pagina principale serve a scegliere una scala e svolgere gli esercizi.
-  Percentuali, mappa completa, cronologia e sessioni precedenti sono raccolte
-  nella pagina personale separata `/percorso`.
+  Percentuali, mappa dei descrittori già incontrati o in corso, cronologia e
+  sessioni precedenti sono raccolte nella pagina personale separata
+  `/percorso`.
 - La scelta nella pagina principale è progressiva: identificazione, quadro
   degli ambiti disponibili e, in una schermata successiva, scale dell’ambito
   selezionato. La colonna `Competenza generale` non viene mostrata perché non

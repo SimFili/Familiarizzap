@@ -15,6 +15,7 @@ OUTCOME_LABELS = {
     "second": "✓ 2° tentativo",
     "third": "✓ 3° tentativo",
     "unresolved": "Da rivedere",
+    "in_progress": "In corso",
     "unseen": "Non ancora incontrato",
 }
 
@@ -193,21 +194,119 @@ def descriptor_history(
     return records
 
 
+def descriptor_activity(
+    events: Iterable[dict[str, Any]], catalog: Catalog
+) -> list[dict[str, Any]]:
+    """Return completed outcomes plus descriptors left open mid-session.
+
+    An open descriptor remains visible in the personal journey, but it has no
+    outcome and therefore never changes recognition percentages.
+    """
+    events_list = list(events)
+    records = descriptor_history(events_list, catalog)
+    for session_id, session_events in group_sessions(events_list).items():
+        if first_event(session_events, "session_completed"):
+            continue
+        start = first_event(session_events, "session_started") or {}
+        completed_ids = {
+            str(event.get("descriptor_id", ""))
+            for event in session_events
+            if event.get("event_type") == "descriptor_completed"
+        }
+        answers_by_descriptor: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for event in session_events:
+            if event.get("event_type") == "answer_submitted":
+                answers_by_descriptor[str(event.get("descriptor_id", ""))].append(
+                    event
+                )
+        for answers in answers_by_descriptor.values():
+            answers.sort(key=lambda item: int(item.get("attempt_number", 0)))
+
+        latest_presented: dict[str, dict[str, Any]] = {}
+        for event in session_events:
+            if event.get("event_type") == "descriptor_presented":
+                latest_presented[str(event.get("descriptor_id", ""))] = event
+
+        for descriptor_id, presented in latest_presented.items():
+            if not descriptor_id or descriptor_id in completed_ids:
+                continue
+            descriptor = _catalog_item(catalog, descriptor_id)
+            answers = answers_by_descriptor.get(descriptor_id, [])
+            attempts = [str(answer.get("selected_level", "")) for answer in answers]
+            last_event = answers[-1] if answers else presented
+            records.append(
+                {
+                    "participant_id": presented.get("participant_id_hash", ""),
+                    "session_id": session_id,
+                    "descriptor_id": descriptor_id,
+                    "schema": start.get("schema") or descriptor.get("schema", ""),
+                    "modality": start.get("modality")
+                    or descriptor.get("modality", ""),
+                    "activity": start.get("activity")
+                    or descriptor.get("activity", ""),
+                    "scale": start.get("scale") or descriptor.get("scale", ""),
+                    # Il livello corretto non viene esposto finché l'esercizio
+                    # resta aperto.
+                    "level": "",
+                    "descriptor_text": descriptor.get("descriptor_text")
+                    or presented.get("descriptor_text", ""),
+                    "attempts": attempts,
+                    "attempts_text": " → ".join(attempts) if attempts else "—",
+                    "resolved": False,
+                    "resolved_on_attempt": None,
+                    "rationale": "",
+                    "occurred_at": last_event.get("occurred_at", ""),
+                    "outcome": "in_progress",
+                    "outcome_label": OUTCOME_LABELS["in_progress"],
+                    "content_revision": presented.get("content_revision")
+                    or start.get("content_revision", ""),
+                    "app_version": presented.get("app_version")
+                    or start.get("app_version", ""),
+                    "response_time_ms": sum(
+                        int(answer.get("response_time_ms") or 0) for answer in answers
+                    )
+                    if any(
+                        answer.get("response_time_ms") is not None
+                        for answer in answers
+                    )
+                    else None,
+                    "first_response_distance": (
+                        answers[0].get("error_distance") if answers else None
+                    ),
+                    "exposure_number": presented.get("exposure_number"),
+                }
+            )
+    return sorted(records, key=lambda item: item["occurred_at"])
+
+
 def session_records(
     events: Iterable[dict[str, Any]], catalog: Catalog
 ) -> list[dict[str, Any]]:
-    histories = descriptor_history(events, catalog)
+    events_list = list(events)
+    histories = descriptor_history(events_list, catalog)
     history_by_session: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in histories:
         history_by_session[record["session_id"]].append(record)
 
     rows: list[dict[str, Any]] = []
-    for session_id, session_events in group_sessions(events).items():
+    for session_id, session_events in group_sessions(events_list).items():
         start = first_event(session_events, "session_started")
         if not start:
             continue
         completed_event = first_event(session_events, "session_completed")
         descriptor_records = history_by_session.get(session_id, [])
+        presented_ids = {
+            str(event.get("descriptor_id", ""))
+            for event in session_events
+            if event.get("event_type") == "descriptor_presented"
+        }
+        completed_ids = {record["descriptor_id"] for record in descriptor_records}
+        in_progress_ids = presented_ids - completed_ids
+        attempts_submitted = sum(
+            event.get("event_type") == "answer_submitted"
+            for event in session_events
+            if str(event.get("descriptor_id", "")) in in_progress_ids
+        )
         counts = Counter(record["outcome"] for record in descriptor_records)
         total = len(descriptor_records)
         last_timestamp = max(
@@ -232,6 +331,9 @@ def session_records(
                 "status_label": "Completata" if completed_event else "In corso",
                 "descriptors_completed": total,
                 "descriptors_planned": len(start.get("descriptor_order", [])),
+                "descriptors_started": len(presented_ids),
+                "descriptors_in_progress": len(in_progress_ids),
+                "attempts_submitted_in_progress": attempts_submitted,
                 "first": counts["first"],
                 "second": counts["second"],
                 "third": counts["third"],
@@ -266,7 +368,7 @@ def scale_map(
     descriptors = catalog.for_scale(schema, modality, activity, scale)
     histories = [
         record
-        for record in descriptor_history(events, catalog)
+        for record in descriptor_activity(events, catalog)
         if (
             record["schema"],
             record["modality"],
@@ -291,7 +393,11 @@ def scale_map(
         rows.append(
             {
                 "descriptor_id": descriptor["descriptor_id"],
-                "level": descriptor["correct_level"],
+                "level": (
+                    descriptor["correct_level"]
+                    if status != "in_progress"
+                    else "?"
+                ),
                 "text": descriptor["descriptor_text"],
                 "status": status,
                 "status_label": OUTCOME_LABELS[status],
@@ -318,15 +424,21 @@ def descriptor_details(
     user_facing_time: bool = True,
 ) -> dict[str, Any]:
     descriptor = _catalog_item(catalog, descriptor_id)
-    history = [
+    activity = [
         record
-        for record in descriptor_history(events, catalog)
+        for record in descriptor_activity(events, catalog)
         if record["descriptor_id"] == descriptor_id
         and (session_id is None or record["session_id"] == session_id)
+    ]
+    history = [record for record in activity if record["outcome"] != "in_progress"]
+    open_records = [
+        record for record in activity if record["outcome"] == "in_progress"
     ]
     return {
         "descriptor": descriptor,
         "history": history,
+        "in_progress": open_records,
+        "latest_activity": activity[-1] if activity else None,
         "latest": history[-1] if history else None,
         "time_formatter": relative_timestamp
         if user_facing_time
@@ -340,6 +452,7 @@ def participant_overview(
     events_list = list(events)
     sessions = session_records(events_list, catalog)
     histories = descriptor_history(events_list, catalog)
+    activities = descriptor_activity(events_list, catalog)
     latest_by_descriptor: dict[str, dict[str, Any]] = {}
     for record in histories:
         latest_by_descriptor[record["descriptor_id"]] = record
@@ -348,6 +461,13 @@ def participant_overview(
     )
     first_count = latest_counts["first"]
     encountered = len(latest_by_descriptor)
+    latest_activity_by_descriptor: dict[str, dict[str, Any]] = {}
+    for record in activities:
+        latest_activity_by_descriptor[record["descriptor_id"]] = record
+    in_progress = sum(
+        record["outcome"] == "in_progress"
+        for record in latest_activity_by_descriptor.values()
+    )
     all_descriptors = len(catalog.all())
     return {
         "sessions_started": len(sessions),
@@ -357,7 +477,9 @@ def participant_overview(
         "sessions_in_progress": sum(
             session["status"] == "in_progress" for session in sessions
         ),
-        "descriptors_encountered": encountered,
+        "descriptors_encountered": len(latest_activity_by_descriptor),
+        "descriptors_completed": encountered,
+        "descriptors_in_progress": in_progress,
         "descriptors_available": all_descriptors,
         "latest_first_count": first_count,
         "latest_first_rate": (

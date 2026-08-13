@@ -18,6 +18,23 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-08-13 — Percorso incontrato e archivio durevole 0.7.0
+
+La pagina personale non promette più una «mappa completa»: mostra
+esplicitamente la mappa dei descrittori già incontrati o lasciati in corso.
+
+Il backend per il Dataset Hugging Face era già presente; ora verifica anche
+che l’archivio configurato sia raggiungibile e **privato** prima di registrare
+partecipanti o eventi. Una fascia verde conferma lo storage durevole, quella
+arancione indica la modalità temporanea e quella rossa segnala una
+configurazione remota non funzionante. La procedura per il proprietario è in
+`docs/CONFIGURAZIONE_STORAGE_HF.md`.
+
+La configurazione esterna non è stata eseguita da Fabio, che non dispone dei
+permessi sulle impostazioni dello Space. Simone deve creare o confermare il
+Dataset privato e impostare `EVENTS_REPO_ID` e `HF_DATA_TOKEN`; i valori segreti
+non devono comparire in questo registro.
+
 ## 2026-08-13 — Sessioni a blocchi di sei 0.6.0
 
 Le scale non vengono più proposte integralmente per impostazione predefinita.

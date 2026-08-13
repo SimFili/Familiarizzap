@@ -169,28 +169,50 @@ def test_sign_language_schema_is_not_offered_by_text_navigation() -> None:
     assert app._is_sign_language_schema(sign_schema) is True
 
 
-def test_scales_with_fewer_than_four_descriptors_are_not_selectable() -> None:
+def test_annunci_pubblici_is_the_only_selectable_short_scale() -> None:
     all_choices = [label for label, _ in app._scale_choices()]
-    production = app._scale_selector_data(
-        "AttivitÃ  linguistico-comunicative", "Produzione"
+    activity_schema = next(
+        path[0]
+        for path in app._all_catalog_paths()
+        if path[1:] == (
+            "Produzione",
+            "Produzione orale",
+            "Annunci pubblici",
+        )
     )
+    production = app._scale_selector_data(activity_schema, "Produzione")
     visible_scales = {
         item["scale"]
         for activity in production
         for item in activity["scales"]
     }
 
-    assert all("Annunci pubblici" not in label for label in all_choices)
+    assert any("Annunci pubblici" in label for label in all_choices)
     assert all(
         not app._is_sign_language_schema(app._decode_path(value)[0])
         for _, value in app._scale_choices()
     )
-    assert "Annunci pubblici" not in visible_scales
-    assert "Annunci pubblici" not in app._available_scales(
-        "AttivitÃ  linguistico-comunicative",
+    assert "Annunci pubblici" in visible_scales
+    assert "Annunci pubblici" in app._available_scales(
+        activity_schema,
         "Produzione",
         "Produzione orale",
     )
+    short_paths = [
+        path
+        for path in app._all_catalog_paths()
+        if len(app.CATALOG.for_scale(*path)) < 4
+    ]
+    assert len(short_paths) == 1
+    assert short_paths[0][1:] == (
+        "Produzione",
+        "Produzione orale",
+        "Annunci pubblici",
+    )
+    assert app._participant_scale_is_available(short_paths[0]) is True
+    assert app._participant_scale_is_available(
+        (*short_paths[0][:-1], "Una scala diversa"), 3
+    ) is False
 
 
 def test_zero_unseen_items_are_absent_from_summary_legend() -> None:
@@ -243,6 +265,14 @@ def test_journey_and_researcher_overviews_are_separate_pages() -> None:
     assert ("ricercatore", "Panoramica ricercatore") in pages
 
 
+def test_journey_describes_only_the_map_of_encountered_descriptors() -> None:
+    source = inspect.getsource(app.build_demo)
+
+    assert "mappa completa" not in source.casefold()
+    assert "mappa dei descrittori" in source.casefold()
+    assert "Il mio percorso completo" not in source
+
+
 def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> None:
     assert "--fapp-paper: #17251f;" in CSS
     assert "--fapp-unseen: #34433f;" in CSS
@@ -250,6 +280,8 @@ def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> Non
     assert "body.dark label.selected" in CSS
     assert "background: #0b665e !important;" in CSS
     assert "color: #fff !important;" in CSS
+    assert "--fapp-in-progress: #284861;" in CSS
+    assert ".status-in_progress" in CSS
 
 
 def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
@@ -262,6 +294,9 @@ def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
                 "status_label": "In corso",
                 "descriptors_completed": 1,
                 "descriptors_planned": 8,
+                "descriptors_started": 2,
+                "descriptors_in_progress": 1,
+                "attempts_submitted_in_progress": 1,
                 "first": 1,
                 "first_attempt_rate": 100,
                 "last_activity_at": "2026-08-12T08:00:00+00:00",
@@ -272,4 +307,62 @@ def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
     assert "journey-session-card" in rendered
     assert "Riprendi questa sessione" in rendered
     assert "/?resume=session%201" in rendered
+    assert "2 iniziati" in rendered
+    assert "1 tentativo salvato" in rendered
     assert "CSV" not in rendered
+
+
+def test_partial_descriptor_detail_does_not_reveal_the_correct_level() -> None:
+    rendered = app._descriptor_detail_markdown(
+        {
+            "descriptor": {
+                "correct_level": "B2",
+                "scale": "Scala di prova",
+                "descriptor_text": "Testo del descrittore",
+            },
+            "history": [],
+            "in_progress": [
+                {
+                    "session_id": "session 1",
+                    "occurred_at": "2026-08-12T08:00:00+00:00",
+                    "attempts": ["A2"],
+                    "attempts_text": "A2",
+                }
+            ],
+        },
+        researcher=False,
+    )
+
+    assert "### In corso" in rendered
+    assert "Tentativi già salvati: `A2`" in rendered
+    assert "/?resume=session%201" in rendered
+    assert "B2" not in rendered
+
+
+def test_journey_copy_describes_completed_latest_outcomes() -> None:
+    source = inspect.getsource(app._personal_view)
+
+    assert "nell’incontro più recente" not in source
+    assert "esito completato più recente" in source
+    assert "descrittori in corso" in source
+
+
+def test_remote_storage_banner_does_not_claim_success_when_unhealthy(
+    monkeypatch,
+) -> None:
+    class _RemoteSettings:
+        storage_mode = "huggingface"
+
+    class _UnhealthyStore:
+        @staticmethod
+        def health_check():
+            return False, "token non valido"
+
+    monkeypatch.setattr(app, "SETTINGS", _RemoteSettings())
+    monkeypatch.setattr(app, "STORE", _UnhealthyStore())
+
+    banner = app._storage_banner()
+
+    assert "Archivio non disponibile" in banner
+    assert "Non usare l’app per raccogliere dati" in banner
+    assert "token non valido" not in banner

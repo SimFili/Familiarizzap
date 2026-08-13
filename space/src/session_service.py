@@ -534,7 +534,11 @@ class SessionService:
         randomizer: random.Random,
         allowed_levels: set[str] | None = None,
     ) -> tuple[list[dict[str, Any]], list[str]]:
-        """Complete an encounter to 4–6 distinct descriptors when possible."""
+        """Complete an encounter to 4–6 distinct descriptors when possible.
+
+        A curated shorter scale can retain all of its distinct descriptors;
+        the participant-facing app decides which short scales are allowed.
+        """
         eligible = [
             item for item in descriptors
             if allowed_levels is None
@@ -619,8 +623,9 @@ class SessionService:
                 if assigned[item["descriptor_id"]] > 0
             )
 
-        # Non duplichiamo mai un esercizio nello stesso incontro: una scala
-        # con tre soli descrittori viene esclusa dalla selezione dell'app.
+        # Non duplichiamo mai un esercizio nello stesso incontro. Se una scala
+        # breve è stata esplicitamente ammessa dall'app, conserva tutti i suoi
+        # descrittori distinti anche senza raggiungere il minimo generale.
         return result[:MAX_PROGRESSIVE_DESCRIPTORS], review_ids
 
     def _progressive_plan_result(
