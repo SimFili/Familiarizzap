@@ -5,7 +5,7 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione 0.6.0 include:
+La versione 0.7.0 include:
 
 - accesso al proprio percorso tramite il solo nome;
 - navigazione progressiva: identificazione, ambiti disponibili e infine scale;
@@ -16,14 +16,20 @@ La versione 0.6.0 include:
 - cronologia longitudinale senza sovrascrivere gli esiti precedenti;
 - mappa cliccabile della scala con esito e data relativa;
 - percentuale di riconoscimento al primo tentativo, senza voto composito;
-- ripetizione mirata dei descrittori da consolidare;
+- ripresa automatica e distanziata dei descrittori da consolidare;
 - conteggio dei descrittori presenti per ciascun livello nelle opzioni di
   risposta;
-- scelta facoltativa, prima di ogni sessione, per escludere A2+ e B1+;
+- percorso progressivo automatico: prima i livelli canonici presenti, poi le
+  varianti dello stesso livello, infine A2+ e B1+ introdotti con i livelli
+  vicini;
 - uscita confermata da un esercizio con sessione conservata e riprendibile;
 - mappa progressiva dell’esercizio con livello scoperto ed esito per tentativo;
-- sessioni predefinite in blocchi bilanciati di 6 descrittori, senza ripetizioni
-  finché restano descrittori nuovi, con opzione per affrontare l’intera scala;
+- incontri brevi di dimensione adattiva, senza impostazioni tecniche richieste
+  al docente e senza ripetizioni artificiali per raggiungere una quota fissa;
+- scale colorate come la categoria selezionata, con sfumature coordinate per
+  ricezione e produzione nelle competenze in lingua dei segni;
+- competenze nella lingua dei segni temporaneamente non disponibili, in attesa
+  della validazione umana delle sottodimensioni e delle traiettorie didattiche;
 - cronologia a schede e ripresa diretta di una sessione in corso;
 - intero catalogo distribuito con lo Space: 831 descrittori, 52 scale e livelli
   `A1`, `A2`, `A2+`, `B1`, `B1+`, `B2`;

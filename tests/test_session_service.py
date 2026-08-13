@@ -202,6 +202,14 @@ def test_level_counts_are_stored_for_the_selected_scale(tmp_path: Path):
         for event in store.list_events("participant")
         if event["event_type"] == "session_started"
     )
+
+
+def finish_correctly(service: SessionService, state: dict) -> dict:
+    while not state["session_finished"]:
+        correct = service.current_descriptor(state)["correct_level"]
+        state = service.submit_answer(state, correct)
+        state = service.advance(state)
+    return state
     assert start["level_counts"] == expected
 
 
@@ -293,3 +301,72 @@ def test_full_session_still_includes_every_eligible_descriptor(tmp_path: Path):
         item["descriptor_id"] for item in descriptors
     }
     assert state["session_mode"] == "full"
+
+
+def test_progressive_path_introduces_variation_before_plus_levels(
+    tmp_path: Path,
+):
+    _, _, service, descriptors = make_service(tmp_path)
+
+    orientation = service.start_progressive_session(
+        "progressive", "Nome Privato", descriptors
+    )
+    assert orientation["progression_phase"] == "orientation"
+    assert service.available_levels(orientation) == ["A1", "A2", "B1", "B2"]
+    assert {
+        service.catalog.get(item_id)["correct_level"]
+        for item_id in orientation["descriptor_ids"]
+    } == {"A1", "A2", "B1", "B2"}
+    finish_correctly(service, orientation)
+
+    variation = service.start_progressive_session(
+        "progressive", "Nome Privato", descriptors
+    )
+    assert variation["progression_phase"] == "canonical_variation"
+    assert service.available_levels(variation) == ["A1", "A2", "B1", "B2"]
+    assert {
+        service.catalog.get(item_id)["correct_level"]
+        for item_id in variation["descriptor_ids"]
+    } == {"A1", "B2"}
+    finish_correctly(service, variation)
+
+    a2_plus = service.start_progressive_session(
+        "progressive", "Nome Privato", descriptors
+    )
+    assert a2_plus["progression_phase"] == "introduce_a2_plus"
+    assert service.available_levels(a2_plus) == ["A1", "A2", "A2+", "B1", "B2"]
+    assert {
+        service.catalog.get(item_id)["correct_level"]
+        for item_id in a2_plus["descriptor_ids"]
+    } == {"A2", "A2+", "B1"}
+    finish_correctly(service, a2_plus)
+
+    b1_plus = service.start_progressive_session(
+        "progressive", "Nome Privato", descriptors
+    )
+    assert b1_plus["progression_phase"] == "introduce_b1_plus"
+    assert service.available_levels(b1_plus) == [
+        "A1", "A2", "A2+", "B1", "B1+", "B2"
+    ]
+    assert {
+        service.catalog.get(item_id)["correct_level"]
+        for item_id in b1_plus["descriptor_ids"]
+    } == {"B1", "B1+", "B2"}
+
+
+def test_first_attempt_answers_return_later_for_consolidation(tmp_path: Path):
+    _, _, service, descriptors = make_service(tmp_path)
+
+    for _ in range(4):
+        state = service.start_progressive_session(
+            "review", "Nome Privato", descriptors
+        )
+        finish_correctly(service, state)
+
+    review = service.start_progressive_session(
+        "review", "Nome Privato", descriptors
+    )
+
+    assert review["progression_phase"] == "consolidation"
+    assert review["review_descriptor_ids"]
+    assert set(review["review_descriptor_ids"]) == set(review["descriptor_ids"])

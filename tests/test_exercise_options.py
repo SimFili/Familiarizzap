@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import inspect
 import uuid
 
 import app
@@ -152,8 +153,8 @@ def test_exit_confirmation_can_be_opened_and_cancelled():
     assert cancelled["visible"] is False
 
 
-def test_app_starts_six_descriptor_block_by_default():
-    participant_id = f"block-default-{uuid.uuid4()}"
+def test_app_starts_with_a_gentle_canonical_orientation():
+    participant_id = f"progressive-default-{uuid.uuid4()}"
     result = app.start_session(
         {
             **app._empty_ui_state(),
@@ -164,42 +165,31 @@ def test_app_starts_six_descriptor_block_by_default():
         "Ricezione",
         "Comprensione orale",
         "Comprensione orale generale",
-        True,
-        False,
     )
 
-    assert len(result[0]["session"]["descriptor_ids"]) == 6
-    assert result[0]["session"]["session_mode"] == "block"
-    assert result[5]["total"] == 6
+    session = result[0]["session"]
+    selected_levels = {
+        app.CATALOG.get(item_id)["correct_level"]
+        for item_id in session["descriptor_ids"]
+    }
+    assert selected_levels == {"A1", "A2", "B1", "B2"}
+    assert len(session["descriptor_ids"]) == 4
+    assert session["session_mode"] == "progressive"
+    assert session["progression_phase"] == "orientation"
+    assert app.SESSIONS.available_levels(session) == ["A1", "A2", "B1", "B2"]
+    assert result[5]["total"] == 4
 
 
-def test_app_can_start_the_full_scale_on_request():
-    descriptors = app.CATALOG.for_scale(
-        "Attività linguistico-comunicative",
-        "Ricezione",
-        "Comprensione orale",
-        "Comprensione orale generale",
-    )
-    result = app.start_session(
-        {
-            **app._empty_ui_state(),
-            "participant_id": f"full-request-{uuid.uuid4()}",
-            "display_name": "Anna",
-        },
-        "Attività linguistico-comunicative",
-        "Ricezione",
-        "Comprensione orale",
-        "Comprensione orale generale",
-        True,
-        True,
-    )
+def test_participant_has_no_manual_progression_settings():
+    source = inspect.getsource(app.build_demo)
 
-    assert len(result[0]["session"]["descriptor_ids"]) == len(descriptors)
-    assert result[0]["session"]["session_mode"] == "full"
+    assert "Includi anche i livelli A2+ e B1+" not in source
+    assert "Affronta l’intera scala in una sola sessione" not in source
+    assert "Ripeti i descrittori selezionati" in source
 
 
-def test_completed_block_offers_a_disjoint_next_block():
-    participant_id = f"next-block-{uuid.uuid4()}"
+def test_completed_encounter_offers_a_disjoint_next_step():
+    participant_id = f"next-progressive-{uuid.uuid4()}"
     first_result = app.start_session(
         {
             **app._empty_ui_state(),
@@ -210,8 +200,6 @@ def test_completed_block_offers_a_disjoint_next_block():
         "Ricezione",
         "Comprensione orale",
         "Comprensione orale generale",
-        True,
-        False,
     )
     state = first_result[0]
     first_ids = set(state["session"]["descriptor_ids"])
@@ -228,3 +216,4 @@ def test_completed_block_offers_a_disjoint_next_block():
     next_result = app.continue_with_next_block(state)
     next_session = next_result[0]["session"]
     assert set(next_session["descriptor_ids"]).isdisjoint(first_ids)
+    assert next_session["progression_phase"] == "canonical_variation"

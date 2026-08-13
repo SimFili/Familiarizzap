@@ -72,11 +72,6 @@ def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
     assert "disabled" in TAXONOMY_TEMPLATE
     assert "<button" in SCALE_SELECTOR_TEMPLATE
     columns = _taxonomy_data()
-    general = next(
-        column
-        for column in columns
-        if column["title"] == "Competenza generale"
-    )
     reception = next(
         item
         for column in columns
@@ -91,15 +86,19 @@ def test_taxonomy_and_scale_maps_use_real_buttons() -> None:
         for item in column["items"]
         if item["label"] == "Mediazione"
     )
-    assert [item["label"] for item in general["items"]] == [
-        "Sapere",
-        "Saper fare",
-        "Saper essere",
+    assert [column["title"] for column in columns] == [
+        "Competenze linguistico-comunicative",
+        "Competenze nelle lingue dei segni",
+        "Attività linguistico-comunicative",
+        "Strategie linguistico-comunicative",
     ]
-    assert all(not item["available"] for item in general["items"])
-    assert all(
-        item["show_availability"] is False for item in general["items"]
+    assert "Competenza generale" not in {column["title"] for column in columns}
+    signed = next(
+        column
+        for column in columns
+        if column["title"] == "Competenze nelle lingue dei segni"
     )
+    assert all(not item["available"] for item in signed["items"])
     assert "{{#if show_availability}}" in TAXONOMY_TEMPLATE
     assert reception["available"] is True
     assert mediation["available"] is False
@@ -148,9 +147,48 @@ def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
         ".tax-linguistic",
         ".tax-sociolinguistic",
         ".tax-pragmatic",
-        ".tax-general",
     ):
         assert "!important;" in _css_rule(selector)
+
+
+def test_taxonomy_columns_use_symmetric_rows() -> None:
+    desktop = _css_rule(".taxonomy-column")
+
+    assert "grid-template-rows: 4.3rem repeat(4, 3.8rem);" in desktop
+    assert "grid-template-rows: 4.8rem repeat(4, 4.15rem);" in CSS
+
+
+def test_sign_language_schema_is_not_offered_by_text_navigation() -> None:
+    schemas = app._available_schemas()
+
+    assert schemas
+    assert all("segni" not in schema.casefold() for schema in schemas)
+    sign_schema = next(
+        item for item in app.CATALOG.choices("schema") if "segni" in item.casefold()
+    )
+    assert app._is_sign_language_schema(sign_schema) is True
+
+
+def test_scale_buttons_inherit_category_colors_and_sign_language_tones() -> None:
+    for selector in (
+        '.scale-choice-button[data-modality="Ricezione"]',
+        '.scale-choice-button[data-modality="Produzione"]',
+        '.scale-choice-button[data-modality="Interazione"]',
+        '.scale-choice-button[data-modality="Linguistica"]',
+        '.scale-choice-button[data-modality="Sociolinguistica"]',
+        '.scale-choice-button[data-modality="Pragmatica"]',
+    ):
+        assert "--scale-color:" in _css_rule(selector)
+
+    sign_schema = next(
+        item for item in app.CATALOG.choices("schema") if "segni" in item.casefold()
+    )
+    reception = app._scale_selector_data(sign_schema, "Linguistica")
+    reception_card = next(item for item in reception if item["activity"] == "Ricezione")
+    production_card = next(item for item in reception if item["activity"] == "Produzione")
+    assert all(item["color"] == "linguistic" for item in reception_card["scales"])
+    assert all(item["tone"] == "sign-reception" for item in reception_card["scales"])
+    assert all(item["tone"] == "sign-production" for item in production_card["scales"])
 
 
 def test_journey_and_researcher_overviews_are_separate_pages() -> None:

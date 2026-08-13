@@ -13,6 +13,7 @@ from .event_store import EventStore
 
 
 EVENT_NAMESPACE = uuid.UUID("a302ad37-79ac-4ce0-96f6-1721259d980d")
+CANONICAL_LEVELS = ("A1", "A2", "B1", "B2")
 
 
 class SessionError(RuntimeError):
@@ -82,6 +83,13 @@ class SessionService:
         *,
         include_plus_levels: bool = True,
         session_size: int | None = None,
+        selected_descriptor_ids: list[str] | None = None,
+        progression_phase: str = "",
+        progression_label: str = "",
+        progression_note: str = "",
+        review_descriptor_ids: list[str] | None = None,
+        answer_levels_override: list[str] | None = None,
+        remaining_new_override: int | None = None,
     ) -> dict[str, Any]:
         if not include_plus_levels:
             descriptors = [
@@ -120,7 +128,17 @@ class SessionService:
         requested_size = (
             max(int(session_size), 1) if session_size is not None else None
         )
-        if requested_size is None:
+        selected_id_set = set(selected_descriptor_ids or [])
+        if selected_descriptor_ids is not None:
+            selected_descriptors = [
+                item
+                for item in eligible_descriptors
+                if item["descriptor_id"] in selected_id_set
+            ]
+            if len(selected_descriptors) != len(selected_id_set):
+                raise SessionError("Il percorso contiene descrittori non disponibili.")
+            session_mode = "progressive"
+        elif requested_size is None:
             selected_descriptors = eligible_descriptors
             session_mode = "full"
         else:
@@ -144,6 +162,8 @@ class SessionService:
             ),
             0,
         )
+        if remaining_new_override is not None:
+            remaining_new_after_batch = max(int(remaining_new_override), 0)
         session_id = str(uuid.uuid4())
         first = self.catalog.get(descriptor_ids[0])
         scale_descriptors = self.catalog.for_scale(
@@ -161,6 +181,13 @@ class SessionService:
         answer_levels = self.catalog.levels_for(
             [item["descriptor_id"] for item in scale_descriptors]
         )
+        if answer_levels_override is not None:
+            allowed_answers = set(answer_levels_override)
+            answer_levels = [
+                level for level in answer_levels if level in allowed_answers
+            ]
+        if not answer_levels:
+            raise SessionError("Il percorso non contiene livelli di risposta validi.")
         level_counts = Counter(
             item["correct_level"] for item in eligible_descriptors
         )
@@ -182,6 +209,10 @@ class SessionService:
             "session_size_requested": requested_size,
             "scale_descriptor_count": len(eligible_descriptors),
             "remaining_new_after_batch": remaining_new_after_batch,
+            "progression_phase": progression_phase,
+            "progression_label": progression_label,
+            "progression_note": progression_note,
+            "review_descriptor_ids": list(review_descriptor_ids or []),
             "current_index": 0,
             "attempts": [],
             "feedbacks": [],
@@ -215,6 +246,10 @@ class SessionService:
             session_size_requested=requested_size,
             scale_descriptor_count=len(eligible_descriptors),
             remaining_new_after_batch=remaining_new_after_batch,
+            progression_phase=progression_phase,
+            progression_label=progression_label,
+            progression_note=progression_note,
+            review_descriptor_ids=list(review_descriptor_ids or []),
             descriptor_count=len(descriptor_ids),
             prior_session_count=len(prior_sessions),
             occurred_at=now,
@@ -222,6 +257,303 @@ class SessionService:
         presented_event = self._presented_event(state)
         self.event_store.append_events([start_event, presented_event])
         return state
+
+    def start_progressive_session(
+        self,
+        participant_id: str,
+        display_name: str,
+        descriptors: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not descriptors:
+            raise SessionError("La scala selezionata non contiene descrittori.")
+        plan = self._progressive_plan(participant_id, descriptors)
+        return self.start_session(
+            participant_id,
+            display_name,
+            descriptors,
+            include_plus_levels=True,
+            selected_descriptor_ids=plan["descriptor_ids"],
+            progression_phase=plan["phase"],
+            progression_label=plan["label"],
+            progression_note=plan["note"],
+            review_descriptor_ids=plan["review_descriptor_ids"],
+            answer_levels_override=plan["answer_levels"],
+            remaining_new_override=plan["remaining_new"],
+        )
+
+    def _progressive_plan(
+        self,
+        participant_id: str,
+        descriptors: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Build the next gentle, data-driven encounter for one scale."""
+        randomizer = random.Random(secrets.randbits(63))
+        by_id = {item["descriptor_id"]: item for item in descriptors}
+        first = descriptors[0]
+        all_events = self.event_store.list_events(participant_id)
+        starts = [
+            event
+            for event in all_events
+            if event.get("event_type") == "session_started"
+            and event.get("schema") == first["schema"]
+            and event.get("modality") == first["modality"]
+            and event.get("activity") == first["activity"]
+            and event.get("scale") == first["scale"]
+        ]
+        session_ids = {str(event.get("session_id", "")) for event in starts}
+        scale_events = [
+            event
+            for event in all_events
+            if str(event.get("session_id", "")) in session_ids
+        ]
+        assigned: Counter[str] = Counter()
+        last_assigned: dict[str, str] = {}
+        for event in scale_events:
+            if event.get("event_type") != "descriptor_presented":
+                continue
+            item_id = str(event.get("descriptor_id", ""))
+            if item_id in by_id:
+                assigned[item_id] += 1
+                last_assigned[item_id] = str(event.get("occurred_at", ""))
+
+        completions: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for event in scale_events:
+            item_id = str(event.get("descriptor_id", ""))
+            if event.get("event_type") == "descriptor_completed" and item_id in by_id:
+                completions[item_id].append(event)
+        for records in completions.values():
+            records.sort(key=lambda item: str(item.get("occurred_at", "")))
+
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for descriptor in descriptors:
+            groups[str(descriptor["correct_level"])].append(descriptor)
+        for items in groups.values():
+            randomizer.shuffle(items)
+            items.sort(key=lambda item: assigned[item["descriptor_id"]])
+
+        def unseen_for(level: str) -> list[dict[str, Any]]:
+            return [
+                item for item in groups.get(level, [])
+                if assigned[item["descriptor_id"]] == 0
+            ]
+
+        canonical_present = [
+            level for level in CANONICAL_LEVELS if groups.get(level)
+        ]
+        previously_introduced = {
+            level
+            for level, items in groups.items()
+            if any(assigned[item["descriptor_id"]] for item in items)
+        }
+        missing_orientation = [
+            level
+            for level in canonical_present
+            if not any(assigned[item["descriptor_id"]] for item in groups[level])
+        ]
+        if missing_orientation:
+            chosen = [unseen_for(level)[0] for level in missing_orientation]
+            return self._progressive_plan_result(
+                descriptors,
+                chosen,
+                [],
+                "orientation",
+                "Primi passi",
+                "Cominciamo dalle differenze più riconoscibili tra i livelli.",
+                assigned,
+                canonical_present,
+            )
+
+        variation = []
+        for level in canonical_present:
+            encountered = sum(
+                assigned[item["descriptor_id"]] > 0 for item in groups[level]
+            )
+            candidates = unseen_for(level)
+            if encountered < 2 and candidates:
+                variation.append(candidates[0])
+        if variation:
+            return self._progressive_plan_result(
+                descriptors,
+                variation,
+                [],
+                "canonical_variation",
+                "Altri modi di esprimere lo stesso livello",
+                "Uno stesso livello può presentarsi attraverso descrittori diversi.",
+                assigned,
+                canonical_present,
+            )
+
+        for plus_level, neighbours, label, note in (
+            (
+                "A2+",
+                ("A2", "B1"),
+                "Una sfumatura tra A2 e B1",
+                "Aggiungiamo con calma un livello intermedio e ritroviamo i suoi vicini.",
+            ),
+            (
+                "B1+",
+                ("B1", "B2"),
+                "Una sfumatura tra B1 e B2",
+                "Osserviamo una nuova sfumatura confrontandola con i livelli vicini.",
+            ),
+        ):
+            plus_candidates = unseen_for(plus_level)
+            if plus_candidates and not any(
+                assigned[item["descriptor_id"]] for item in groups[plus_level]
+            ):
+                reviews = self._neighbour_reviews(
+                    groups,
+                    neighbours,
+                    completions,
+                    last_assigned,
+                    randomizer,
+                )
+                introduced_answers = [
+                    level
+                    for level in self.catalog.level_order
+                    if level in previously_introduced
+                    or level in canonical_present
+                    or level == plus_level
+                ]
+                return self._progressive_plan_result(
+                    descriptors,
+                    [plus_candidates[0], *reviews],
+                    [item["descriptor_id"] for item in reviews],
+                    f"introduce_{plus_level.casefold().replace('+', '_plus')}",
+                    label,
+                    note,
+                    assigned,
+                    introduced_answers,
+                )
+
+        unseen = [
+            item for item in descriptors if assigned[item["descriptor_id"]] == 0
+        ]
+        if unseen:
+            chosen = self._balanced_selection(
+                unseen, min(6, len(unseen)), randomizer, assigned
+            )
+            return self._progressive_plan_result(
+                descriptors,
+                chosen,
+                [],
+                "deepening",
+                "Nuovi incontri",
+                "Continuiamo a scoprire la varietà dei descrittori della scala.",
+                assigned,
+                [level for level in self.catalog.level_order if groups.get(level)],
+            )
+
+        due = self._review_candidates(
+            descriptors, completions, last_assigned, randomizer
+        )
+        chosen = due[: min(6, len(due))]
+        if not chosen:
+            chosen = list(descriptors)
+            randomizer.shuffle(chosen)
+            chosen = chosen[: min(4, len(chosen))]
+            phase = "maintenance"
+            label = "Un piccolo giro per mantenere la familiarità"
+            note = "Ritroviamo alcuni descrittori già conosciuti, senza fretta."
+        else:
+            phase = "consolidation"
+            label = "Ritroviamo ciò che abbiamo già incontrato"
+            note = "Un ritorno distanziato aiuta a confermare la familiarità, anche dopo una risposta immediata."
+        return self._progressive_plan_result(
+            descriptors,
+            chosen,
+            [item["descriptor_id"] for item in chosen],
+            phase,
+            label,
+            note,
+            assigned,
+            [level for level in self.catalog.level_order if groups.get(level)],
+        )
+
+    def _progressive_plan_result(
+        self,
+        all_descriptors: list[dict[str, Any]],
+        chosen: list[dict[str, Any]],
+        review_ids: list[str],
+        phase: str,
+        label: str,
+        note: str,
+        assigned: Counter[str],
+        answer_levels: list[str],
+    ) -> dict[str, Any]:
+        chosen_ids = [item["descriptor_id"] for item in chosen]
+        remaining_new = sum(
+            assigned[item["descriptor_id"]] == 0
+            and item["descriptor_id"] not in chosen_ids
+            for item in all_descriptors
+        )
+        return {
+            "descriptor_ids": chosen_ids,
+            "review_descriptor_ids": review_ids,
+            "phase": phase,
+            "label": label,
+            "note": note,
+            "remaining_new": remaining_new,
+            "answer_levels": list(answer_levels),
+        }
+
+    def _neighbour_reviews(
+        self,
+        groups: dict[str, list[dict[str, Any]]],
+        levels: tuple[str, str],
+        completions: dict[str, list[dict[str, Any]]],
+        last_assigned: dict[str, str],
+        randomizer: random.Random,
+    ) -> list[dict[str, Any]]:
+        reviews: list[dict[str, Any]] = []
+        for level in levels:
+            candidates = [
+                item
+                for item in groups.get(level, [])
+                if item["descriptor_id"] in last_assigned
+            ]
+            randomizer.shuffle(candidates)
+            candidates.sort(
+                key=lambda item: self._review_priority(
+                    item["descriptor_id"], completions, last_assigned
+                )
+            )
+            if candidates:
+                reviews.append(candidates[0])
+        return reviews
+
+    def _review_candidates(
+        self,
+        descriptors: list[dict[str, Any]],
+        completions: dict[str, list[dict[str, Any]]],
+        last_assigned: dict[str, str],
+        randomizer: random.Random,
+    ) -> list[dict[str, Any]]:
+        candidates = [
+            item
+            for item in descriptors
+            if sum(bool(record.get("resolved")) for record in completions[item["descriptor_id"]]) < 2
+        ]
+        randomizer.shuffle(candidates)
+        candidates.sort(
+            key=lambda item: self._review_priority(
+                item["descriptor_id"], completions, last_assigned
+            )
+        )
+        return candidates
+
+    @staticmethod
+    def _review_priority(
+        descriptor_id: str,
+        completions: dict[str, list[dict[str, Any]]],
+        last_assigned: dict[str, str],
+    ) -> tuple[int, int, str]:
+        records = completions.get(descriptor_id, [])
+        correct_confirmations = sum(bool(record.get("resolved")) for record in records)
+        latest = records[-1] if records else {}
+        attempt = latest.get("resolved_on_attempt")
+        difficulty = 4 if latest and not latest.get("resolved") else int(attempt or 1)
+        return (correct_confirmations, -difficulty, last_assigned.get(descriptor_id, ""))
 
     def _balanced_selection(
         self,
@@ -511,6 +843,8 @@ class SessionService:
                 sessions.append(
                     {
                         "session_id": session_id,
+                        "schema": start.get("schema", ""),
+                        "modality": start.get("modality", ""),
                         "label": (
                             f"{start.get('scale', 'Scala')} · "
                             f"{finished_count}/{len(start.get('descriptor_order', []))} "
@@ -624,6 +958,12 @@ class SessionService:
             ),
             "remaining_new_after_batch": int(
                 start.get("remaining_new_after_batch", 0)
+            ),
+            "progression_phase": str(start.get("progression_phase", "")),
+            "progression_label": str(start.get("progression_label", "")),
+            "progression_note": str(start.get("progression_note", "")),
+            "review_descriptor_ids": list(
+                start.get("review_descriptor_ids", [])
             ),
             "current_index": current_index,
             "attempts": [event["selected_level"] for event in answers],

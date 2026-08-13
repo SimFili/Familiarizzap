@@ -388,7 +388,7 @@ button.primary {
 .status-unseen { background: var(--fapp-unseen); color: var(--fapp-unseen-text); }
 .taxonomy-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(155px, 1fr));
+  grid-template-columns: repeat(4, minmax(155px, 1fr));
   gap: .75rem;
   align-items: start;
   overflow-x: auto;
@@ -397,6 +397,7 @@ button.primary {
 }
 .taxonomy-column {
   display: grid;
+  grid-template-rows: 4.3rem repeat(4, 3.8rem);
   gap: .6rem;
   min-width: 155px;
 }
@@ -440,10 +441,6 @@ button.primary {
 .tax-linguistic { background: var(--fapp-linguistic) !important; }
 .tax-sociolinguistic { background: var(--fapp-sociolinguistic) !important; }
 .tax-pragmatic { background: var(--fapp-pragmatic) !important; }
-.tax-general {
-  background: #d8dde2 !important;
-  color: #263238 !important;
-}
 .tax-neutral {
   background: #e9e4da !important;
   color: #263238 !important;
@@ -473,12 +470,29 @@ button.primary {
   border: 0;
   border-radius: .75rem;
   padding: .75rem;
-  background: var(--fapp-reception) !important;
+  background: var(--scale-color, var(--fapp-reception)) !important;
   color: #fff !important;
   font-weight: 700;
   cursor: pointer;
 }
 .scale-choice-button * { color: inherit !important; }
+.scale-choice-button[data-modality="Ricezione"] { --scale-color: var(--fapp-reception); }
+.scale-choice-button[data-modality="Produzione"] { --scale-color: var(--fapp-production); }
+.scale-choice-button[data-modality="Interazione"] { --scale-color: var(--fapp-interaction); }
+.scale-choice-button[data-modality="Mediazione"] { --scale-color: var(--fapp-mediation); }
+.scale-choice-button[data-modality="Linguistica"] { --scale-color: var(--fapp-linguistic); }
+.scale-choice-button[data-modality="Sociolinguistica"] { --scale-color: var(--fapp-sociolinguistic); }
+.scale-choice-button[data-modality="Pragmatica"] { --scale-color: var(--fapp-pragmatic); }
+.scale-choice-button[data-modality="Linguistica"][data-activity="Ricezione"],
+.scale-choice-button[data-modality="Sociolinguistica"][data-activity="Ricezione"],
+.scale-choice-button[data-modality="Pragmatica"][data-activity="Ricezione"] {
+  filter: brightness(1.04);
+}
+.scale-choice-button[data-modality="Linguistica"][data-activity="Produzione"],
+.scale-choice-button[data-modality="Sociolinguistica"][data-activity="Produzione"],
+.scale-choice-button[data-modality="Pragmatica"][data-activity="Produzione"] {
+  filter: brightness(.91) saturate(1.04);
+}
 .scale-choice-button:hover,
 .scale-choice-button:focus-visible {
   filter: brightness(.92);
@@ -598,7 +612,6 @@ body.dark label.selected {
   .journey-metric { color: var(--fapp-ink) !important; }
   .taxonomy-title { color: #0f1720 !important; }
   .taxonomy-item { color: #fff !important; }
-  .tax-general { color: #263238 !important; }
   .tax-neutral { color: #263238 !important; }
   .scale-choice-button { color: #fff !important; }
   .journey-metric { background: #22352e !important; }
@@ -646,11 +659,14 @@ body.dark label.selected {
   }
   .trend-track { grid-column: 1 / -1; grid-row: 2; }
   .taxonomy-grid {
-    grid-template-columns: repeat(5, minmax(165px, 74vw));
+    grid-template-columns: repeat(4, minmax(165px, 74vw));
     scroll-snap-type: x proximity;
     padding-bottom: 1rem;
   }
   .taxonomy-column { scroll-snap-align: start; }
+  .taxonomy-column {
+    grid-template-rows: 4.8rem repeat(4, 4.15rem);
+  }
   .taxonomy-title { min-height: 4.8rem; }
   .taxonomy-item { min-height: 4.15rem; }
   .scale-selector { grid-template-columns: 1fr; }
@@ -835,8 +851,25 @@ def _storage_banner() -> str:
     )
 
 
+def _is_sign_language_schema(schema: str | None) -> bool:
+    normalized = str(schema or "").casefold()
+    return (
+        "lingua dei segni" in normalized
+        or "lingue dei segni" in normalized
+    )
+
+
+def _available_schemas() -> list[str]:
+    """Schemas currently open to participants in the pilot UI."""
+    return [
+        schema
+        for schema in CATALOG.choices("schema")
+        if not _is_sign_language_schema(schema)
+    ]
+
+
 def _first_path_values() -> tuple[list[str], str, str, str, str]:
-    schemas = CATALOG.choices("schema")
+    schemas = _available_schemas()
     schema = schemas[0]
     modality = CATALOG.choices("modality", schema=schema)[0]
     activity = CATALOG.choices(
@@ -914,20 +947,6 @@ def _taxonomy_data() -> list[dict[str, Any]]:
 
     columns = [
         {
-            "title": "Competenza generale",
-            "items": [
-                {
-                    "label": label,
-                    "color": "general",
-                    "schema": "Competenza generale",
-                    "modality": label,
-                    "available": False,
-                    "show_availability": False,
-                }
-                for label in ("Sapere", "Saper fare", "Saper essere")
-            ],
-        },
-        {
             "title": "Competenze linguistico-comunicative",
             "items": [
                 {
@@ -958,9 +977,9 @@ def _taxonomy_data() -> list[dict[str, Any]]:
                         "Competenze nelle lingue dei segni",
                     ),
                     "modality": label,
-                    "available": present(
-                        ("lingua dei segni", "lingue dei segni"), label
-                    ),
+                    # Questa famiglia richiede prima una validazione esperta
+                    # delle traiettorie pedagogiche e resta quindi chiusa.
+                    "available": False,
                 }
                 for label, color in (
                     ("Linguistica", "linguistic"),
@@ -1039,12 +1058,37 @@ def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
                     "modality": modality,
                     "activity": activity,
                     "scale": scale,
+                    "color": _taxonomy_color(modality),
+                    "tone": _sign_scale_tone(schema, activity),
                 }
                 for scale in scales
             ],
         }
         for activity, scales in grouped.items()
     ]
+
+
+def _taxonomy_color(label: str) -> str:
+    return {
+        "ricezione": "reception",
+        "produzione": "production",
+        "interazione": "interaction",
+        "mediazione": "mediation",
+        "linguistica": "linguistic",
+        "sociolinguistica": "sociolinguistic",
+        "pragmatica": "pragmatic",
+    }.get(str(label).casefold(), "reception")
+
+
+def _sign_scale_tone(schema: str, activity: str) -> str:
+    if "segni" not in str(schema).casefold():
+        return ""
+    activity_fold = str(activity).casefold()
+    if "ricezione" in activity_fold:
+        return "sign-reception"
+    if "produzione" in activity_fold:
+        return "sign-production"
+    return ""
 
 
 def _progress_html(
@@ -1159,7 +1203,11 @@ def _session_trend_html(sessions: list[dict[str, Any]]) -> str:
 
 
 def _resume_dropdown(participant: str) -> gr.Dropdown:
-    incomplete = SESSIONS.incomplete_sessions(participant)
+    incomplete = [
+        session
+        for session in SESSIONS.incomplete_sessions(participant)
+        if not _is_sign_language_schema(session.get("schema"))
+    ]
     choices = [
         (session["label"], session["session_id"]) for session in incomplete
     ]
@@ -1566,6 +1614,8 @@ def _descriptor_detail_markdown(
 
 
 def _navigation_selection(schema: str, modality: str):
+    if _is_sign_language_schema(schema):
+        _, schema, modality, _, _ = _first_path_values()
     activities = CATALOG.choices(
         "activity", schema=schema, modality=modality
     )
@@ -1575,7 +1625,7 @@ def _navigation_selection(schema: str, modality: str):
     )
     return (
         _scale_selector_data(schema, modality),
-        gr.Dropdown(choices=CATALOG.choices("schema"), value=schema),
+        gr.Dropdown(choices=_available_schemas(), value=schema),
         gr.Dropdown(
             choices=CATALOG.choices("modality", schema=schema),
             value=modality,
@@ -1605,7 +1655,7 @@ def scale_selector_click(evt: gr.EventData):
     activity = str(getattr(evt, "activity", "") or "")
     scale = str(getattr(evt, "scale", "") or "")
     return (
-        gr.Dropdown(choices=CATALOG.choices("schema"), value=schema),
+        gr.Dropdown(choices=_available_schemas(), value=schema),
         gr.Dropdown(
             choices=CATALOG.choices("modality", schema=schema),
             value=modality,
@@ -1630,6 +1680,8 @@ def scale_selector_click(evt: gr.EventData):
 
 
 def update_schema(schema: str):
+    if _is_sign_language_schema(schema):
+        schema = _first_path_values()[1]
     modalities = CATALOG.choices("modality", schema=schema)
     modality = modalities[0] if modalities else None
     activities = CATALOG.choices(
@@ -1743,7 +1795,9 @@ def _exercise_progress_data(session: dict[str, Any]) -> dict[str, Any]:
             session.get("scale_descriptor_count", len(session["descriptor_ids"]))
         ),
         "remaining_new": int(session.get("remaining_new_after_batch", 0)),
-        "is_block": session.get("session_mode") == "block",
+        "is_block": session.get("session_mode") in {"block", "progressive"},
+        "phase_label": str(session.get("progression_label", "")),
+        "phase_note": str(session.get("progression_note", "")),
         "current_finished": current_finished,
         "steps": steps,
     }
@@ -1838,17 +1892,19 @@ def start_session(
     modality: str,
     activity: str,
     scale: str,
-    include_plus_levels: bool,
-    full_scale: bool,
 ):
+    if _is_sign_language_schema(schema):
+        return _exercise_error(
+            state,
+            "Le competenze nelle lingue dei segni sono temporaneamente "
+            "chiuse in attesa della validazione degli esperti.",
+        )
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
-        return _start_descriptors(
-            state,
-            descriptors,
-            include_plus_levels=include_plus_levels,
-            session_size=None if full_scale else 6,
+        session = SESSIONS.start_progressive_session(
+            state["participant_id"], state["display_name"], descriptors
         )
+        return _start_session_view(state, session)
     except (KeyError, SessionError, EventStoreError, CatalogError) as exc:
         return _exercise_error(
             state, f"⚠️ La sessione non è stata avviata: {exc}"
@@ -1869,6 +1925,10 @@ def _start_descriptors(
         include_plus_levels=include_plus_levels,
         session_size=session_size,
     )
+    return _start_session_view(state, session)
+
+
+def _start_session_view(state: dict[str, Any], session: dict[str, Any]):
     updated = dict(state)
     updated["session"] = session
     updated["summary_outcome_filter"] = "all"
@@ -1910,6 +1970,12 @@ def resume_session(state: dict[str, Any], session_id: str | None):
         session = SESSIONS.restore_session(
             state["participant_id"], state["display_name"], session_id
         )
+        if _is_sign_language_schema(session.get("schema")):
+            return _exercise_error(
+                state,
+                "Le competenze nelle lingue dei segni sono temporaneamente "
+                "chiuse in attesa della validazione degli esperti.",
+            )
         updated = dict(state)
         updated["session"] = session
         return (
@@ -2014,7 +2080,9 @@ def _summary_components(session: dict[str, Any]):
     total = summary["descriptors_completed"]
     stats = _progress_html(
         (
-            f"Blocco completato · {session['scale']}"
+            f"Incontro completato · {session['scale']}"
+            if session.get("session_mode") == "progressive"
+            else f"Blocco completato · {session['scale']}"
             if session.get("session_mode") == "block"
             else f"Sessione completata · {session['scale']}"
         ),
@@ -2029,7 +2097,7 @@ def _summary_components(session: dict[str, Any]):
         ),
     )
     remaining_new = int(session.get("remaining_new_after_batch", 0))
-    if session.get("session_mode") == "block":
+    if session.get("session_mode") in {"block", "progressive"}:
         stats += (
             '<p class="non-evaluation">'
             + (
@@ -2037,8 +2105,8 @@ def _summary_components(session: dict[str, Any]):
                 "Puoi continuare con il blocco successivo."
                 if remaining_new
                 else (
-                    "Hai affrontato tutti i descrittori disponibili di questa "
-                    "scala con le opzioni attuali."
+                    "Hai incontrato tutti i descrittori nuovi della scala. "
+                    "Il prossimo incontro ne riprenderà alcuni per consolidarli."
                 )
             )
             + "</p>"
@@ -2074,25 +2142,16 @@ def _summary_components(session: dict[str, Any]):
             label="Filtra per livello target",
         ),
         _session_map(session),
-        gr.CheckboxGroup(
-            choices=focus_choices,
-            value=[value for _, value in focus_choices],
-            label="Descrittori da ripetere",
-            visible=bool(focus_choices),
-        ),
+        gr.CheckboxGroup(choices=[], value=[], visible=False),
         gr.Button(
-            "Ripeti i descrittori selezionati",
-            visible=bool(focus_choices),
-            interactive=bool(focus_choices),
-            variant="primary",
+            "Ripeti i descrittori selezionati", visible=False, interactive=False
         ),
         gr.Button(
             "Continua con i prossimi descrittori",
             visible=(
-                session.get("session_mode") == "block"
-                and remaining_new > 0
+                session.get("session_mode") in {"block", "progressive"}
             ),
-            interactive=remaining_new > 0,
+            interactive=True,
             variant="primary",
         ),
     )
@@ -2251,7 +2310,13 @@ def back_to_practice(state: dict[str, Any]):
 
 def continue_with_next_block(state: dict[str, Any]):
     session = state.get("session") or {}
-    if not session or session.get("session_mode") != "block":
+    if _is_sign_language_schema(session.get("schema")):
+        return _exercise_error(
+            state,
+            "Le competenze nelle lingue dei segni sono temporaneamente "
+            "chiuse in attesa della validazione degli esperti.",
+        )
+    if not session or session.get("session_mode") not in {"block", "progressive"}:
         return _exercise_error(
             state, "Il blocco successivo non è disponibile."
         )
@@ -2262,12 +2327,10 @@ def continue_with_next_block(state: dict[str, Any]):
             session["activity"],
             session["scale"],
         )
-        return _start_descriptors(
-            state,
-            descriptors,
-            include_plus_levels=bool(session.get("include_plus_levels", True)),
-            session_size=6,
+        next_session = SESSIONS.start_progressive_session(
+            state["participant_id"], state["display_name"], descriptors
         )
+        return _start_session_view(state, next_session)
     except (CatalogError, SessionError, EventStoreError, KeyError) as exc:
         return _exercise_error(
             state, f"⚠️ Blocco successivo non avviato: {exc}"
@@ -2814,23 +2877,10 @@ def build_demo() -> gr.Blocks:
                     value=scale,
                     label="Scala",
                 )
-            include_plus_levels = gr.Checkbox(
-                value=True,
-                label="Includi anche i livelli A2+ e B1+",
-                info=(
-                    "Disattiva questa opzione se preferisci lavorare soltanto "
-                    "su A1, A2, B1 e B2. Puoi cambiarla prima di ogni nuova "
-                    "sessione."
-                ),
-            )
-            full_scale = gr.Checkbox(
-                value=False,
-                label="Affronta l’intera scala in una sola sessione",
-                info=(
-                    "Per impostazione predefinita l’app propone un blocco "
-                    "bilanciato di 6 descrittori e conserva gli altri per i "
-                    "blocchi successivi."
-                ),
+            gr.Markdown(
+                "Il percorso si adatta automaticamente alla scala: inizia "
+                "dalle differenze più riconoscibili, introduce con calma le "
+                "sfumature e ritrova nel tempo ciò che hai già incontrato."
             )
             with gr.Row():
                 start_button = gr.Button(
@@ -2859,10 +2909,13 @@ def build_demo() -> gr.Blocks:
                     Descrittore {{value.position}} di {{value.total}}
                   </h3>
                   {{#if value.is_block}}
+                    {{#if value.phase_label}}
+                      <h4>{{value.phase_label}}</h4>
+                      <p class="non-evaluation">{{value.phase_note}}</p>
+                    {{/if}}
                     <p class="non-evaluation">
-                      Blocco da {{value.total}} su {{value.scale_total}}
-                      descrittori della scala · dopo questo blocco ne restano
-                      {{value.remaining_new}} nuovi.
+                      Questo incontro: {{value.total}} descrittori ·
+                      {{value.remaining_new}} ancora nuovi nella scala.
                     </p>
                   {{/if}}
                   <div class="exercise-progress-track">
@@ -3079,8 +3132,6 @@ def build_demo() -> gr.Blocks:
                 modality_choice,
                 activity_choice,
                 scale_choice,
-                include_plus_levels,
-                full_scale,
             ],
             outputs=exercise_outputs,
         )
@@ -3112,8 +3163,6 @@ def build_demo() -> gr.Blocks:
                 modality_choice,
                 activity_choice,
                 scale_choice,
-                include_plus_levels,
-                full_scale,
             ],
             outputs=exercise_outputs,
         )
