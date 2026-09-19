@@ -1325,20 +1325,33 @@ def _session_trend_html(sessions: list[dict[str, Any]]) -> str:
     )
 
 
+def _session_path(
+    session: dict[str, Any],
+) -> tuple[str, str, str, str]:
+    return (
+        str(session.get("schema", "")),
+        str(session.get("modality", "")),
+        str(session.get("activity", "")),
+        str(session.get("scale", "")),
+    )
+
+
+def _session_is_resumable(session: dict[str, Any]) -> bool:
+    """Return whether the current participant UI can safely resume a session."""
+    path = _session_path(session)
+    return (
+        session.get("status", "in_progress") == "in_progress"
+        and all(path)
+        and not _is_sign_language_schema(path[0])
+        and path in set(_catalog_paths())
+    )
+
+
 def _resume_dropdown(participant: str) -> gr.Dropdown:
     incomplete = [
         session
         for session in SESSIONS.incomplete_sessions(participant)
-        if not _is_sign_language_schema(session.get("schema"))
-        and _participant_scale_is_available(
-            (
-                str(session.get("schema", "")),
-                str(session.get("modality", "")),
-                str(session.get("activity", "")),
-                str(session.get("scale", "")),
-            ),
-            int(session.get("descriptor_count", 0)),
-        )
+        if _session_is_resumable(session)
     ]
     choices = [
         (session["label"], session["session_id"]) for session in incomplete
@@ -1374,11 +1387,17 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
             else "non ancora calcolabile"
         )
         action = ""
-        if session.get("status") == "in_progress":
+        if _session_is_resumable(session):
             session_id = quote(str(session.get("session_id", "")), safe="")
             action = (
                 f'<a class="journey-session-action" href="/?resume={session_id}">'
                 "Riprendi questa sessione →</a>"
+            )
+        elif session.get("status") == "in_progress":
+            action = (
+                '<span class="journey-session-meta">'
+                "Questa sessione resta nella cronologia, ma non è "
+                "riprendibile nella versione attuale.</span>"
             )
         progress_meta = f"{completed}/{planned} descrittori completati"
         if session.get("status") == "in_progress" and started:
@@ -1412,7 +1431,7 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
 
 def _resume_priority_html(sessions: list[dict[str, Any]]) -> str:
     incomplete = [
-        session for session in sessions if session.get("status") == "in_progress"
+        session for session in sessions if _session_is_resumable(session)
     ]
     if not incomplete:
         return ""
@@ -1435,16 +1454,21 @@ def _personal_view(
     overview = participant_overview(events, CATALOG)
     all_paths = _catalog_paths()
     sessions = session_records(events, CATALOG)
-    latest_path = None
-    if sessions:
-        latest = sessions[0]
-        latest_path = (
-            latest["schema"],
-            latest["modality"],
-            latest["activity"],
-            latest["scale"],
-        )
-    path = _decode_path(selected_path_value) or latest_path or all_paths[0]
+    allowed_paths = set(all_paths)
+    selected_path = _decode_path(selected_path_value)
+    latest_path = next(
+        (
+            _session_path(session)
+            for session in sessions
+            if _session_path(session) in allowed_paths
+        ),
+        None,
+    )
+    path = (
+        selected_path
+        if selected_path in allowed_paths
+        else latest_path or all_paths[0]
+    )
     path_value = _path_value(path)
     rows = scale_map(
         CATALOG, events, path, outcome_filter=outcome_filter
@@ -1726,13 +1750,16 @@ def personal_descriptor_click(state: dict[str, Any], evt: gr.EventData):
     descriptor_id = _event_descriptor_id(evt)
     if not descriptor_id or not state.get("participant_id"):
         return ""
-    details = descriptor_details(
-        descriptor_id,
-        STORE.list_events(state["participant_id"]),
-        CATALOG,
-        user_facing_time=True,
-    )
-    return _descriptor_detail_markdown(details, researcher=False)
+    try:
+        details = descriptor_details(
+            descriptor_id,
+            STORE.list_events(state["participant_id"]),
+            CATALOG,
+            user_facing_time=True,
+        )
+        return _descriptor_detail_markdown(details, researcher=False)
+    except (EventStoreError, CatalogError) as exc:
+        return f"⚠️ Dettaglio non disponibile: {exc}"
 
 
 def _descriptor_detail_markdown(

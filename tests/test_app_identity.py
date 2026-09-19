@@ -119,6 +119,25 @@ def test_storage_error_keeps_the_name_form_visible(monkeypatch):
     assert "archivio non disponibile" in result[-1]
 
 
+def test_personal_descriptor_reports_a_temporary_storage_error(monkeypatch):
+    class Store:
+        @staticmethod
+        def list_events(participant):
+            raise EventStoreError("archivio temporaneamente non disponibile")
+
+    class Event:
+        descriptor_id = "descriptor-1"
+
+    monkeypatch.setattr(app, "STORE", Store())
+
+    result = app.personal_descriptor_click(
+        {"participant_id": "participant"}, Event()
+    )
+
+    assert "Dettaglio non disponibile" in result
+    assert "temporaneamente non disponibile" in result
+
+
 def test_saved_identity_opens_personal_page_without_second_consent(
     monkeypatch,
 ):

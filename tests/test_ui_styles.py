@@ -289,6 +289,9 @@ def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
         [
             {
                 "session_id": "session 1",
+                "schema": "Attività linguistico-comunicative",
+                "modality": "Ricezione",
+                "activity": "Comprensione orale",
                 "scale": "Comprensione orale generale",
                 "status": "in_progress",
                 "status_label": "In corso",
@@ -310,6 +313,68 @@ def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
     assert "2 iniziati" in rendered
     assert "1 tentativo salvato" in rendered
     assert "CSV" not in rendered
+
+
+def test_personal_sessions_do_not_link_to_a_suspended_scale() -> None:
+    rendered = _journey_sessions_html(
+        [
+            {
+                "session_id": "sign-session",
+                "schema": "Competenze nelle lingue dei segni",
+                "modality": "Linguistica",
+                "activity": "Ricezione",
+                "scale": "Scala sospesa",
+                "status": "in_progress",
+                "status_label": "In corso",
+                "descriptors_completed": 1,
+                "descriptors_planned": 4,
+                "last_activity_at": "2026-08-12T08:00:00+00:00",
+            }
+        ]
+    )
+
+    assert "Riprendi questa sessione" not in rendered
+    assert "resta nella cronologia" in rendered
+
+
+def test_personal_view_ignores_an_unavailable_latest_session(monkeypatch) -> None:
+    allowed_path = app._catalog_paths()[0]
+    unavailable_session = {
+        "schema": "Competenze nelle lingue dei segni",
+        "modality": "Linguistica",
+        "activity": "Ricezione",
+        "scale": "Scala sospesa",
+        "status": "completed",
+        "completed_at": "2026-08-12T09:00:00+00:00",
+        "last_activity_at": "2026-08-12T09:00:00+00:00",
+        "first_attempt_rate": 0,
+    }
+    available_session = {
+        "schema": allowed_path[0],
+        "modality": allowed_path[1],
+        "activity": allowed_path[2],
+        "scale": allowed_path[3],
+        "status": "completed",
+        "completed_at": "2026-08-11T09:00:00+00:00",
+        "last_activity_at": "2026-08-11T09:00:00+00:00",
+        "first_attempt_rate": 0,
+    }
+
+    class Store:
+        @staticmethod
+        def list_events(participant):
+            return []
+
+    monkeypatch.setattr(app, "STORE", Store())
+    monkeypatch.setattr(
+        app,
+        "session_records",
+        lambda events, catalog: [unavailable_session, available_session],
+    )
+
+    result = app._personal_view("participant")
+
+    assert result[1].value == app._path_value(allowed_path)
 
 
 def test_partial_descriptor_detail_does_not_reveal_the_correct_level() -> None:
