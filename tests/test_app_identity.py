@@ -174,6 +174,22 @@ def test_requested_resume_hides_the_taxonomy():
     assert update["visible"] is False
 
 
+def test_summary_returns_directly_to_scale_selection():
+    state = {
+        **app._empty_ui_state(),
+        "participant_id": "participant",
+        "session": {"session_id": "completed-session"},
+    }
+
+    result = app.back_to_practice(state)
+
+    assert result[0]["session"] is None
+    assert result[1]["visible"] is False
+    assert result[2]["visible"] is True
+    assert result[3]["visible"] is False
+    assert result[4] == ""
+
+
 def test_normal_home_keeps_the_taxonomy_visible_after_identification():
     class Request:
         query_params = {}

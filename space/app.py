@@ -2549,9 +2549,10 @@ def back_to_practice(state: dict[str, Any]):
     updated["session"] = None
     return (
         updated,
+        gr.update(visible=False),
         gr.update(visible=True),
         gr.update(visible=False),
-        message,
+        "",
     )
 
 
@@ -3530,12 +3531,10 @@ def build_demo() -> gr.Blocks:
             outputs=[
                 ui_state,
                 taxonomy_group,
+                scale_group,
                 summary_group,
                 user_message,
             ],
-        ).then(
-            lambda: gr.update(visible=False),
-            outputs=scale_group,
         )
         next_block_button.click(
             continue_with_next_block,

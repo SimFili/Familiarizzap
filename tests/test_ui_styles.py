@@ -126,6 +126,16 @@ def test_exercise_exit_handlers_are_registered_on_the_home_route() -> None:
     assert source.index("confirm_leave_exercise_button.click") < personal_route
 
 
+def test_summary_scale_button_shows_the_scale_panel_directly() -> None:
+    source = inspect.getsource(app.build_demo)
+    binding_start = source.index("dashboard_button.click")
+    binding_end = source.index("next_block_button.click", binding_start)
+    binding = source[binding_start:binding_end]
+
+    assert "scale_group" in binding
+    assert ").then(" not in binding
+
+
 def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
     expected = {
         "--fapp-taxonomy": "#d1c29f",
