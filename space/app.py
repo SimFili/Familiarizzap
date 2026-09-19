@@ -87,9 +87,13 @@ def zero_gpu_probe() -> str:
 
 CSS = """
 :root {
+  --fapp-page: #f7faf9;
   --fapp-ink: #16322f;
   --fapp-muted: #58716d;
   --fapp-paper: #fbfdfb;
+  --fapp-soft: #f4faf7;
+  --fapp-action: #e7f5ef;
+  --fapp-action-text: #0f665c;
   --fapp-hero-ink: #16322f;
   --fapp-hero-muted: #58716d;
   --fapp-hero-accent: #167c70;
@@ -117,7 +121,12 @@ CSS = """
   --fapp-pragmatic: #ff0060;
   --fapp-taxonomy: #d1c29f;
 }
+html,
+body {
+  background: var(--fapp-page) !important;
+}
 .gradio-container {
+  background: var(--fapp-page) !important;
   box-sizing: border-box;
   width: 100% !important;
   min-width: 0 !important;
@@ -293,7 +302,7 @@ button.primary {
   border: 1px solid var(--fapp-line);
   border-radius: .8rem;
   padding: .75rem;
-  background: #f4faf7;
+  background: var(--fapp-soft);
 }
 .journey-metric strong { display: block; font-size: 1.25rem; }
 .stacked-bar {
@@ -556,8 +565,8 @@ button.primary {
   padding: .55rem .75rem;
   border: 1px solid var(--fapp-line);
   border-radius: .65rem;
-  background: #e7f5ef !important;
-  color: #0f665c !important;
+  background: var(--fapp-action) !important;
+  color: var(--fapp-action-text) !important;
   font-weight: 750;
   text-decoration: none !important;
 }
@@ -578,9 +587,14 @@ button.primary {
   margin-top: 1rem;
 }
 body.dark {
+  --fapp-page: #0f1714;
   --fapp-ink: #e6f1ee;
   --fapp-muted: #b7cbc6;
   --fapp-paper: #17251f;
+  --fapp-soft: #22352e;
+  --fapp-action: #214039;
+  --fapp-action-text: #dffbf4;
+  --fapp-mint: #203b34;
   --fapp-line: #48645d;
   --fapp-unseen: #34433f;
   --fapp-in-progress: #284861;
@@ -594,7 +608,6 @@ body.dark .hero,
 body.dark .hero h1 { color: #16322f !important; }
 body.dark .hero p { color: #58716d !important; }
 body.dark .hero-kicker { color: #167c70 !important; }
-body.dark .journey-metric { background: #22352e !important; }
 body.dark .status-second { background: #315b49; color: #f7fffb; }
 body.dark .status-third { background: #65572d; color: #fff9dd; }
 body.dark .status-unresolved { background: #6d3c43; color: #fff7f8; }
@@ -602,62 +615,9 @@ body.dark .status-in_progress { background: #284861; color: #eff8ff; }
 body.dark .status-unseen { background: #34433f; color: #f1f5f9; }
 body.dark .exercise-step-current,
 body.dark .exercise-step-badge { background: #17251f; }
-body.dark .journey-session-action {
-  background: #214039 !important;
-  color: #dffbf4 !important;
-}
 body.dark label.selected {
   background: #0b665e !important;
   color: #fff !important;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fapp-ink: #e6f1ee;
-    --fapp-muted: #b7cbc6;
-    --fapp-paper: #17251f;
-    --fapp-line: #48645d;
-    --fapp-unseen: #34433f;
-    --fapp-in-progress: #284861;
-    --fapp-second-text: #f7fffb;
-    --fapp-third-text: #fff9dd;
-    --fapp-unresolved-text: #fff7f8;
-    --fapp-in-progress-text: #eff8ff;
-    --fapp-unseen-text: #f1f5f9;
-  }
-  .gradio-container {
-    color: #f1f5f9 !important;
-  }
-  .hero,
-  .hero h1 { color: #16322f !important; }
-  .hero p { color: #58716d !important; }
-  .hero-kicker { color: #167c70 !important; }
-  .journey-overview,
-  .descriptor-card,
-  .scale-branch,
-  .researcher-link {
-    color: var(--fapp-ink) !important;
-  }
-  .journey-metric { color: var(--fapp-ink) !important; }
-  .taxonomy-title { color: #0f1720 !important; }
-  .taxonomy-item { color: #fff !important; }
-  .tax-neutral { color: #263238 !important; }
-  .scale-choice-button { color: #fff !important; }
-  .journey-metric { background: #22352e !important; }
-  .status-second { background: #315b49; color: #f7fffb; }
-  .status-third { background: #65572d; color: #fff9dd; }
-  .status-unresolved { background: #6d3c43; color: #fff7f8; }
-  .status-in_progress { background: #284861; color: #eff8ff; }
-  .status-unseen { background: #34433f; color: #f1f5f9; }
-  .exercise-step-current,
-  .exercise-step-badge { background: #17251f; }
-  .journey-session-action {
-    background: #214039 !important;
-    color: #dffbf4 !important;
-  }
-  label.selected {
-    background: #0b665e !important;
-    color: #fff !important;
-  }
 }
 @media (max-width: 720px) {
   .gradio-container { padding: .65rem !important; }
@@ -703,6 +663,52 @@ body.dark label.selected {
     margin-inline: -.25rem;
     padding-inline: .45rem;
   }
+}
+"""
+
+THEME_SYNC_JS = """
+() => {
+  const storageKey = "familiarizzapp-color-theme";
+  const supportedThemes = new Set(["light", "dark"]);
+  const currentUrl = new URL(window.location.href);
+  const requestedTheme = currentUrl.searchParams.get("__theme");
+
+  if (supportedThemes.has(requestedTheme)) {
+    window.localStorage.setItem(storageKey, requestedTheme);
+  } else if (requestedTheme === "system") {
+    window.localStorage.removeItem(storageKey);
+  }
+
+  const savedTheme = window.localStorage.getItem(storageKey);
+  if (!requestedTheme && supportedThemes.has(savedTheme)) {
+    currentUrl.searchParams.set("__theme", savedTheme);
+    window.location.replace(currentUrl.toString());
+    return;
+  }
+
+  const selectedTheme = supportedThemes.has(requestedTheme)
+    ? requestedTheme
+    : (supportedThemes.has(savedTheme) ? savedTheme : null);
+
+  const keepThemeOnInternalLinks = (root = document) => {
+    if (!selectedTheme) return;
+    root.querySelectorAll(
+      'a.researcher-link[href], a.journey-session-action[href]'
+    ).forEach((link) => {
+      try {
+        const target = new URL(link.href, window.location.href);
+        if (target.origin !== window.location.origin) return;
+        target.searchParams.set("__theme", selectedTheme);
+        link.href = target.toString();
+      } catch (_error) {
+        // An invalid or non-HTTP link is left unchanged.
+      }
+    });
+  };
+
+  keepThemeOnInternalLinks();
+  new MutationObserver(() => keepThemeOnInternalLinks())
+    .observe(document.body, {childList: true, subtree: true});
 }
 """
 
@@ -4006,4 +4012,8 @@ demo = build_demo()
 
 
 if __name__ == "__main__":
-    demo.queue(default_concurrency_limit=8).launch(theme=THEME, css=CSS)
+    demo.queue(default_concurrency_limit=8).launch(
+        theme=THEME,
+        css=CSS,
+        js=THEME_SYNC_JS,
+    )

@@ -12,6 +12,7 @@ from app import (
     SCALE_SELECTOR_TEMPLATE,
     TAXONOMY_TEMPLATE,
     EXERCISE_PROGRESS_JS,
+    THEME_SYNC_JS,
     _taxonomy_data,
     _journey_sessions_html,
     build_demo,
@@ -330,7 +331,11 @@ def test_journey_describes_only_the_map_of_encountered_descriptors() -> None:
 
 
 def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> None:
+    assert "--fapp-page: #0f1714;" in CSS
     assert "--fapp-paper: #17251f;" in CSS
+    assert "--fapp-soft: #22352e;" in CSS
+    assert "--fapp-action: #214039;" in CSS
+    assert "--fapp-mint: #203b34;" in CSS
     assert "--fapp-unseen: #34433f;" in CSS
     assert "--fapp-unseen-text: #f1f5f9;" in CSS
     assert "body.dark label.selected" in CSS
@@ -338,6 +343,23 @@ def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> Non
     assert "color: #fff !important;" in CSS
     assert "--fapp-in-progress: #284861;" in CSS
     assert ".status-in_progress" in CSS
+
+
+def test_color_theme_follows_user_choice_across_internal_pages() -> None:
+    assert "@media (prefers-color-scheme: dark)" not in CSS
+    assert "body.dark" in CSS
+    assert "html," in CSS
+    assert "background: var(--fapp-page) !important;" in CSS
+    assert 'window.localStorage.setItem(storageKey, requestedTheme)' in THEME_SYNC_JS
+    assert 'window.localStorage.removeItem(storageKey)' in THEME_SYNC_JS
+    assert 'target.searchParams.set("__theme", selectedTheme)' in THEME_SYNC_JS
+    assert "MutationObserver" in THEME_SYNC_JS
+
+
+def test_theme_sync_is_loaded_with_the_gradio_app() -> None:
+    source = inspect.getsource(app)
+
+    assert "js=THEME_SYNC_JS" in source
 
 
 def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
