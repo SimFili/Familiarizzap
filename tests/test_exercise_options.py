@@ -153,6 +153,48 @@ def test_exit_confirmation_can_be_opened_and_cancelled():
     assert cancelled["visible"] is False
 
 
+def test_main_navigation_never_leaves_all_work_panels_hidden():
+    participant_id = f"navigation-panels-{uuid.uuid4()}"
+    state = {
+        **app._empty_ui_state(),
+        "participant_id": participant_id,
+        "display_name": "Anna",
+    }
+    started = app.start_session(
+        state,
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+
+    assert [started[index]["visible"] for index in (1, 2, 3)] == [
+        False,
+        True,
+        False,
+    ]
+    state = started[0]
+    while True:
+        session = state["session"]
+        correct = app.SESSIONS.current_descriptor(session)["correct_level"]
+        answered = app.submit_answer(state, correct)
+        state = answered[0]
+        continued = app.continue_session(state)
+        state = continued[0]
+        visible = [continued[index]["visible"] for index in (1, 2)]
+        assert visible in ([True, False], [False, True])
+        if visible == [False, True]:
+            break
+
+    back = app.back_to_practice(state)
+
+    assert [back[index]["visible"] for index in (1, 2, 3)] == [
+        False,
+        True,
+        False,
+    ]
+
+
 def test_app_starts_with_a_gentle_canonical_orientation():
     participant_id = f"progressive-default-{uuid.uuid4()}"
     result = app.start_session(

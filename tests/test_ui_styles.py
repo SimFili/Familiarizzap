@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import builtins
 import inspect
+import symtable
 
 import app
 from app import (
@@ -20,6 +22,32 @@ def _css_rule(selector: str) -> str:
     start = CSS.index(f"{selector} {{")
     end = CSS.index("}", start)
     return CSS[start:end]
+
+
+def test_app_functions_do_not_reference_undefined_global_names() -> None:
+    source = inspect.getsource(app)
+    table = symtable.symtable(source, "space/app.py", "exec")
+    module_names = {symbol.get_name() for symbol in table.get_symbols()}
+    builtin_names = set(dir(builtins))
+    missing: list[tuple[str, int, str]] = []
+
+    def inspect_scope(scope) -> None:
+        for symbol in scope.get_symbols():
+            if (
+                symbol.is_referenced()
+                and symbol.is_global()
+                and symbol.get_name() not in module_names
+                and symbol.get_name() not in builtin_names
+            ):
+                missing.append(
+                    (scope.get_name(), scope.get_lineno(), symbol.get_name())
+                )
+        for child in scope.get_children():
+            inspect_scope(child)
+
+    inspect_scope(table)
+
+    assert missing == []
 
 
 def test_light_surfaces_keep_dark_text_in_dark_mode() -> None:

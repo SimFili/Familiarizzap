@@ -1663,7 +1663,7 @@ def identify_participant(
             name, consent, state
         )
         personal = _personal_view(updated["participant_id"])
-    except (IdentityError, EventStoreError) as exc:
+    except (IdentityError, EventStoreError, CatalogError) as exc:
         return (
             state,
             _empty_browser_identity(),
@@ -1758,7 +1758,7 @@ def personal_descriptor_click(state: dict[str, Any], evt: gr.EventData):
             user_facing_time=True,
         )
         return _descriptor_detail_markdown(details, researcher=False)
-    except (EventStoreError, CatalogError) as exc:
+    except (EventStoreError, CatalogError, OSError) as exc:
         return f"⚠️ Dettaglio non disponibile: {exc}"
 
 
@@ -2485,15 +2485,15 @@ def filter_summary_map(
     updated = dict(state)
     updated["summary_outcome_filter"] = outcome_filter
     updated["summary_level_filter"] = level_filter or "all"
-    return (
-        updated,
-        _session_map(
+    try:
+        rows = _session_map(
             session,
             outcome_filter=outcome_filter,
             level_filter=level_filter or "all",
-        ),
-        "",
-    )
+        )
+        return updated, rows, ""
+    except (EventStoreError, CatalogError) as exc:
+        return updated, [], f"⚠️ Riepilogo non disponibile: {exc}"
 
 
 def filter_summary_level(
@@ -2511,14 +2511,17 @@ def summary_descriptor_click(state: dict[str, Any], evt: gr.EventData):
     descriptor_id = _event_descriptor_id(evt)
     if not session or not descriptor_id:
         return ""
-    details = descriptor_details(
-        descriptor_id,
-        STORE.list_events(session["participant_id"]),
-        CATALOG,
-        session_id=session["session_id"],
-        user_facing_time=True,
-    )
-    return _descriptor_detail_markdown(details, researcher=False)
+    try:
+        details = descriptor_details(
+            descriptor_id,
+            STORE.list_events(session["participant_id"]),
+            CATALOG,
+            session_id=session["session_id"],
+            user_facing_time=True,
+        )
+        return _descriptor_detail_markdown(details, researcher=False)
+    except (EventStoreError, CatalogError) as exc:
+        return f"⚠️ Dettaglio non disponibile: {exc}"
 
 
 def repeat_selected_descriptors(
@@ -2729,7 +2732,10 @@ def researcher_login(access_key: str):
         participants, events, by_participant = _research_dataset()
         issues = integrity_report(events, participants)
         archive = build_research_export(participants, events, CATALOG)
-    except EventStoreError as exc:
+        overview_rows = _research_overview_rows(
+            participants, by_participant
+        )
+    except (EventStoreError, CatalogError, OSError) as exc:
         return (
             {"authorized": False},
             gr.update(visible=False),
@@ -2758,7 +2764,7 @@ def researcher_login(access_key: str):
         gr.update(visible=True),
         "Accesso autorizzato.",
         global_html,
-        _research_overview_rows(participants, by_participant),
+        overview_rows,
         gr.Dropdown(
             choices=participant_choices,
             value=first_participant,
@@ -2857,8 +2863,11 @@ def researcher_detail(
     if not participant_record:
         return "", [], [], [], "Partecipante non trovato."
 
-    sessions = session_records(all_events, CATALOG)
-    histories = descriptor_history(all_events, CATALOG)
+    try:
+        sessions = session_records(all_events, CATALOG)
+        histories = descriptor_history(all_events, CATALOG)
+    except CatalogError as exc:
+        return "", [], [], [], f"Catalogo non disponibile: {exc}"
     selected_path = _decode_path(scale_value) if scale_value != "all" else None
     if selected_path:
         sessions = [
@@ -2995,7 +3004,7 @@ def refresh_research_export(research_state: dict[str, Any]):
             "Esportazione aggiornata. Contiene CSV derivati, eventi JSONL "
             "originali, manifest e controllo d’integrità."
         )
-    except EventStoreError as exc:
+    except (EventStoreError, CatalogError, OSError) as exc:
         return None, f"Esportazione non riuscita: {exc}"
 
 

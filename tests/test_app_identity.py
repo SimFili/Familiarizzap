@@ -138,6 +138,31 @@ def test_personal_descriptor_reports_a_temporary_storage_error(monkeypatch):
     assert "temporaneamente non disponibile" in result
 
 
+def test_summary_callbacks_report_a_temporary_storage_error(monkeypatch):
+    class Store:
+        @staticmethod
+        def list_events(participant):
+            raise EventStoreError("archivio temporaneamente non disponibile")
+
+    class Event:
+        descriptor_id = "descriptor-1"
+
+    state = {
+        "session": {
+            "participant_id": "participant",
+            "session_id": "session-1",
+        }
+    }
+    monkeypatch.setattr(app, "STORE", Store())
+
+    filtered = app.filter_summary_map(state, "all", "all")
+    detail = app.summary_descriptor_click(state, Event())
+
+    assert filtered[1] == []
+    assert "Riepilogo non disponibile" in filtered[2]
+    assert "Dettaglio non disponibile" in detail
+
+
 def test_saved_identity_opens_personal_page_without_second_consent(
     monkeypatch,
 ):
