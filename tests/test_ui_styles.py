@@ -164,6 +164,24 @@ def test_summary_scale_button_shows_the_scale_panel_directly() -> None:
     assert ").then(" not in binding
 
 
+def test_every_main_stage_exposes_a_clear_way_back_or_forward() -> None:
+    source = inspect.getsource(app.build_demo)
+
+    for label in (
+        "Continua con questo nome",
+        "Continua con questo ambito",
+        "Torna ai descrittori disponibili",
+        "Torna alla scelta della scala",
+        "Scegli un’altra scala",
+        "Cambia ambito",
+        "Cambia nome",
+    ):
+        assert label in source
+
+    assert "summary_taxonomy_button.click" in source
+    assert "bind_logout(summary_logout_button)" in source
+
+
 def test_taxonomy_uses_the_approved_palette_in_all_themes() -> None:
     expected = {
         "--fapp-taxonomy": "#d1c29f",

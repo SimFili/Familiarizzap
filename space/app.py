@@ -2548,12 +2548,26 @@ def repeat_selected_descriptors(
 
 
 def back_to_practice(state: dict[str, Any]):
+    """Close the completed session and reopen the current scale catalogue."""
     updated = dict(state)
     updated["session"] = None
     return (
         updated,
         gr.update(visible=False),
         gr.update(visible=True),
+        gr.update(visible=False),
+        "",
+    )
+
+
+def back_to_taxonomy(state: dict[str, Any]):
+    """Close the completed session and reopen the main taxonomy."""
+    updated = dict(state)
+    updated["session"] = None
+    return (
+        updated,
+        gr.update(visible=True),
+        gr.update(visible=False),
         gr.update(visible=False),
         "",
     )
@@ -3275,7 +3289,12 @@ def build_demo() -> gr.Blocks:
                 visible=False,
                 variant="primary",
             )
-            dashboard_button = gr.Button("Scegli un’altra scala")
+            with gr.Row():
+                dashboard_button = gr.Button(
+                    "Scegli un’altra scala", variant="primary"
+                )
+                summary_taxonomy_button = gr.Button("Cambia ambito")
+                summary_logout_button = gr.Button("Cambia nome")
 
         user_message = gr.Markdown()
 
@@ -3545,6 +3564,17 @@ def build_demo() -> gr.Blocks:
                 user_message,
             ],
         )
+        summary_taxonomy_button.click(
+            back_to_taxonomy,
+            inputs=ui_state,
+            outputs=[
+                ui_state,
+                taxonomy_group,
+                scale_group,
+                summary_group,
+                user_message,
+            ],
+        )
         next_block_button.click(
             continue_with_next_block,
             inputs=ui_state,
@@ -3572,6 +3602,7 @@ def build_demo() -> gr.Blocks:
 
         bind_logout(taxonomy_logout_button)
         bind_logout(scale_logout_button)
+        bind_logout(summary_logout_button)
 
     with demo.route(
         "Il mio percorso",

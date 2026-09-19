@@ -215,6 +215,22 @@ def test_summary_returns_directly_to_scale_selection():
     assert result[4] == ""
 
 
+def test_summary_can_return_directly_to_the_main_taxonomy():
+    state = {
+        **app._empty_ui_state(),
+        "participant_id": "participant",
+        "session": {"session_id": "completed-session"},
+    }
+
+    result = app.back_to_taxonomy(state)
+
+    assert result[0]["session"] is None
+    assert result[1]["visible"] is True
+    assert result[2]["visible"] is False
+    assert result[3]["visible"] is False
+    assert result[4] == ""
+
+
 def test_normal_home_keeps_the_taxonomy_visible_after_identification():
     class Request:
         query_params = {}
