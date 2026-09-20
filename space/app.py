@@ -1032,7 +1032,8 @@ def _participant_scale_is_available(
     path: tuple[str, str, str, str], descriptor_count: int | None = None
 ) -> bool:
     if (
-        path in SUSPENDED_SCALE_PATHS
+        _is_sign_language_schema(path[0])
+        or path in SUSPENDED_SCALE_PATHS
         or path[:3] in SUSPENDED_ACTIVITY_PATHS
     ):
         return False
@@ -1070,8 +1071,8 @@ def _scale_choices(
 
 def _taxonomy_data() -> list[dict[str, Any]]:
     available = {
-        (item["schema"].casefold(), item["modality"].casefold())
-        for item in CATALOG.all()
+        (schema.casefold(), modality.casefold())
+        for schema, modality, _, _ in _catalog_paths()
     }
 
     def present(schema_terms: tuple[str, ...], modality: str) -> bool:

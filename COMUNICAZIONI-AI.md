@@ -53,7 +53,20 @@ originario; la barratura è una scelta di presentazione applicata negli
 esercizi e nei dettagli del percorso. Le `Competenze nelle lingue dei segni`
 rimangono interamente sospese in attesa della validazione degli esperti. Il
 lavoro sui feedback pedagogici non è incluso in questa pubblicazione e resta
-da completare separatamente. La verifica automatica comprende 101 test.
+da completare separatamente.
+
+È stato poi eseguito un controllo esaustivo dei collegamenti tra tutti i
+livelli della navigazione: categoria, attività, scala, selezione testuale e
+avvio dell’esercizio. Ogni scheda viene ora verificata contro il percorso
+completo `schema → modalità → attività → scala`, così una scelta di Produzione
+non può mostrare o avviare una scala di Interazione. Il controllo ha inoltre
+individuato e corretto due incoerenze residue: le competenze nelle lingue dei
+segni sono ora sospese nella funzione centrale di disponibilità, non soltanto
+nell’interfaccia; `Strategie → Ricezione` non appare più disponibile perché la
+sua unica scala utilizzabile è stata sospesa. Dei 57 percorsi presenti nel
+catalogo, 27 sono attualmente disponibili ai docenti e 30 restano conservati
+ma sospesi. La suite comprende ora 107 test, inclusi controlli completi su ogni
+pulsante e percorso disponibile.
 
 ## 2026-08-13 — Percorso incontrato e archivio durevole 0.7.0
 
