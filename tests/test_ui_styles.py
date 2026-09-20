@@ -272,6 +272,78 @@ def test_annunci_pubblici_is_the_only_selectable_short_scale() -> None:
     ) is False
 
 
+def test_only_the_reviewed_mixed_scale_remains_available() -> None:
+    suspended_names = {
+        "Utilizzare le telecomunicazioni",
+        "Conversazione e discussione on line",
+        "Transazioni e collaborazione on line finalizzate a uno scopo",
+        (
+            "Individuare indizi e fare inferenze (ricezione orale, "
+            "nella lingua dei segni e scritta)"
+        ),
+    }
+    active_name = (
+        "Comprendere mezzi di comunicazione audio (o nella lingua dei segni) "
+        "e registrazioni"
+    )
+    paths = {
+        path[3]: path
+        for path in app._all_catalog_paths()
+        if path[3] in suspended_names | {active_name}
+    }
+
+    assert set(paths) == suspended_names | {active_name}
+    assert app._participant_scale_is_available(paths[active_name]) is True
+    assert all(
+        app._participant_scale_is_available(paths[name]) is False
+        for name in suspended_names
+    )
+
+    participant_values = {
+        app._decode_path(value) for _, value in app._scale_choices()
+    }
+    assert paths[active_name] in participant_values
+    assert all(paths[name] not in participant_values for name in suspended_names)
+
+
+def test_suspended_scales_stay_visible_as_disabled_cards() -> None:
+    path = next(
+        path
+        for path in app._all_catalog_paths()
+        if path[3] == "Conversazione e discussione on line"
+    )
+    selector = app._scale_selector_data(path[0], path[1])
+    cards = {
+        card["scale"]: card
+        for group in selector
+        for card in group["scales"]
+    }
+
+    assert cards[path[3]]["available"] is False
+    assert "{{#unless available}}disabled{{/unless}}" in SCALE_SELECTOR_TEMPLATE
+    assert "Non ancora disponibile" in SCALE_SELECTOR_TEMPLATE
+
+
+def test_reviewed_descriptor_wording_and_strikethrough() -> None:
+    descriptor_71 = app.CATALOG.get("SRC-71")
+    descriptor_72 = app.CATALOG.get("SRC-72")
+    descriptor_76 = app.CATALOG.get("SRC-76")
+
+    assert "<s>via radio</s>" in app._participant_descriptor_html(
+        descriptor_71
+    )
+    assert "<s>per radio</s>" in app._participant_descriptor_html(
+        descriptor_72
+    )
+    assert "~~via radio~~" in app._participant_descriptor_markdown(
+        descriptor_71
+    )
+    assert "~~per radio~~" in app._participant_descriptor_markdown(
+        descriptor_72
+    )
+    assert "parlino/segnino" in descriptor_76["descriptor_text"]
+
+
 def test_zero_unseen_items_are_absent_from_summary_legend() -> None:
     legend = app._legend_html(
         {"first": 2, "second": 0, "third": 0, "unresolved": 0, "unseen": 0}

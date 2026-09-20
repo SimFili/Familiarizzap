@@ -18,6 +18,36 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-09-20 — Selezione delle scale pertinenti alle lingue segnate
+
+È stata completata una revisione delle scale che mescolano riferimenti alla
+comunicazione orale, scritta e segnata. Per il percorso dei docenti resta
+attiva soltanto la scala `Comprendere mezzi di comunicazione audio (o nella
+lingua dei segni) e registrazioni`.
+
+Quattro scale restano nel catalogo, senza cancellare dati, ma nell’interfaccia
+sono attenuate, indicate come `Non ancora disponibile` e non possono essere
+avviate o riprese neppure attraverso collegamenti indiretti:
+
+- `Utilizzare le telecomunicazioni`;
+- `Conversazione e discussione on line`;
+- `Transazioni e collaborazione on line finalizzate a uno scopo`;
+- `Individuare indizi e fare inferenze (ricezione orale, nella lingua dei
+  segni e scritta)`.
+
+Nella scala mantenuta sono state concordate tre correzioni conservative:
+
+- nel descrittore 76, `parlino` diventa `parlino/segnino`;
+- nel descrittore 71, l’espressione `via radio` appare barrata al docente;
+- nel descrittore 72, l’espressione `per radio` appare barrata al docente.
+
+Le espressioni barrate restano nei dati sorgente per documentare il testo
+originario; la barratura è una scelta di presentazione applicata negli
+esercizi e nei dettagli del percorso. Le `Competenze nelle lingue dei segni`
+rimangono interamente sospese in attesa della validazione degli esperti. Il
+lavoro sui feedback pedagogici non è incluso in questa pubblicazione e resta
+da completare separatamente. La verifica automatica comprende 101 test.
+
 ## 2026-08-13 — Percorso incontrato e archivio durevole 0.7.0
 
 La pagina personale non promette più una «mappa completa»: mostra

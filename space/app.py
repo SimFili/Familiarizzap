@@ -61,6 +61,39 @@ SHORT_SCALE_EXCEPTIONS = {
         "Annunci pubblici",
     ): 3,
 }
+SUSPENDED_SCALE_PATHS = {
+    (
+        "Attività linguistico-comunicative",
+        "Interazione",
+        "Interazione orale",
+        "Utilizzare le telecomunicazioni",
+    ),
+    (
+        "Attività linguistico-comunicative",
+        "Interazione",
+        "Interazione on line",
+        "Conversazione e discussione on line",
+    ),
+    (
+        "Attività linguistico-comunicative",
+        "Interazione",
+        "Interazione on line",
+        "Transazioni e collaborazione on line finalizzate a uno scopo",
+    ),
+    (
+        "Strategie linguistico-comunicative",
+        "Ricezione",
+        "Scale disponibili",
+        (
+            "Individuare indizi e fare inferenze (ricezione orale, "
+            "nella lingua dei segni e scritta)"
+        ),
+    ),
+}
+DESCRIPTOR_STRIKETHROUGH_PHRASES = {
+    "SRC-71": ("via radio",),
+    "SRC-72": ("per radio",),
+}
 
 
 try:
@@ -498,6 +531,11 @@ button.primary {
   cursor: pointer;
 }
 .scale-choice-button * { color: inherit !important; }
+.scale-choice-button[disabled] {
+  cursor: not-allowed;
+  opacity: .34 !important;
+  filter: saturate(.72);
+}
 .scale-choice-button[data-modality="Ricezione"] { --scale-color: var(--fapp-reception); }
 .scale-choice-button[data-modality="Produzione"] { --scale-color: var(--fapp-production); }
 .scale-choice-button[data-modality="Interazione"] { --scale-color: var(--fapp-interaction); }
@@ -585,6 +623,11 @@ button.primary {
   flex-wrap: wrap;
   gap: .65rem;
   margin-top: 1rem;
+}
+.scale-choice-button[disabled]:hover,
+.scale-choice-button[disabled]:focus-visible {
+  filter: saturate(.72);
+  outline: none;
 }
 .journey-page-links {
   justify-content: space-between;
@@ -815,8 +858,12 @@ SCALE_SELECTOR_TEMPLATE = """
               data-schema="{{schema}}"
               data-modality="{{modality}}"
               data-activity="{{activity}}"
-              data-scale="{{scale}}">
+              data-scale="{{scale}}"
+              {{#unless available}}disabled{{/unless}}>
         {{scale}}
+        {{#unless available}}
+          <span class="availability">Non ancora disponibile</span>
+        {{/unless}}
       </button>
     {{/each}}
   </section>
@@ -828,7 +875,7 @@ SCALE_SELECTOR_TEMPLATE = """
 
 SCALE_SELECTOR_JS = """
 const bindScales = () => {
-  element.querySelectorAll('.scale-choice-button').forEach((button) => {
+  element.querySelectorAll('.scale-choice-button:not([disabled])').forEach((button) => {
     if (button.dataset.bound === '1') return;
     button.dataset.bound = '1';
     button.addEventListener('click', () => {
@@ -967,6 +1014,8 @@ def _all_catalog_paths() -> list[tuple[str, str, str, str]]:
 def _participant_scale_is_available(
     path: tuple[str, str, str, str], descriptor_count: int | None = None
 ) -> bool:
+    if path in SUSPENDED_SCALE_PATHS:
+        return False
     count = (
         len(CATALOG.for_scale(*path))
         if descriptor_count is None
@@ -1162,21 +1211,40 @@ def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
                     "scale": scale,
                     "color": _taxonomy_color(modality),
                     "tone": _sign_scale_tone(schema, activity),
+                    "available": _participant_scale_is_available(
+                        (schema, modality, activity, scale), descriptor_count
+                    ),
                 }
                 for scale, descriptor_count in scales.items()
-                if _participant_scale_is_available(
-                    (schema, modality, activity, scale), descriptor_count
-                )
             ],
         }
         for activity, scales in grouped.items()
-        if any(
-            _participant_scale_is_available(
-                (schema, modality, activity, scale), count
-            )
-            for scale, count in scales.items()
-        )
     ]
+
+
+def _participant_descriptor_html(descriptor: dict[str, Any]) -> str:
+    """Return safe participant-facing text with deliberate visual edits."""
+    rendered = html.escape(str(descriptor.get("descriptor_text", "")))
+    for phrase in DESCRIPTOR_STRIKETHROUGH_PHRASES.get(
+        str(descriptor.get("descriptor_id", "")), ()
+    ):
+        escaped_phrase = html.escape(phrase)
+        rendered = rendered.replace(
+            escaped_phrase,
+            f"<s>{escaped_phrase}</s>",
+            1,
+        )
+    return rendered
+
+
+def _participant_descriptor_markdown(descriptor: dict[str, Any]) -> str:
+    """Apply the same visual edits in participant-facing Markdown views."""
+    rendered = str(descriptor.get("descriptor_text", ""))
+    for phrase in DESCRIPTOR_STRIKETHROUGH_PHRASES.get(
+        str(descriptor.get("descriptor_id", "")), ()
+    ):
+        rendered = rendered.replace(phrase, f"~~{phrase}~~", 1)
+    return rendered
 
 
 def _taxonomy_color(label: str) -> str:
@@ -1795,7 +1863,11 @@ def _descriptor_detail_markdown(
         f"### {heading_level} · "
         f"{descriptor.get('scale', 'Descrittore')}",
         "",
-        f"> {descriptor.get('descriptor_text', 'Testo non disponibile')}",
+        (
+            f"> {descriptor.get('descriptor_text', 'Testo non disponibile')}"
+            if researcher
+            else f"> {_participant_descriptor_markdown(descriptor)}"
+        ),
     ]
     if in_progress:
         current = in_progress[-1]
@@ -2028,7 +2100,7 @@ def _exercise_view(session: dict[str, Any]):
     progress = _exercise_progress_data(session)
     descriptor_text = (
         f'<div class="descriptor-card">'
-        f'{html.escape(descriptor["descriptor_text"])}</div>'
+        f'{_participant_descriptor_html(descriptor)}</div>'
     )
     finished = bool(session["descriptor_finished"])
     attempts_used = len(session["attempts"])
