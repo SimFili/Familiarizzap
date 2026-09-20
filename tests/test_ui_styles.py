@@ -330,6 +330,21 @@ def test_journey_describes_only_the_map_of_encountered_descriptors() -> None:
     assert "Il mio percorso completo" not in source
 
 
+def test_researcher_link_is_secondary_in_the_journey_header() -> None:
+    source = inspect.getsource(app.build_demo)
+    route_start = source.index('with demo.route(\n        "Il mio percorso"')
+    hero_start = source.index('<section class="hero">', route_start)
+    load_start = source.index("demo.load(", hero_start)
+    header = source[route_start:hero_start]
+    journey_body = source[hero_start:load_start]
+
+    assert 'class="page-links journey-page-links"' in header
+    assert "Torna a FamiliarizzApp" in header
+    assert "Panoramica ricercatore" in header
+    assert "Panoramica ricercatore" not in journey_body
+    assert ".journey-page-links" in CSS
+
+
 def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> None:
     assert "--fapp-page: #0f1714;" in CSS
     assert "--fapp-paper: #17251f;" in CSS

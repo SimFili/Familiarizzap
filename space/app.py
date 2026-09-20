@@ -586,6 +586,11 @@ button.primary {
   gap: .65rem;
   margin-top: 1rem;
 }
+.journey-page-links {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0;
+}
 body.dark {
   --fapp-page: #0f1714;
   --fapp-ink: #e6f1ee;
@@ -3635,8 +3640,13 @@ def build_demo() -> gr.Blocks:
             secret=SETTINGS.effective_hash_salt,
         )
         gr.HTML(
+            '<nav class="page-links journey-page-links" '
+            'aria-label="Navigazione della pagina personale">'
             '<a class="researcher-link" href="/" '
             'data-sveltekit-reload="true">← Torna a FamiliarizzApp</a>'
+            '<a class="researcher-link" href="/ricercatore" target="_blank" '
+            'data-sveltekit-reload="true">'
+            "Panoramica ricercatore ↗</a></nav>"
         )
         gr.HTML(
             """
@@ -3710,11 +3720,6 @@ def build_demo() -> gr.Blocks:
                 journey_logout_button = gr.Button("Cambia nome")
 
         journey_message = gr.Markdown()
-        gr.HTML(
-            '<a class="researcher-link" href="/ricercatore" target="_blank" '
-            'data-sveltekit-reload="true">'
-            "Panoramica ricercatore ↗</a>"
-        )
 
         demo.load(
             restore_personal_identity,
