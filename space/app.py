@@ -690,15 +690,20 @@ THEME_SYNC_JS = """
     ? requestedTheme
     : (supportedThemes.has(savedTheme) ? savedTheme : null);
 
-  const keepThemeOnInternalLinks = (root = document) => {
-    if (!selectedTheme) return;
+  const prepareInternalLinks = (root = document) => {
     root.querySelectorAll(
       'a.researcher-link[href], a.journey-session-action[href]'
     ).forEach((link) => {
+      // Gradio's client-side router can leave secondary pages empty when
+      // navigation starts inside the embedded Space. Force a complete page
+      // load for the small set of links that cross application pages.
+      link.setAttribute("data-sveltekit-reload", "true");
       try {
         const target = new URL(link.href, window.location.href);
         if (target.origin !== window.location.origin) return;
-        target.searchParams.set("__theme", selectedTheme);
+        if (selectedTheme) {
+          target.searchParams.set("__theme", selectedTheme);
+        }
         link.href = target.toString();
       } catch (_error) {
         // An invalid or non-HTTP link is left unchanged.
@@ -706,8 +711,8 @@ THEME_SYNC_JS = """
     });
   };
 
-  keepThemeOnInternalLinks();
-  new MutationObserver(() => keepThemeOnInternalLinks())
+  prepareInternalLinks();
+  new MutationObserver(() => prepareInternalLinks())
     .observe(document.body, {childList: true, subtree: true});
 }
 """
@@ -1396,7 +1401,8 @@ def _journey_sessions_html(sessions: list[dict[str, Any]]) -> str:
         if _session_is_resumable(session):
             session_id = quote(str(session.get("session_id", "")), safe="")
             action = (
-                f'<a class="journey-session-action" href="/?resume={session_id}">'
+                f'<a class="journey-session-action" href="/?resume={session_id}" '
+                'data-sveltekit-reload="true">'
                 "Riprendi questa sessione →</a>"
             )
         elif session.get("status") == "in_progress":
@@ -1801,7 +1807,12 @@ def _descriptor_detail_markdown(
                     else "Non hai ancora confermato una risposta."
                 ),
                 "Il livello corretto apparirà quando avrai concluso l’esercizio.",
-                f"[Riprendi questa sessione →](/?resume={session_id})",
+                (
+                    '<a class="journey-session-action" '
+                    f'href="/?resume={session_id}" '
+                    'data-sveltekit-reload="true">'
+                    "Riprendi questa sessione →</a>"
+                ),
             ]
         )
     if not history and not in_progress:
@@ -3113,10 +3124,12 @@ def build_demo() -> gr.Blocks:
             taxonomy_logout_button = gr.Button("Cambia nome")
             gr.HTML(
                 '<nav class="page-links" aria-label="Altre pagine">'
-                '<a class="researcher-link" href="/percorso">'
+                '<a class="researcher-link" href="/percorso" '
+                'data-sveltekit-reload="true">'
                 "Il mio percorso →</a>"
                 '<a class="researcher-link" href="/ricercatore" '
-                'target="_blank">Panoramica ricercatore ↗</a></nav>'
+                'target="_blank" data-sveltekit-reload="true">'
+                "Panoramica ricercatore ↗</a></nav>"
             )
 
         with gr.Group(visible=False) as scale_group:
@@ -3622,7 +3635,8 @@ def build_demo() -> gr.Blocks:
             secret=SETTINGS.effective_hash_salt,
         )
         gr.HTML(
-            '<a class="researcher-link" href="/">← Torna a FamiliarizzApp</a>'
+            '<a class="researcher-link" href="/" '
+            'data-sveltekit-reload="true">← Torna a FamiliarizzApp</a>'
         )
         gr.HTML(
             """
@@ -3689,14 +3703,16 @@ def build_demo() -> gr.Blocks:
             )
             with gr.Row():
                 gr.HTML(
-                    '<a class="researcher-link" href="/">'
+                    '<a class="researcher-link" href="/" '
+                    'data-sveltekit-reload="true">'
                     "Scegli una nuova scala →</a>"
                 )
                 journey_logout_button = gr.Button("Cambia nome")
 
         journey_message = gr.Markdown()
         gr.HTML(
-            '<a class="researcher-link" href="/ricercatore" target="_blank">'
+            '<a class="researcher-link" href="/ricercatore" target="_blank" '
+            'data-sveltekit-reload="true">'
             "Panoramica ricercatore ↗</a>"
         )
 
@@ -3782,7 +3798,8 @@ def build_demo() -> gr.Blocks:
     ):
         researcher_state = gr.State({"authorized": False})
         gr.HTML(
-            '<a class="researcher-link" href="/">← Torna a FamiliarizzApp</a>'
+            '<a class="researcher-link" href="/" '
+            'data-sveltekit-reload="true">← Torna a FamiliarizzApp</a>'
         )
         gr.HTML(
             """

@@ -353,7 +353,16 @@ def test_color_theme_follows_user_choice_across_internal_pages() -> None:
     assert 'window.localStorage.setItem(storageKey, requestedTheme)' in THEME_SYNC_JS
     assert 'window.localStorage.removeItem(storageKey)' in THEME_SYNC_JS
     assert 'target.searchParams.set("__theme", selectedTheme)' in THEME_SYNC_JS
+    assert 'link.setAttribute("data-sveltekit-reload", "true")' in THEME_SYNC_JS
     assert "MutationObserver" in THEME_SYNC_JS
+
+
+def test_cross_page_links_force_a_full_gradio_reload() -> None:
+    source = inspect.getsource(app.build_demo)
+
+    assert 'href="/percorso"' in source
+    assert 'href="/ricercatore"' in source
+    assert source.count('data-sveltekit-reload="true"') >= 6
 
 
 def test_theme_sync_is_loaded_with_the_gradio_app() -> None:
@@ -388,6 +397,7 @@ def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
     assert "journey-session-card" in rendered
     assert "Riprendi questa sessione" in rendered
     assert "/?resume=session%201" in rendered
+    assert 'data-sveltekit-reload="true"' in rendered
     assert "2 iniziati" in rendered
     assert "1 tentativo salvato" in rendered
     assert "CSV" not in rendered
@@ -479,6 +489,7 @@ def test_partial_descriptor_detail_does_not_reveal_the_correct_level() -> None:
     assert "### In corso" in rendered
     assert "Tentativi già salvati: `A2`" in rendered
     assert "/?resume=session%201" in rendered
+    assert 'data-sveltekit-reload="true"' in rendered
     assert "B2" not in rendered
 
 
