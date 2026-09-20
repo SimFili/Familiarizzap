@@ -94,6 +94,23 @@ DESCRIPTOR_STRIKETHROUGH_PHRASES = {
     "SRC-71": ("via radio",),
     "SRC-72": ("per radio",),
 }
+SUSPENDED_ACTIVITY_PATHS = {
+    (
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione scritta",
+    ),
+    (
+        "Attività linguistico-comunicative",
+        "Produzione",
+        "Produzione scritta",
+    ),
+    (
+        "Attività linguistico-comunicative",
+        "Interazione",
+        "Interazione scritta",
+    ),
+}
 
 
 try:
@@ -1014,7 +1031,10 @@ def _all_catalog_paths() -> list[tuple[str, str, str, str]]:
 def _participant_scale_is_available(
     path: tuple[str, str, str, str], descriptor_count: int | None = None
 ) -> bool:
-    if path in SUSPENDED_SCALE_PATHS:
+    if (
+        path in SUSPENDED_SCALE_PATHS
+        or path[:3] in SUSPENDED_ACTIVITY_PATHS
+    ):
         return False
     count = (
         len(CATALOG.for_scale(*path))

@@ -25,6 +25,13 @@ comunicazione orale, scritta e segnata. Per il percorso dei docenti resta
 attiva soltanto la scala `Comprendere mezzi di comunicazione audio (o nella
 lingua dei segni) e registrazioni`.
 
+Sono inoltre sospese tutte le 12 scale delle attività esplicitamente scritte:
+le 6 scale di `Comprensione scritta`, le 3 di `Produzione scritta` e le 3 di
+`Interazione scritta`. Restano nel catalogo e nella scelta dell’ambito, ma
+appaiono attenuate come `Non ancora disponibile` e non possono essere avviate
+o riprese. Questa scelta permette di conservarle per un eventuale uso futuro
+senza inserirle nel percorso consigliato sulle lingue segnate.
+
 Quattro scale restano nel catalogo, senza cancellare dati, ma nell’interfaccia
 sono attenuate, indicate come `Non ancora disponibile` e non possono essere
 avviate o riprese neppure attraverso collegamenti indiretti:

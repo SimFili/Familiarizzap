@@ -306,6 +306,44 @@ def test_only_the_reviewed_mixed_scale_remains_available() -> None:
     assert all(paths[name] not in participant_values for name in suspended_names)
 
 
+def test_written_reception_production_and_interaction_are_suspended() -> None:
+    written_activities = {
+        "Comprensione scritta": 6,
+        "Produzione scritta": 3,
+        "Interazione scritta": 3,
+    }
+    paths = [
+        path
+        for path in app._all_catalog_paths()
+        if path[2] in written_activities
+    ]
+
+    assert len(paths) == sum(written_activities.values())
+    assert {
+        activity: sum(path[2] == activity for path in paths)
+        for activity in written_activities
+    } == written_activities
+    assert all(
+        app._participant_scale_is_available(path) is False for path in paths
+    )
+
+    participant_values = {
+        app._decode_path(value) for _, value in app._scale_choices()
+    }
+    assert all(path not in participant_values for path in paths)
+
+    for schema, modality, activity, scale in paths:
+        selector = app._scale_selector_data(schema, modality)
+        card = next(
+            item
+            for group in selector
+            if group["activity"] == activity
+            for item in group["scales"]
+            if item["scale"] == scale
+        )
+        assert card["available"] is False
+
+
 def test_suspended_scales_stay_visible_as_disabled_cards() -> None:
     path = next(
         path
