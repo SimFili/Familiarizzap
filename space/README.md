@@ -24,9 +24,12 @@ Il catalogo incluso contiene 831 esercizi appartenenti a 52 scale. I feedback
 sono brevi e tengono conto del tentativo e degli esiti precedenti nella sessione.
 Per 21 descrittori è disponibile un indizio specifico ricondotto per testo e
 livello ai nuclei attivi della prevalidazione. Gli indizi sono nel file
-versionato `data/feedback.prevalidated.json`: ciascuno è legato anche
-all'impronta del testo del descrittore, così una modifica del catalogo lo
-disattiva finché non viene ricontrollato. Le proposte sospese non sono incluse.
+versionato `data/feedback.prevalidated.json`: ciascuno riporta brevi passaggi
+letterali del descrittore ed è legato all'impronta del suo testo completo.
+L'app controlla ID, livello, impronta e passaggi prima di usare l'indizio: una
+modifica del catalogo lo disattiva finché non viene ricontrollato. Le proposte
+sospese non sono incluse. La corrispondenza testuale è stata ricontrollata,
+ma non equivale alla validazione pedagogica umana.
 Gli altri descrittori conservano, quando presente, una spiegazione editoriale
 specifica. Se manca, l'app propone una domanda di confronto anziché spacciare
 il livello del catalogo per una motivazione. Gli indizi sono provvisori e

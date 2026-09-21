@@ -64,7 +64,7 @@ def test_correct_answer_closes_descriptor_and_records_once(tmp_path: Path):
         if event["event_type"] == "descriptor_completed"
     )
     assert completed["rationale"] == updated["feedbacks"][-1]
-    assert completed["feedback_version"] == "1"
+    assert completed["feedback_version"] == "2"
 
 
 def test_three_attempts_reveal_solution_and_retry_is_idempotent(tmp_path: Path):

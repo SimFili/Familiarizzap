@@ -24,13 +24,19 @@ def full_catalog() -> list[dict]:
 def test_every_prevalidated_cue_matches_its_exact_descriptor_text_and_level():
     catalog = {item["descriptor_id"]: item for item in full_catalog()}
     bank = json.loads(FEEDBACK_DATA_PATH.read_text(encoding="utf-8"))
+    assert bank["schema_version"] == 2
     assert bank["review_status"] == "ai_prevalidated_pending_human_review"
     assert len(PREVALIDATED_CUES) == len(bank["items"]) == 21
-    for descriptor_id, (level, digest, sentence) in PREVALIDATED_CUES.items():
+    for descriptor_id, (level, digest, sentence, evidence) in PREVALIDATED_CUES.items():
         assert catalog[descriptor_id]["correct_level"] == level
         assert hashlib.sha256(
             catalog[descriptor_id]["descriptor_text"].encode("utf-8")
         ).hexdigest() == digest
+        assert evidence
+        assert all(
+            fragment in catalog[descriptor_id]["descriptor_text"]
+            for fragment in evidence
+        )
         assert sentence.endswith(".")
         assert "catalogo sorgente" not in sentence
 
@@ -87,9 +93,30 @@ def test_cue_is_not_used_if_the_catalog_text_changes():
     assert basis != "prevalidated"
 
 
+def test_cue_is_not_used_if_its_textual_evidence_is_wrong(monkeypatch):
+    descriptor = next(
+        item for item in full_catalog() if item["descriptor_id"] == "SRC-9"
+    )
+    level, digest, cue, _ = PREVALIDATED_CUES["SRC-9"]
+    monkeypatch.setitem(
+        PREVALIDATED_CUES,
+        "SRC-9",
+        (level, digest, cue, ("testo che non compare nel descrittore",)),
+    )
+    _, basis = compose_feedback(
+        descriptor,
+        phase="orientation",
+        selected_level="B1",
+        attempt_number=1,
+        previous_attempts=[],
+        completed_records=[],
+    )
+    assert basis != "prevalidated"
+
+
 def test_invalid_feedback_bank_fails_closed(tmp_path: Path):
     path = tmp_path / "feedback.json"
-    path.write_text('{"schema_version": 1, "items": []}', encoding="utf-8")
+    path.write_text('{"schema_version": 2, "items": []}', encoding="utf-8")
     assert _load_feedback_bank(path) == {}
     assert _load_feedback_bank(tmp_path / "missing.json") == {}
 

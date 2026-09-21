@@ -14,28 +14,29 @@ from pathlib import Path
 from typing import Any
 
 
-FEEDBACK_VERSION = "1"
+FEEDBACK_VERSION = "2"
 MAX_FEEDBACK_LENGTH = 180
 FEEDBACK_DATA_PATH = Path(__file__).resolve().parents[1] / "data/feedback.prevalidated.json"
 LOGGER = logging.getLogger(__name__)
 
 
-def _load_feedback_bank(path: Path) -> dict[str, tuple[str, str, str]]:
+def _load_feedback_bank(path: Path) -> dict[str, tuple[str, str, str, tuple[str, ...]]]:
     """Fail closed: invalid or missing data cannot present a mismatched cue."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or (
-            data.get("schema_version") != 1
+            data.get("schema_version") != 2
             or data.get("review_status") != "ai_prevalidated_pending_human_review"
             or not isinstance(data.get("items"), list)
         ):
             raise ValueError("metadata non valida")
-        cues: dict[str, tuple[str, str, str]] = {}
+        cues: dict[str, tuple[str, str, str, tuple[str, ...]]] = {}
         for item in data["items"]:
             descriptor_id = item["descriptor_id"]
             level = item["level"]
             digest = item["descriptor_sha256"]
             cue = item["cue"]
+            evidence = item["evidence"]
             if (
                 not isinstance(descriptor_id, str)
                 or not re.fullmatch(r"SRC-\d+", descriptor_id)
@@ -48,9 +49,16 @@ def _load_feedback_bank(path: Path) -> dict[str, tuple[str, str, str]]:
                 or not cue.endswith(".")
                 or "<" in cue or ">" in cue
                 or re.search(r"(?<!\w)(?:A1|A2\+?|B1\+?|B2)(?!\w)", cue)
+                or not isinstance(evidence, list)
+                or not 1 <= len(evidence) <= 4
+                or any(
+                    not isinstance(fragment, str)
+                    or not 5 <= len(fragment) <= 100
+                    for fragment in evidence
+                )
             ):
                 raise ValueError(f"indizio non valido: {descriptor_id}")
-            cues[descriptor_id] = (level, digest, cue)
+            cues[descriptor_id] = (level, digest, cue, tuple(evidence))
         return cues
     except (OSError, ValueError, TypeError, KeyError) as exc:
         LOGGER.warning("Feedback prevalidati non caricati: %s", exc)
@@ -127,6 +135,10 @@ def compose_feedback(
         if prevalidated
         and prevalidated[0] == correct
         and prevalidated[1] == descriptor_hash
+        and all(
+            fragment in str(descriptor.get("descriptor_text", ""))
+            for fragment in prevalidated[3]
+        )
         else ""
     )
     editorial = _editorial_text(descriptor, attempt_number, finished) if not cue else ""
