@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "review_status": "ai_prevalidated_pending_human_review",
+  "source": "feedback_adattivi_proposta.xlsx, Coerenza e Nuclei, 2026-09-20",
+  "items": [
+    {"descriptor_id": "SRC-259", "level": "A1", "descriptor_sha256": "87110bf04661d6c658a2e1cffe01aa7b9407f3806a9edf4fb8eed04ecd2f5062", "cue": "Compaiono parole/segni e strutture di base, con preparazione anticipata."},
+    {"descriptor_id": "SRC-421", "level": "A1", "descriptor_sha256": "147acd66c2e71206259da75e5765d5afacbf21ad6447fdb69794b2ab57c7f07a", "cue": "Le domande e le istruzioni sono brevi e date lentamente."},
+    {"descriptor_id": "SRC-64", "level": "A1", "descriptor_sha256": "ed4f5d2babfa9d2fe12f0b5e9975d395ccb2418674b659415ba4c7011fc11683", "cue": "Le istruzioni sono lente; le indicazioni sono brevi e semplici."},
+    {"descriptor_id": "SRC-599", "level": "A1", "descriptor_sha256": "11af9bbcce1c5a0b29ab5eeed6168cc489b1fb7fa6ea1df2a2f8201ab042ecca", "cue": "Si danno dati personali rispondendo a domande semplici e lente."},
+    {"descriptor_id": "SRC-747", "level": "A1", "descriptor_sha256": "3fda1eba05acb7e5aab13f8c755bf4a537b67dd0bd1b35a6511a50fb3de41c1d", "cue": "Si segnala di non capire con parole/segni semplici e gesti."},
+    {"descriptor_id": "SRC-61", "level": "A2", "descriptor_sha256": "ebe48d94f758b62c86243d10fd464150f96646308d6c83df4c5a3410d06ed6cc", "cue": "Si afferra l'essenziale di annunci brevi, chiari e semplici."},
+    {"descriptor_id": "SRC-231", "level": "A2", "descriptor_sha256": "fd26e04814a94d952abacaf1831ac031cc84c7f529a06057124dfbe984e5bd5d", "cue": "Le preferenze sono espresse con frasi semplici collegate."},
+    {"descriptor_id": "SRC-417", "level": "A2+", "descriptor_sha256": "d9aa91b50a4a01e475e61ab34dbacf0a561b1c18b309d9b0e089a7a68d09c5cf", "cue": "Si affrontano scambi di routine senza eccessivo sforzo."},
+    {"descriptor_id": "SRC-251", "level": "A2+", "descriptor_sha256": "867c6b21e5a5fa9b2b5b2f43330b71d1e2d244f4dcf18f8a38a28c5ce3fa8876", "cue": "Si descrivono abitudini, attività passate ed esperienze personali."},
+    {"descriptor_id": "SRC-516", "level": "A2+", "descriptor_sha256": "d759fa27c71e44316c4bea2e09170aa208da27733316506c3980acc3a8da2dcc", "cue": "Si affrontano compiti di routine e si chiede di ripetere se serve."},
+    {"descriptor_id": "SRC-9", "level": "B1", "descriptor_sha256": "419dc3ec9dfc97a9190a769ece8e57baa3aa775ddf5c4c983d32eb2798064bdc", "cue": "Si colgono i punti salienti di un discorso chiaro su temi familiari."},
+    {"descriptor_id": "SRC-45", "level": "B1", "descriptor_sha256": "857c10b7f5453ce2adf8a86ac17d4df425e1dcf064bfe147ab64638aed355ff1", "cue": "Si colgono i punti salienti di un monologo chiaro e relativamente lento."},
+    {"descriptor_id": "SRC-375", "level": "B1", "descriptor_sha256": "c25a5b2cc97a39c8f5d41149027ffd032cc98b405580b2fe7bd854bb0eba5797", "cue": "Si comunica ciò che conta usando le risorse disponibili."},
+    {"descriptor_id": "SRC-363", "level": "B1+", "descriptor_sha256": "b1bfaeca712bc8742f94fc3038cfacf872b634b7604c60228e5ecf31d29d3c45", "cue": "Si riassumono fatti quotidiani con discreta sicurezza."},
+    {"descriptor_id": "SRC-268", "level": "B1+", "descriptor_sha256": "d4b51e3a453c83a86b1c96cd7beb989e158f4cd916f0b95c1f9cf680605921e5", "cue": "Si spiegano i punti principali con ragionevole precisione."},
+    {"descriptor_id": "SRC-741", "level": "B1+", "descriptor_sha256": "7ee27ad1dd69be1bb26342cd43fcc27f59e4e3d5500f6e57aba4fedf81312ec4", "cue": "Si chiedono dettagli per far avanzare una discussione."},
+    {"descriptor_id": "SRC-40", "level": "B2", "descriptor_sha256": "8fd4896af904293efb44ce4f1a5b806ecad75f3926e3a81808d42bd3b189aee2", "cue": "Si distingue il punto di vista dai fatti riportati."},
+    {"descriptor_id": "SRC-280", "level": "B2", "descriptor_sha256": "9d480b185b903069aa0e0a32ffedda7a04ef8a32fe30c9e2b2a2007864a9d084", "cue": "Si valutano vantaggi e svantaggi delle diverse opzioni."},
+    {"descriptor_id": "SRC-266", "level": "B2", "descriptor_sha256": "1e919f49af241057ec331d5aff1cc264f92a81f67355ab0e96f2757e5e706d84", "cue": "Si trasmettono informazioni dettagliate con precisione."},
+    {"descriptor_id": "SRC-237", "level": "B2", "descriptor_sha256": "fb4498290db188dfd11abd9c81e752f45e5b45569339b67d40cc377e99210532", "cue": "Si producono descrizioni chiare e precise su svariati argomenti."},
+    {"descriptor_id": "SRC-429", "level": "B2", "descriptor_sha256": "9b085a9dccdd924c72021cec19c15b753d11c5d2337813d88fed1b3133927e47", "cue": "Si partecipa attivamente a una lunga conversazione."}
+  ]
+}

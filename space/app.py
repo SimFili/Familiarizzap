@@ -1937,7 +1937,7 @@ def _descriptor_detail_markdown(
             )
     latest = history[-1]
     if latest.get("rationale"):
-        lines.extend(["", "#### Motivazione", latest["rationale"]])
+        lines.extend(["", "#### Per ragionarci", latest["rationale"]])
     return "\n".join(lines)
 
 
@@ -2145,7 +2145,7 @@ def _exercise_view(session: dict[str, Any]):
             )
     for index, text in enumerate(session.get("feedbacks", []), start=1):
         is_final = finished and index == len(session["feedbacks"])
-        label = "Motivazione" if is_final else f"Suggerimento {index}"
+        label = "Per ragionarci" if is_final else f"Suggerimento {index}"
         feedback_parts.append(f"#### {label}\n{text}")
     feedback = "\n\n".join(feedback_parts)
     levels = SESSIONS.available_levels(session)

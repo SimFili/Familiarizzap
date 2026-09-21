@@ -81,6 +81,7 @@ def test_history_sessions_and_map_are_reconstructed_from_events(tmp_path: Path):
     )
 
     assert history[0]["outcome"] == "first"
+    assert history[0]["rationale"] == state["completed_records"][0]["rationale"]
     assert history[0]["exposure_number"] == 1
     assert sessions[0]["status"] == "completed"
     assert sessions[0]["first_attempt_rate"] == 100

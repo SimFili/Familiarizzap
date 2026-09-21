@@ -21,7 +21,19 @@ direttamente nello Space: ogni modifica verrebbe sovrascritta alla pubblicazione
 successiva.
 
 Il catalogo incluso contiene 831 esercizi appartenenti a 52 scale. I feedback
-sono provvisori e i diritti di pubblicazione dei testi devono essere verificati
+sono brevi e tengono conto del tentativo e degli esiti precedenti nella sessione.
+Per 21 descrittori è disponibile un indizio specifico ricondotto per testo e
+livello ai nuclei attivi della prevalidazione. Gli indizi sono nel file
+versionato `data/feedback.prevalidated.json`: ciascuno è legato anche
+all'impronta del testo del descrittore, così una modifica del catalogo lo
+disattiva finché non viene ricontrollato. Le proposte sospese non sono incluse.
+Gli altri descrittori conservano, quando presente, una spiegazione editoriale
+specifica. Se manca, l'app propone una domanda di confronto anziché spacciare
+il livello del catalogo per una motivazione. Gli indizi sono provvisori e
+richiedono verifica umana. Il repository contiene catalogo e feedback, non
+nomi o tentativi dei docenti: questi sono eventi nell'archivio privato
+configurato, oppure dati temporanei in modalità dimostrativa. I diritti di
+pubblicazione dei testi devono essere verificati
 prima dell’uso pubblico. Quando il Dataset degli eventi e i secret non sono
 configurati, l’interfaccia segnala che gli eventi non sono durevoli.
 Quando l’archivio remoto è configurato, l’app verifica che il Dataset sia

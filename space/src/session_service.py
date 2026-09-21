@@ -10,6 +10,7 @@ from typing import Any
 
 from .catalog import Catalog
 from .event_store import EventStore
+from .feedback import FEEDBACK_VERSION, compose_feedback
 
 
 EVENT_NAMESPACE = uuid.UUID("a302ad37-79ac-4ce0-96f6-1721259d980d")
@@ -767,10 +768,18 @@ class SessionService:
         descriptor = self.current_descriptor(updated)
         is_correct = selected_level == descriptor["correct_level"]
         is_finished = is_correct or attempt_number == 3
-        feedback_text = (
-            descriptor["rationale"]
-            if is_finished
-            else descriptor[f"hint_{attempt_number}"]
+        feedback_text, feedback_basis = compose_feedback(
+            descriptor,
+            phase=str(updated.get("progression_phase", "")),
+            selected_level=selected_level,
+            attempt_number=attempt_number,
+            previous_attempts=list(updated.get("attempts", [])),
+            completed_records=list(updated.get("completed_records", [])),
+            prior_exposure_count=int(
+                updated.get("prior_exposure_counts", {}).get(
+                    descriptor["descriptor_id"], 0
+                )
+            ),
         )
         answer_event = self._base_event(
             event_id=self._event_id(
@@ -787,6 +796,8 @@ class SessionService:
             correct_level=descriptor["correct_level"],
             is_correct=is_correct,
             feedback_text=feedback_text,
+            feedback_basis=feedback_basis,
+            feedback_version=FEEDBACK_VERSION,
             feedback_stage="rationale" if is_finished else f"hint_{attempt_number}",
             error_distance=self.catalog.level_distance(
                 selected_level, descriptor["correct_level"]
@@ -828,7 +839,9 @@ class SessionService:
                     resolved=is_correct,
                     resolved_on_attempt=attempt_number if is_correct else None,
                     correct_level=descriptor["correct_level"],
-                    rationale=descriptor["rationale"],
+                    rationale=feedback_text,
+                    feedback_basis=feedback_basis,
+                    feedback_version=FEEDBACK_VERSION,
                     descriptor_text=descriptor["descriptor_text"],
                     schema=descriptor["schema"],
                     modality=descriptor["modality"],
@@ -888,7 +901,7 @@ class SessionService:
                     "resolved": is_correct,
                     "resolved_on_attempt": attempt_number if is_correct else None,
                     "correct_level": descriptor["correct_level"],
-                    "rationale": descriptor["rationale"],
+                    "rationale": feedback_text,
                     "occurred_at": answer_at,
                     "first_response_distance": self.catalog.level_distance(
                         updated["attempts"][0], descriptor["correct_level"]

@@ -58,6 +58,13 @@ def test_correct_answer_closes_descriptor_and_records_once(tmp_path: Path):
     ]
     assert event_types.count("answer_submitted") == 1
     assert event_types.count("descriptor_completed") == 1
+    assert updated["completed_records"][0]["rationale"] == updated["feedbacks"][-1]
+    completed = next(
+        event for event in store.list_events("participant")
+        if event["event_type"] == "descriptor_completed"
+    )
+    assert completed["rationale"] == updated["feedbacks"][-1]
+    assert completed["feedback_version"] == "1"
 
 
 def test_three_attempts_reveal_solution_and_retry_is_idempotent(tmp_path: Path):
@@ -99,6 +106,20 @@ def test_resume_restores_attempts_without_display_name_in_events(
         store.list_events("participant"), ensure_ascii=False
     )
     assert "Nome Privato" not in serialized_events
+
+
+def test_resume_restores_final_feedback_from_events(tmp_path: Path):
+    _, _, service, descriptors = make_service(tmp_path)
+    state = service.start_session("participant", "Nome Privato", descriptors)
+    correct = service.current_descriptor(state)["correct_level"]
+    completed = service.submit_answer(state, correct)
+
+    restored = service.restore_session(
+        "participant", "Nome Privato", state["session_id"]
+    )
+
+    assert restored["feedbacks"] == completed["feedbacks"]
+    assert restored["completed_records"][0]["rationale"] == completed["feedbacks"][-1]
 
 
 def test_failed_write_does_not_consume_attempt(tmp_path: Path, monkeypatch):
