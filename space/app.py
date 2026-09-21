@@ -80,15 +80,6 @@ SUSPENDED_SCALE_PATHS = {
         "Interazione on line",
         "Transazioni e collaborazione on line finalizzate a uno scopo",
     ),
-    (
-        "Strategie linguistico-comunicative",
-        "Ricezione",
-        "Scale disponibili",
-        (
-            "Individuare indizi e fare inferenze (ricezione orale, "
-            "nella lingua dei segni e scritta)"
-        ),
-    ),
 }
 DESCRIPTOR_STRIKETHROUGH_PHRASES = {
     "SRC-71": ("via radio",),

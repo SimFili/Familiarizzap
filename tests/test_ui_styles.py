@@ -272,16 +272,16 @@ def test_annunci_pubblici_is_the_only_selectable_short_scale() -> None:
     ) is False
 
 
-def test_only_the_reviewed_mixed_scale_remains_available() -> None:
+def test_reviewed_mixed_scales_are_available_without_reopening_others() -> None:
     suspended_names = {
         "Utilizzare le telecomunicazioni",
         "Conversazione e discussione on line",
         "Transazioni e collaborazione on line finalizzate a uno scopo",
-        (
-            "Individuare indizi e fare inferenze (ricezione orale, "
-            "nella lingua dei segni e scritta)"
-        ),
     }
+    restored_name = (
+        "Individuare indizi e fare inferenze (ricezione orale, "
+        "nella lingua dei segni e scritta)"
+    )
     active_name = (
         "Comprendere mezzi di comunicazione audio (o nella lingua dei segni) "
         "e registrazioni"
@@ -289,11 +289,18 @@ def test_only_the_reviewed_mixed_scale_remains_available() -> None:
     paths = {
         path[3]: path
         for path in app._all_catalog_paths()
-        if path[3] in suspended_names | {active_name}
+        if path[3] in suspended_names | {active_name, restored_name}
     }
 
-    assert set(paths) == suspended_names | {active_name}
+    assert set(paths) == suspended_names | {active_name, restored_name}
     assert app._participant_scale_is_available(paths[active_name]) is True
+    assert paths[restored_name][:3] == (
+        "Strategie linguistico-comunicative",
+        "Ricezione",
+        "Scale disponibili",
+    )
+    assert len(app.CATALOG.for_scale(*paths[restored_name])) == 16
+    assert app._participant_scale_is_available(paths[restored_name]) is True
     assert all(
         app._participant_scale_is_available(paths[name]) is False
         for name in suspended_names
@@ -303,7 +310,18 @@ def test_only_the_reviewed_mixed_scale_remains_available() -> None:
         app._decode_path(value) for _, value in app._scale_choices()
     }
     assert paths[active_name] in participant_values
+    assert paths[restored_name] in participant_values
     assert all(paths[name] not in participant_values for name in suspended_names)
+
+    selector = app._scale_selector_data(*paths[restored_name][:2])
+    restored_card = next(
+        card
+        for group in selector
+        for card in group["scales"]
+        if card["scale"] == restored_name
+    )
+    assert restored_card["activity"] == "Scale disponibili"
+    assert restored_card["available"] is True
 
 
 def test_written_reception_production_and_interaction_are_suspended() -> None:

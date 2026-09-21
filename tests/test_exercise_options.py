@@ -254,6 +254,8 @@ def test_annunci_pubblici_starts_as_a_three_descriptor_exception():
         app.CATALOG.get(item_id)["correct_level"]
         for item_id in session["descriptor_ids"]
     } == {"A2", "B1", "B2"}
+
+
     assert result[5]["total"] == 3
 
     resumed = app.resume_session(
@@ -281,6 +283,38 @@ def test_annunci_pubblici_starts_as_a_three_descriptor_exception():
     assert len(next_session["descriptor_ids"]) == len(
         set(next_session["descriptor_ids"])
     )
+
+
+def test_restored_inference_scale_starts_with_canonical_orientation():
+    path = (
+        "Strategie linguistico-comunicative",
+        "Ricezione",
+        "Scale disponibili",
+        "Individuare indizi e fare inferenze (ricezione orale, "
+        "nella lingua dei segni e scritta)",
+    )
+    result = app.start_session(
+        {
+            **app._empty_ui_state(),
+            "participant_id": f"restored-inference-{uuid.uuid4()}",
+            "display_name": "Anna",
+        },
+        *path,
+    )
+
+    session = result[0]["session"]
+    assert session is not None
+    assert (
+        session["schema"],
+        session["modality"],
+        session["activity"],
+        session["scale"],
+    ) == path
+    assert len(session["descriptor_ids"]) == 4
+    assert {
+        app.CATALOG.get(item_id)["correct_level"]
+        for item_id in session["descriptor_ids"]
+    } == {"A1", "A2", "B1", "B2"}
 
 
 def test_participant_has_no_manual_progression_settings():
