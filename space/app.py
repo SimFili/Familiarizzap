@@ -339,6 +339,23 @@ button.primary {
   background: var(--fapp-teal) !important;
   border-color: var(--fapp-teal) !important;
 }
+.alternate-path-button button,
+button.alternate-path-button {
+  background: #3154ac !important;
+  border-color: #3154ac !important;
+  color: #fff !important;
+  font-weight: 750;
+}
+.alternate-path-button button:hover,
+button.alternate-path-button:hover {
+  background: #233f8a !important;
+  border-color: #233f8a !important;
+}
+.alternate-path-button button:focus-visible,
+button.alternate-path-button:focus-visible {
+  outline: 3px solid #ffc857;
+  outline-offset: 2px;
+}
 .journey-overview {
   border: 1px solid var(--fapp-line);
   border-radius: 1rem;
@@ -3366,10 +3383,10 @@ def build_demo() -> gr.Blocks:
             gr.Markdown(_storage_banner(), elem_classes="storage-banner")
             greeting = gr.Markdown()
             gr.Markdown(
-                "### Un inizio accompagnato\n"
-                "Il percorso principale del pilot ha 16 descrittori in "
-                "quattro tappe brevi, con uno per ciascuno dei "
-                "livelli A1, A2, B1 e B2. Si comincia dalla scala generale "
+                "### Iniziamo insieme\n"
+                "Il percorso consigliato contiene 16 descrittori di quattro "
+                "scale principali, con descrittori solamente dei livelli "
+                "A1, A2, B1 e B2. Si comincia dalla scala generale "
                 "QCER, poi si passa a comprensione, produzione e interazione. "
                 "Non devi completare tutto il catalogo."
             )
@@ -3377,9 +3394,12 @@ def build_demo() -> gr.Blocks:
                 "Apri il percorso consigliato · quattro tappe",
                 variant="primary",
             )
-            with gr.Accordion(
-                "Altre scale · esplorazione facoltativa", open=False
-            ) as optional_catalog:
+            explore_other_scales_button = gr.Button(
+                "Esplora tutte le altre scale",
+                variant="secondary",
+                elem_classes="alternate-path-button",
+            )
+            with gr.Group(visible=False) as optional_catalog:
                 gr.Markdown(
                     "Scegli l’ambito e le scale che vuoi esplorare. "
                     "Queste scale restano consultabili, ma non sono tappe da "
@@ -3409,6 +3429,7 @@ def build_demo() -> gr.Blocks:
                     category_continue_button = gr.Button(
                         "Continua con questo ambito", variant="primary"
                     )
+                close_other_scales_button = gr.Button("Chiudi le altre scale")
             with gr.Accordion("Riprendi una sessione", open=False):
                 resume_choice = gr.Dropdown(
                     choices=[],
@@ -3728,6 +3749,14 @@ def build_demo() -> gr.Blocks:
             lambda: (gr.update(visible=False), gr.update(visible=True)),
             outputs=[guided_intro_group, taxonomy_group],
         )
+        explore_other_scales_button.click(
+            lambda: gr.update(visible=True),
+            outputs=optional_catalog,
+        )
+        close_other_scales_button.click(
+            lambda: gr.update(visible=False),
+            outputs=optional_catalog,
+        )
         guided_start_button.click(
             start_guided_stage,
             inputs=ui_state,
@@ -3807,7 +3836,7 @@ def build_demo() -> gr.Blocks:
                 gr.update(visible=True),
                 gr.update(visible=False),
                 "",
-                gr.update(open=True),
+                gr.update(visible=True),
             ),
             outputs=[
                 taxonomy_group, scale_group, path_selection_message,
@@ -3947,7 +3976,7 @@ def build_demo() -> gr.Blocks:
                 user_message,
             ],
         ).then(
-            lambda: gr.update(open=True),
+            lambda: gr.update(visible=True),
             outputs=optional_catalog,
         )
         next_block_button.click(

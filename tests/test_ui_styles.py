@@ -474,17 +474,45 @@ def test_journey_describes_only_the_map_of_encountered_descriptors() -> None:
 
 def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
     demo = app.build_demo()
-    accordions = [
-        component["props"] for component in demo.config["components"]
-        if component["type"] == "accordion"
-    ]
-    optional = next(
-        props for props in accordions
-        if "esplorazione facoltativa" in props.get("label", "")
+    components = demo.config["components"]
+    intro = next(
+        component["props"]["value"] for component in components
+        if component["type"] == "markdown"
+        and "Iniziamo insieme" in component["props"].get("value", "")
     )
-    assert optional["open"] is False
+    assert (
+        "Il percorso consigliato contiene 16 descrittori di quattro scale "
+        "principali, con descrittori solamente dei livelli A1, A2, B1 e B2."
+    ) in intro
+    guided = next(
+        component for component in components
+        if component["type"] == "button"
+        and component["props"].get("value")
+        == "Apri il percorso consigliato · quattro tappe"
+    )
+    alternate = next(
+        component for component in components
+        if component["type"] == "button"
+        and component["props"].get("value")
+        == "Esplora tutte le altre scale"
+    )
+    assert guided["props"]["variant"] == "primary"
+    assert alternate["props"]["variant"] == "secondary"
+    assert "alternate-path-button" in alternate["props"]["elem_classes"]
+    click = next(
+        dependency for dependency in demo.config["dependencies"]
+        if (alternate["id"], "click") in dependency["targets"]
+    )
+    optional = next(
+        component for component in components
+        if component["id"] == click["outputs"][0]
+    )
+    assert optional["type"] == "group"
+    assert optional["props"]["visible"] is False
+    assert ".alternate-path-button button" in CSS
+    assert "background: #3154ac !important;" in CSS
+    assert "color: #fff !important;" in CSS
     source = inspect.getsource(app.build_demo)
-    assert "Il percorso principale del pilot ha 16 descrittori" in source
     assert "Non devi completare tutto il catalogo" in source
     assert "I loro feedback sono ancora" in source
 
