@@ -10,6 +10,22 @@ from openpyxl import load_workbook
 
 
 LEVELS = ("A1", "A2", "A2+", "B1", "B1+", "B2")
+# Correzione editoriale richiesta per la visualizzazione; il file Excel
+# sorgente resta intatto. Applicarla anche qui evita regressioni al rebuild.
+DISPLAY_TEXT_CORRECTIONS = {
+    "8": (
+        "in un varietà piuttosto familiare",
+        "in una varietà piuttosto familiare",
+    ),
+    "11": (
+        "si parli lentamente e chiaramente",
+        "si parli/segni lentamente e chiaramente",
+    ),
+    "13": (
+        "si parli lentamente e chiaramente",
+        "si parli/segni lentamente e chiaramente",
+    ),
+}
 DEFAULT_HINT_1 = (
     "Osserva l’ampiezza del compito, il tipo di contenuto e le condizioni "
     "indicate nel descrittore."
@@ -86,6 +102,9 @@ def build_catalog(
         scale = _text(scale)
         level = _text(level).upper()
         descriptor = _text(descriptor)
+        correction = DISPLAY_TEXT_CORRECTIONS.get(source_id)
+        if correction:
+            descriptor = descriptor.replace(*correction)
         if not scale or level not in LEVELS or not descriptor:
             ignored.append({"row": row_number, "reason": "E, F o G non validi"})
             continue

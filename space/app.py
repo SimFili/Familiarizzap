@@ -29,8 +29,17 @@ from src.auth import (
     display_name_only,
     participant_name_id,
 )
-from src.catalog import CatalogError, load_catalog
+from src.catalog import Catalog, CatalogError, load_catalog
 from src.event_store import EventStoreError, create_event_store
+from src.feedback import DESCRIPTOR_GUIDES
+from src.guided_track import (
+    CANONICAL_LEVELS,
+    GUIDED_STAGES,
+    GENERAL_QCER_REFERENCE,
+    guided_general_descriptors,
+    guided_progress,
+    stage_descriptors,
+)
 from src.research_export import build_research_export
 from src.session_service import SessionError, SessionService
 from src.settings import Settings
@@ -39,7 +48,11 @@ from src.settings import Settings
 BASE_DIR = Path(__file__).resolve().parent
 SETTINGS = Settings.from_env(BASE_DIR)
 CATALOG_RESULT = load_catalog(SETTINGS)
-CATALOG = CATALOG_RESULT.catalog
+CATALOG = Catalog(
+    [*CATALOG_RESULT.catalog.all(), *guided_general_descriptors()],
+    allowed_statuses=("approved", "demo", "guided_draft"),
+    allowed_levels=CATALOG_RESULT.catalog.level_order,
+)
 STORE = create_event_store(SETTINGS)
 SESSIONS = SessionService(
     catalog=CATALOG,
@@ -53,6 +66,7 @@ SESSIONS = SessionService(
 )
 ROME = ZoneInfo("Europe/Rome")
 MIN_PARTICIPANT_SCALE_DESCRIPTORS = 4
+PILOT_SUSPENDED_LEVELS = frozenset({"A2+", "B1+"})
 SHORT_SCALE_EXCEPTIONS = {
     (
         "Attività linguistico-comunicative",
@@ -954,8 +968,8 @@ def _storage_banner() -> str:
             "nella cartella locale ignorata da Git."
         )
     return (
-        f"🟠 **Modalità dimostrativa:** {catalog_note}; i dati sono temporanei "
-        "e possono sparire al riavvio. Non usare questa modalità per la ricerca."
+        "**Modalità dimostrativa:** i dati sono temporanei e possono sparire "
+        "al riavvio. Non usare questa modalità per la ricerca."
     )
 
 
@@ -973,6 +987,7 @@ def _available_schemas() -> list[str]:
         schema
         for schema in CATALOG.choices("schema")
         if not _is_sign_language_schema(schema)
+        and schema != GUIDED_STAGES[0].path[0]
     ]
 
 
@@ -1020,18 +1035,18 @@ def _all_catalog_paths() -> list[tuple[str, str, str, str]]:
 
 
 def _participant_scale_is_available(
-    path: tuple[str, str, str, str], descriptor_count: int | None = None
+    path: tuple[str, str, str, str]
 ) -> bool:
     if (
         _is_sign_language_schema(path[0])
+        or path == GUIDED_STAGES[0].path
         or path in SUSPENDED_SCALE_PATHS
         or path[:3] in SUSPENDED_ACTIVITY_PATHS
     ):
         return False
-    count = (
-        len(CATALOG.for_scale(*path))
-        if descriptor_count is None
-        else int(descriptor_count)
+    count = sum(
+        item["correct_level"] not in PILOT_SUSPENDED_LEVELS
+        for item in CATALOG.for_scale(*path)
     )
     return count >= MIN_PARTICIPANT_SCALE_DESCRIPTORS or (
         SHORT_SCALE_EXCEPTIONS.get(path) == count
@@ -1047,9 +1062,11 @@ def _catalog_paths() -> list[tuple[str, str, str, str]]:
 
 
 def _scale_choices(
-    *, include_closed: bool = False
+    *, include_closed: bool = False, include_guided: bool = False
 ) -> list[tuple[str, str]]:
     paths = _all_catalog_paths() if include_closed else _catalog_paths()
+    if include_guided and GUIDED_STAGES[0].path not in paths:
+        paths = [GUIDED_STAGES[0].path, *paths]
     return [
         (
             f"{path[1]} · {path[2]} · {path[3]}",
@@ -1206,12 +1223,10 @@ def _available_scales(
 
 
 def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
-    grouped: dict[str, dict[str, int]] = defaultdict(dict)
+    grouped: dict[str, dict[str, None]] = defaultdict(dict)
     for item in CATALOG.all():
         if item["schema"] == schema and item["modality"] == modality:
-            grouped[item["activity"]][item["scale"]] = (
-                grouped[item["activity"]].get(item["scale"], 0) + 1
-            )
+            grouped[item["activity"]][item["scale"]] = None
     return [
         {
             "activity": activity,
@@ -1224,10 +1239,10 @@ def _scale_selector_data(schema: str, modality: str) -> list[dict[str, Any]]:
                     "color": _taxonomy_color(modality),
                     "tone": _sign_scale_tone(schema, activity),
                     "available": _participant_scale_is_available(
-                        (schema, modality, activity, scale), descriptor_count
+                        (schema, modality, activity, scale)
                     ),
                 }
-                for scale, descriptor_count in scales.items()
+                for scale in scales
             ],
         }
         for activity, scales in grouped.items()
@@ -1432,14 +1447,37 @@ def _session_path(
     )
 
 
+def _session_has_suspended_levels(session: dict[str, Any]) -> bool:
+    if PILOT_SUSPENDED_LEVELS.intersection(
+        session.get("available_levels", [])
+    ):
+        return True
+    descriptor_ids = session.get("descriptor_ids", [])
+    if not descriptor_ids:
+        return True
+    try:
+        return any(
+            CATALOG.get(item_id)["correct_level"] in PILOT_SUSPENDED_LEVELS
+            for item_id in descriptor_ids
+        )
+    except CatalogError:
+        return True
+
+
 def _session_is_resumable(session: dict[str, Any]) -> bool:
     """Return whether the current participant UI can safely resume a session."""
     path = _session_path(session)
+    guided = any(
+        session.get("progression_phase") == stage.phase
+        and path == stage.path
+        for stage in GUIDED_STAGES
+    )
     return (
         session.get("status", "in_progress") == "in_progress"
         and all(path)
+        and not _session_has_suspended_levels(session)
         and not _is_sign_language_schema(path[0])
-        and path in set(_catalog_paths())
+        and (guided or path in set(_catalog_paths()))
     )
 
 
@@ -1549,8 +1587,14 @@ def _personal_view(
 ):
     events = STORE.list_events(participant)
     overview = participant_overview(events, CATALOG)
-    all_paths = _catalog_paths()
     sessions = session_records(events, CATALOG)
+    has_guided_general = any(
+        _session_path(session) == GUIDED_STAGES[0].path
+        for session in sessions
+    )
+    all_paths = _catalog_paths()
+    if has_guided_general:
+        all_paths = [GUIDED_STAGES[0].path, *all_paths]
     allowed_paths = set(all_paths)
     selected_path = _decode_path(selected_path_value)
     latest_path = next(
@@ -1601,7 +1645,7 @@ def _personal_view(
     return (
         overview_html,
         gr.Dropdown(
-            choices=_scale_choices(),
+            choices=_scale_choices(include_guided=has_guided_general),
             value=path_value,
             label="Scala da esplorare",
         ),
@@ -1987,6 +2031,26 @@ def scale_selector_click(evt: gr.EventData):
     )
 
 
+def start_session_from_scale_click(
+    state: dict[str, Any], evt: gr.EventData
+):
+    """Use the clicked card's exact path, never stale dropdown values."""
+    path = (
+        str(getattr(evt, "schema", "") or ""),
+        str(getattr(evt, "modality", "") or ""),
+        str(getattr(evt, "activity", "") or ""),
+        str(getattr(evt, "scale", "") or ""),
+    )
+    if path not in set(_catalog_paths()):
+        return (
+            *(gr.update() for _ in range(5)),
+            *_exercise_error(
+                state, "La scala selezionata non è disponibile in questo percorso."
+            ),
+        )
+    return (*scale_selector_click(evt), *start_session(state, *path))
+
+
 def update_schema(schema: str):
     if _is_sign_language_schema(schema):
         schema = _first_path_values()[1]
@@ -2094,6 +2158,8 @@ def _exercise_progress_data(session: dict[str, Any]) -> dict[str, Any]:
         ),
         "remaining_new": int(session.get("remaining_new_after_batch", 0)),
         "is_block": session.get("session_mode") in {"block", "progressive"},
+        "is_guided": session.get("progression_phase")
+        in {stage.phase for stage in GUIDED_STAGES},
         "phase_label": str(session.get("progression_label", "")),
         "phase_note": str(session.get("progression_note", "")),
         "current_finished": current_finished,
@@ -2134,10 +2200,10 @@ def _exercise_view(session: dict[str, Any]):
             feedback_parts.append(
                 f"ℹ️ **Il livello corretto è {result['correct_level']}.**"
             )
-    for index, text in enumerate(session.get("feedbacks", []), start=1):
-        is_final = finished and index == len(session["feedbacks"])
-        label = "Per ragionarci" if is_final else f"Suggerimento {index}"
-        feedback_parts.append(f"#### {label}\n{text}")
+    feedbacks = session.get("feedbacks", [])
+    if feedbacks:
+        label = "Per capire perché" if finished else "Per riprovare"
+        feedback_parts.append(f"#### {label}\n{feedbacks[-1]}")
     feedback = "\n\n".join(feedback_parts)
     levels = SESSIONS.available_levels(session)
     level_counts = SESSIONS.level_counts(session)
@@ -2200,7 +2266,7 @@ def start_session(
     try:
         descriptors = CATALOG.for_scale(schema, modality, activity, scale)
         path = (schema, modality, activity, scale)
-        if not _participant_scale_is_available(path, len(descriptors)):
+        if not _participant_scale_is_available(path):
             return _exercise_error(
                 state,
                 "Questa scala non contiene abbastanza descrittori per il "
@@ -2219,9 +2285,7 @@ def start_session(
                     item.get("scale"),
                 )
                 == path
-                and _participant_scale_is_available(
-                    path, int(item.get("descriptor_count", 0))
-                )
+                and _session_is_resumable(item)
             ),
             None,
         )
@@ -2238,7 +2302,8 @@ def start_session(
                 "l’abbiamo ripresa dal punto in cui eri arrivato.",
             )
         session = SESSIONS.start_progressive_session(
-            state["participant_id"], state["display_name"], descriptors
+            state["participant_id"], state["display_name"], descriptors,
+            include_plus_levels=False,
         )
         return _start_session_view(state, session)
     except (KeyError, SessionError, EventStoreError, CatalogError) as exc:
@@ -2251,7 +2316,7 @@ def _start_descriptors(
     state: dict[str, Any],
     descriptors: list[dict[str, Any]],
     *,
-    include_plus_levels: bool = True,
+    include_plus_levels: bool = False,
     session_size: int | None = None,
 ):
     session = SESSIONS.start_session(
@@ -2299,6 +2364,109 @@ def _exercise_error(state: dict[str, Any], message: str):
     )
 
 
+def guided_intro_view(state: dict[str, Any]):
+    """Show the next recommended step without treating it as a score."""
+    participant_id = str(state.get("participant_id", ""))
+    if not participant_id:
+        return (
+            "Identificati prima di iniziare il percorso consigliato.",
+            gr.Button(visible=False),
+        )
+    try:
+        progress = guided_progress(STORE.list_events(participant_id))
+    except EventStoreError as exc:
+        return f"⚠️ Percorso non disponibile: {exc}", gr.Button(visible=False)
+    next_index = progress["next_index"]
+    completed = len(progress["completed_indices"])
+    if next_index is None:
+        return (
+            "Hai completato le quattro tappe previste per questo pilot. "
+            "Le altre scale sono facoltative: non devi completare il catalogo. "
+            "La tua cronologia resta disponibile.",
+            gr.Button(visible=False),
+        )
+    stage = GUIDED_STAGES[next_index]
+    resume = bool(progress["resume_session_id"])
+    status = (
+        f"**{completed} tappe completate su {len(GUIDED_STAGES)}.** "
+        f"Prossima: **{stage.title}**. {stage.learning_goal} "
+        + (
+            "Riprenderai dall'ultimo descrittore affrontato."
+            if resume
+            else "Quattro descrittori: A1, A2, B1 e B2, in ordine mescolato."
+        )
+    )
+    label = (
+        f"Riprendi · {stage.title}"
+        if resume
+        else f"Inizia · {stage.title}"
+    )
+    return status, gr.Button(label, visible=True, interactive=True, variant="primary")
+
+
+def start_guided_stage(state: dict[str, Any]):
+    participant_id = str(state.get("participant_id", ""))
+    if not participant_id:
+        return _exercise_error(state, "Identificati prima di iniziare.")
+    try:
+        progress = guided_progress(STORE.list_events(participant_id))
+        index = progress["next_index"]
+        if index is None:
+            return _exercise_error(
+                state, "Il percorso introduttivo è già completo."
+            )
+        stage = GUIDED_STAGES[index]
+        descriptors = stage_descriptors(CATALOG, DESCRIPTOR_GUIDES, stage)
+        resume_id = progress["resume_session_id"]
+        if resume_id:
+            session = SESSIONS.restore_session(
+                participant_id, state["display_name"], resume_id
+            )
+            message = "Riprendiamo dal punto in cui eri arrivato."
+        else:
+            session = SESSIONS.start_session(
+                participant_id,
+                state["display_name"],
+                descriptors,
+                include_plus_levels=False,
+                selected_descriptor_ids=list(stage.descriptor_ids),
+                progression_phase=stage.phase,
+                progression_label=f"Tappa {index + 1} di 4 · {stage.title}",
+                progression_note=stage.learning_goal,
+                answer_levels_override=list(CANONICAL_LEVELS),
+                remaining_new_override=0,
+            )
+            message = ""
+        return _start_session_view(state, session, message)
+    except (ValueError, KeyError, SessionError, EventStoreError, CatalogError) as exc:
+        return _exercise_error(
+            state, f"⚠️ Tappa consigliata non avviata: {exc}"
+        )
+
+
+def guided_next_button_view(state: dict[str, Any]):
+    session = state.get("session") or {}
+    if (
+        session.get("progression_phase")
+        not in {stage.phase for stage in GUIDED_STAGES}
+        or not session.get("session_finished")
+    ):
+        return gr.Button(visible=False)
+    try:
+        progress = guided_progress(STORE.list_events(session["participant_id"]))
+    except EventStoreError:
+        return gr.Button(visible=False)
+    index = progress["next_index"]
+    if index is None:
+        return gr.Button(visible=False)
+    return gr.Button(
+        f"Prossima tappa · {GUIDED_STAGES[index].title}",
+        visible=True,
+        interactive=True,
+        variant="primary",
+    )
+
+
 def resume_session(state: dict[str, Any], session_id: str | None):
     if not session_id:
         return _exercise_error(
@@ -2314,19 +2482,12 @@ def resume_session(state: dict[str, Any], session_id: str | None):
                 "Le competenze nelle lingue dei segni sono temporaneamente "
                 "chiuse in attesa della validazione degli esperti.",
             )
-        session_path = (
-            str(session.get("schema", "")),
-            str(session.get("modality", "")),
-            str(session.get("activity", "")),
-            str(session.get("scale", "")),
-        )
-        if not _participant_scale_is_available(
-            session_path, len(session.get("descriptor_ids", []))
-        ):
+        if not _session_is_resumable(session):
             return _exercise_error(
                 state,
-                "Questa vecchia sessione non rispetta la dimensione prevista "
-                "per il percorso e non può essere ripresa.",
+                "Questa sessione resta nella cronologia, ma non può essere "
+                "ripresa nella versione attuale. Se conteneva livelli A2+ "
+                "o B1+, puoi iniziare un nuovo incontro senza quei livelli.",
             )
         updated = dict(state)
         updated["session"] = session
@@ -2423,6 +2584,9 @@ def _session_map(
 
 def _summary_components(session: dict[str, Any]):
     summary = SESSIONS.summary(session)
+    is_guided = session.get("progression_phase") in {
+        stage.phase for stage in GUIDED_STAGES
+    }
     counts = {
         "first": summary["correct_by_attempt"]["1"],
         "second": summary["correct_by_attempt"]["2"],
@@ -2433,7 +2597,9 @@ def _summary_components(session: dict[str, Any]):
     total = summary["descriptors_completed"]
     stats = _progress_html(
         (
-            f"Incontro completato · {session['scale']}"
+            f"Tappa completata · {session['scale']}"
+            if is_guided
+            else f"Incontro completato · {session['scale']}"
             if session.get("session_mode") == "progressive"
             else f"Blocco completato · {session['scale']}"
             if session.get("session_mode") == "block"
@@ -2444,13 +2610,27 @@ def _summary_components(session: dict[str, Any]):
         primary_count=counts["first"],
         primary_label="riconoscimento senza suggerimenti",
         subtitle=(
-            "L’obiettivo è arrivare a riconoscere tutti i descrittori senza "
-            "suggerimenti. Il riepilogo descrive questa sessione e non è una "
-            "valutazione professionale."
+            "Questi tentativi mostrano quali confronti ti hanno aiutato. "
+            "Non sono un voto né una valutazione professionale."
+            if is_guided
+            else "L’obiettivo è arrivare a riconoscere tutti i descrittori "
+            "senza suggerimenti. Il riepilogo descrive questa sessione e "
+            "non è una valutazione professionale."
         ),
     )
+    if is_guided:
+        stage = next(
+            stage
+            for stage in GUIDED_STAGES
+            if stage.phase == session["progression_phase"]
+        )
+        stats += (
+            '<p class="non-evaluation">Per riflettere: '
+            + html.escape(stage.reflection_prompt)
+            + "</p>"
+        )
     remaining_new = int(session.get("remaining_new_after_batch", 0))
-    if session.get("session_mode") in {"block", "progressive"}:
+    if session.get("session_mode") in {"block", "progressive"} and not is_guided:
         stats += (
             '<p class="non-evaluation">'
             + (
@@ -2503,6 +2683,7 @@ def _summary_components(session: dict[str, Any]):
             "Continua con i prossimi descrittori",
             visible=(
                 session.get("session_mode") in {"block", "progressive"}
+                and not is_guided
             ),
             interactive=True,
             variant="primary",
@@ -2642,9 +2823,7 @@ def repeat_selected_descriptors(
         return _start_descriptors(
             state,
             descriptors,
-            include_plus_levels=bool(
-                state.get("session", {}).get("include_plus_levels", True)
-            ),
+            include_plus_levels=False,
             session_size=None,
         )
     except (CatalogError, SessionError, EventStoreError) as exc:
@@ -2699,7 +2878,8 @@ def continue_with_next_block(state: dict[str, Any]):
             session["scale"],
         )
         next_session = SESSIONS.start_progressive_session(
-            state["participant_id"], state["display_name"], descriptors
+            state["participant_id"], state["display_name"], descriptors,
+            include_plus_levels=False,
         )
         return _start_session_view(state, next_session)
     except (CatalogError, SessionError, EventStoreError, KeyError) as exc:
@@ -2727,7 +2907,17 @@ def pause_session_and_choose_scale(state: dict[str, Any]):
         str(session.get("activity", "")),
         str(session.get("scale", "")),
     )
-    if all(path):
+    if path == GUIDED_STAGES[0].path:
+        # The introductory QCER scale deliberately has no free-exploration
+        # card. Return to the catalog, where its route can be resumed.
+        _, schema, modality, _, _ = _first_path_values()
+        navigation = _navigation_selection(schema, modality)
+        navigation = (
+            *navigation[:-1],
+            "Tappa introduttiva messa in pausa. I tentativi restano salvati: "
+            "usa «Percorso consigliato» per riprenderla.",
+        )
+    elif all(path):
         navigation = _navigation_selection(path[0], path[1])
         scales = _available_scales(path[0], path[1], path[2])
         navigation = (
@@ -2748,8 +2938,8 @@ def pause_session_and_choose_scale(state: dict[str, Any]):
         navigation = _navigation_selection(*_first_path_values()[1:3])
     return (
         updated,
-        gr.update(visible=False),
-        gr.update(visible=True),
+        gr.update(visible=path == GUIDED_STAGES[0].path),
+        gr.update(visible=path != GUIDED_STAGES[0].path),
         gr.update(visible=False),
         gr.update(visible=False),
         *navigation,
@@ -3165,7 +3355,7 @@ def build_demo() -> gr.Blocks:
             gr.HTML(
                 """
                 <section class="hero">
-                  <div class="hero-kicker">Familiarizzazione CEFR</div>
+                  <div class="hero-kicker">Familiarizzazione QCER</div>
                   <h1>FamiliarizzApp</h1>
                   <p>Esplora i descrittori, riconosci il livello e usa i
                   feedback progressivi per affinare la tua lettura. Nessun
@@ -3176,33 +3366,49 @@ def build_demo() -> gr.Blocks:
             gr.Markdown(_storage_banner(), elem_classes="storage-banner")
             greeting = gr.Markdown()
             gr.Markdown(
-                "## Descrittori disponibili\n"
-                "Scegli l’ambito che vuoi esplorare. Le voci attenuate "
-                "appartengono al quadro di riferimento, ma non sono ancora "
-                "presenti nel catalogo usato.",
-                elem_classes="taxonomy-intro",
+                "### Un inizio accompagnato\n"
+                "Il percorso principale del pilot ha 16 descrittori in "
+                "quattro tappe brevi, con uno per ciascuno dei "
+                "livelli A1, A2, B1 e B2. Si comincia dalla scala generale "
+                "QCER, poi si passa a comprensione, produzione e interazione. "
+                "Non devi completare tutto il catalogo."
             )
-            taxonomy = gr.HTML(
-                _taxonomy_data(),
-                html_template=TAXONOMY_TEMPLATE,
-                js_on_load=TAXONOMY_JS,
+            guided_intro_button = gr.Button(
+                "Apri il percorso consigliato · quattro tappe",
+                variant="primary",
             )
             with gr.Accordion(
-                "Selezione testuale accessibile dell’ambito", open=False
-            ):
-                schema_choice = gr.Dropdown(
-                    choices=schemas,
-                    value=schema,
-                    label="Schema descrittivo",
+                "Altre scale · esplorazione facoltativa", open=False
+            ) as optional_catalog:
+                gr.Markdown(
+                    "Scegli l’ambito e le scale che vuoi esplorare. "
+                    "Queste scale restano consultabili, ma non sono tappe da "
+                    "completare nel pilot. I loro feedback sono ancora "
+                    "essenziali e in parte generici. Le voci attenuate "
+                    "appartengono al QCER, ma non sono attualmente esercitabili.",
+                    elem_classes="taxonomy-intro",
                 )
-                modality_choice = gr.Dropdown(
-                    choices=CATALOG.choices("modality", schema=schema),
-                    value=modality,
-                    label="Modalità di comunicazione",
+                taxonomy = gr.HTML(
+                    _taxonomy_data(),
+                    html_template=TAXONOMY_TEMPLATE,
+                    js_on_load=TAXONOMY_JS,
                 )
-                category_continue_button = gr.Button(
-                    "Continua con questo ambito", variant="primary"
-                )
+                with gr.Accordion(
+                    "Selezione testuale accessibile dell’ambito", open=False
+                ):
+                    schema_choice = gr.Dropdown(
+                        choices=schemas,
+                        value=schema,
+                        label="Schema descrittivo",
+                    )
+                    modality_choice = gr.Dropdown(
+                        choices=CATALOG.choices("modality", schema=schema),
+                        value=modality,
+                        label="Modalità di comunicazione",
+                    )
+                    category_continue_button = gr.Button(
+                        "Continua con questo ambito", variant="primary"
+                    )
             with gr.Accordion("Riprendi una sessione", open=False):
                 resume_choice = gr.Dropdown(
                     choices=[],
@@ -3221,10 +3427,35 @@ def build_demo() -> gr.Blocks:
                 "Panoramica ricercatore ↗</a></nav>"
             )
 
+        with gr.Group(visible=False) as guided_intro_group:
+            gr.Markdown(
+                "## Percorso consigliato\n"
+                "La prima tappa usa quattro formulazioni A1–B2 della "
+                "scala generale QCER. Seguono, nell'ordine, "
+                "Comprensione orale generale, Produzione orale generale e "
+                "Interazione orale generale: sempre quattro descrittori per "
+                "tappa.\n\n"
+                "Leggi l'intero descrittore e cerca l'azione, l'ampiezza del "
+                "compito e le condizioni. Dopo una risposta puoi riprovare "
+                "e confrontare i testi: i tentativi servono a ragionare, "
+                "non producono un voto. I livelli A2+ e B1+ sono sospesi "
+                "per questa prima sperimentazione.\n\n"
+                "_Fonte della prima tappa: Consiglio d’Europa (2020), "
+                "Quadro comune europeo di riferimento per le lingue: "
+                "apprendimento, insegnamento, valutazione — Volume "
+                "complementare, p. 187._"
+            )
+            guided_status = gr.Markdown()
+            guided_start_button = gr.Button(
+                "Inizia · Scala generale QCER", variant="primary"
+            )
+            guided_back_button = gr.Button("Torna alla scelta del percorso")
+
         with gr.Group(visible=False) as scale_group:
             gr.Markdown(
-                "## Scegli la scala di descrittori\n"
-                "Ora seleziona la scala sulla quale vuoi esercitarti."
+                "## Esplorazione facoltativa · scegli una scala\n"
+                "Scegli una scala se vuoi approfondirla. Non fa parte delle "
+                "quattro tappe del pilot e non devi completare il catalogo."
             )
             path_selection_message = gr.Markdown()
             scale_selector = gr.HTML(
@@ -3262,7 +3493,7 @@ def build_demo() -> gr.Blocks:
                     "Inizia la scala selezionata", variant="primary"
                 )
                 back_to_taxonomy_button = gr.Button(
-                    "Torna ai descrittori disponibili"
+                    "Torna alla scelta del percorso"
                 )
                 scale_logout_button = gr.Button("Cambia nome")
 
@@ -3288,10 +3519,16 @@ def build_demo() -> gr.Blocks:
                       <h4>{{value.phase_label}}</h4>
                       <p class="non-evaluation">{{value.phase_note}}</p>
                     {{/if}}
+                    {{#if value.is_guided}}
+                    <p class="non-evaluation">
+                      Quattro descrittori · A1, A2, B1 e B2.
+                    </p>
+                    {{else}}
                     <p class="non-evaluation">
                       Questo incontro: {{value.total}} descrittori ·
                       {{value.remaining_new}} ancora nuovi nella scala.
                     </p>
+                    {{/if}}
                   {{/if}}
                   <div class="exercise-progress-track">
                   {{#each value.steps}}
@@ -3397,6 +3634,11 @@ def build_demo() -> gr.Blocks:
                 visible=False,
                 variant="primary",
             )
+            guided_next_button = gr.Button(
+                "Prossima tappa del percorso consigliato",
+                visible=False,
+                variant="primary",
+            )
             with gr.Row():
                 dashboard_button = gr.Button(
                     "Scegli un’altra scala", variant="primary"
@@ -3474,6 +3716,26 @@ def build_demo() -> gr.Blocks:
             inputs=ui_state,
             outputs=taxonomy_group,
         )
+        guided_intro_button.click(
+            guided_intro_view,
+            inputs=ui_state,
+            outputs=[guided_status, guided_start_button],
+        ).then(
+            lambda: (gr.update(visible=False), gr.update(visible=True)),
+            outputs=[taxonomy_group, guided_intro_group],
+        )
+        guided_back_button.click(
+            lambda: (gr.update(visible=False), gr.update(visible=True)),
+            outputs=[guided_intro_group, taxonomy_group],
+        )
+        guided_start_button.click(
+            start_guided_stage,
+            inputs=ui_state,
+            outputs=exercise_outputs,
+        ).then(
+            lambda: gr.update(visible=False),
+            outputs=guided_intro_group,
+        )
         taxonomy.click(
             navigation_click,
             outputs=navigation_outputs,
@@ -3496,26 +3758,20 @@ def build_demo() -> gr.Blocks:
             outputs=[taxonomy_group, scale_group],
         )
         scale_selector.click(
-            scale_selector_click,
+            start_session_from_scale_click,
+            inputs=ui_state,
             outputs=[
                 schema_choice,
                 modality_choice,
                 activity_choice,
                 scale_choice,
                 path_selection_message,
+                *exercise_outputs,
             ],
-        ).then(
-            start_session,
-            inputs=[
-                ui_state,
-                schema_choice,
-                modality_choice,
-                activity_choice,
-                scale_choice,
-            ],
-            outputs=exercise_outputs,
         )
-        schema_choice.change(
+        # Programmatic navigation updates these dropdowns together. Their
+        # handlers must not re-run and overwrite the clicked category.
+        schema_choice.input(
             update_schema,
             inputs=schema_choice,
             outputs=[
@@ -3525,12 +3781,12 @@ def build_demo() -> gr.Blocks:
                 scale_selector,
             ],
         )
-        modality_choice.change(
+        modality_choice.input(
             update_modality,
             inputs=[schema_choice, modality_choice],
             outputs=[activity_choice, scale_choice, scale_selector],
         )
-        activity_choice.change(
+        activity_choice.input(
             update_activity,
             inputs=[schema_choice, modality_choice, activity_choice],
             outputs=scale_choice,
@@ -3551,8 +3807,12 @@ def build_demo() -> gr.Blocks:
                 gr.update(visible=True),
                 gr.update(visible=False),
                 "",
+                gr.update(open=True),
             ),
-            outputs=[taxonomy_group, scale_group, path_selection_message],
+            outputs=[
+                taxonomy_group, scale_group, path_selection_message,
+                optional_catalog,
+            ],
         )
         resume_button.click(
             resume_session,
@@ -3603,6 +3863,10 @@ def build_demo() -> gr.Blocks:
                 next_block_button,
                 user_message,
             ],
+        ).then(
+            guided_next_button_view,
+            inputs=ui_state,
+            outputs=guided_next_button,
         )
         leave_exercise_button.click(
             open_exercise_exit_confirmation,
@@ -3682,9 +3946,17 @@ def build_demo() -> gr.Blocks:
                 summary_group,
                 user_message,
             ],
+        ).then(
+            lambda: gr.update(open=True),
+            outputs=optional_catalog,
         )
         next_block_button.click(
             continue_with_next_block,
+            inputs=ui_state,
+            outputs=exercise_outputs,
+        )
+        guided_next_button.click(
+            start_guided_stage,
             inputs=ui_state,
             outputs=exercise_outputs,
         )

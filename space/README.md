@@ -12,7 +12,7 @@ pinned: false
 
 # FamiliarizzApp
 
-App di familiarizzazione con descrittori e livelli CEFR per docenti di lingua
+App di familiarizzazione con descrittori e livelli QCER per docenti di lingua
 dei segni.
 
 Il codice viene pubblicato automaticamente da
@@ -22,8 +22,10 @@ successiva.
 
 Il catalogo incluso contiene 831 esercizi appartenenti a 52 scale. I feedback
 sono brevi e tengono conto del tentativo e degli esiti precedenti nella sessione.
-Per 21 descrittori è disponibile un indizio specifico ricondotto per testo e
-livello ai nuclei attivi della prevalidazione. Gli indizi sono nel file
+Il file di prevalidazione contiene 21 indizi specifici ricondotti per testo e
+livello ai nuclei attivi; dopo la sospensione dei livelli “+” e delle scale
+chiuse, 14 riguardano descrittori oggi esercitabili nella libera esplorazione.
+Gli indizi sono nel file
 versionato `data/feedback.prevalidated.json`: ciascuno riporta brevi passaggi
 letterali del descrittore ed è legato all'impronta del suo testo completo.
 L'app controlla ID, livello, impronta e passaggi prima di usare l'indizio: una
@@ -50,12 +52,15 @@ scelto. Percentuali, mappa e cronologia restano nella pagina personale separata
 immutabili, mostra riepiloghi cliccabili ed è ottimizzata per smartphone e tema
 scuro. La cronologia personale usa schede leggibili e consente di riprendere
 direttamente una sessione in corso. Le opzioni di risposta indicano quanti
-descrittori della scala appartengono a ciascun livello. Il percorso decide
-automaticamente la progressione: comincia dai livelli canonici presenti,
-introduce la varietà interna e solo dopo aggiunge A2+ e B1+ con i livelli
-vicini; in seguito ripropone anche gli elementi riconosciuti subito per ridurre
-l’effetto del guessing. Gli incontri contengono da 4 a 6 descrittori distinti,
-con la sola eccezione validata di `Annunci pubblici`, che conserva i suoi 3
+descrittori della scala appartengono a ciascun livello. Per il primo pilot il
+percorso principale comprende quattro tappe e 16 descrittori A1–B2, con guide
+comparative ancora da validare umanamente. Le altre scale sono in una sezione
+facoltativa, senza obbligo di completare il catalogo e con feedback spesso
+generici. Gli incontri liberi iniziano dai livelli canonici, ne mostrano la
+varietà interna e ripropongono gli elementi già visti; A2+ e B1+ sono sospesi
+dagli esercizi e dalle risposte, ma restano nel catalogo e nella cronologia.
+Gli incontri contengono da 4 a 6 descrittori distinti,
+con la sola eccezione concordata di `Annunci pubblici`, che conserva i suoi 3
 descrittori; le altre scale con meno di 4 descrittori non sono selezionabili.
 Percentuali e riepiloghi personali considerano soltanto gli esiti conclusi;
 gli esercizi lasciati a metà restano visibili separatamente come in corso.

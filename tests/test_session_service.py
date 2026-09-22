@@ -64,7 +64,7 @@ def test_correct_answer_closes_descriptor_and_records_once(tmp_path: Path):
         if event["event_type"] == "descriptor_completed"
     )
     assert completed["rationale"] == updated["feedbacks"][-1]
-    assert completed["feedback_version"] == "2"
+    assert completed["feedback_version"] == "3"
 
 
 def test_three_attempts_reveal_solution_and_retry_is_idempotent(tmp_path: Path):
@@ -381,6 +381,32 @@ def test_progressive_path_introduces_variation_before_plus_levels(
     }
     assert {"B1", "B1+", "B2"}.issubset(b1_plus_levels)
     assert 4 <= len(b1_plus["descriptor_ids"]) <= 6
+
+
+def test_progressive_path_can_suspend_plus_levels_for_the_pilot(
+    tmp_path: Path,
+):
+    _, _, service, descriptors = make_service(tmp_path)
+
+    for _ in range(8):
+        session = service.start_progressive_session(
+            "pilot", "Nome Privato", descriptors,
+            include_plus_levels=False,
+        )
+        assert session["include_plus_levels"] is False
+        assert 4 <= len(session["descriptor_ids"]) <= 6
+        assert not {"A2+", "B1+"}.intersection(
+            service.available_levels(session)
+        )
+        assert all(
+            service.catalog.get(item_id)["correct_level"]
+            not in {"A2+", "B1+"}
+            for item_id in session["descriptor_ids"]
+        )
+        assert session["progression_phase"] not in {
+            "introduce_a2_plus", "introduce_b1_plus"
+        }
+        finish_correctly(service, session)
 
 
 def test_every_progressive_flow_has_between_four_and_six_descriptors(

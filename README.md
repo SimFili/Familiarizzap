@@ -5,7 +5,7 @@ familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
-La versione 0.7.0 include:
+La versione preparata per il pilot include:
 
 - accesso al proprio percorso tramite il solo nome;
 - navigazione progressiva: identificazione, ambiti disponibili e infine scale;
@@ -19,13 +19,15 @@ La versione 0.7.0 include:
 - ripresa automatica e distanziata dei descrittori da consolidare;
 - conteggio dei descrittori presenti per ciascun livello nelle opzioni di
   risposta;
-- percorso progressivo automatico: prima i livelli canonici presenti, poi le
-  varianti dello stesso livello, infine A2+ e B1+ introdotti con i livelli
-  vicini;
+- percorso principale consigliato di quattro tappe e 16 descrittori A1–B2;
+  le altre scale restano esplorabili in una sezione facoltativa, non come
+  programma da completare;
+- incontri liberi progressivi sui soli livelli A1, A2, B1 e B2; A2+ e B1+
+  restano nel catalogo e nei dati storici, ma sono sospesi nel pilot;
 - uscita confermata da un esercizio con sessione conservata e riprendibile;
 - mappa progressiva dell’esercizio con livello scoperto ed esito per tentativo;
 - incontri brevi di dimensione adattiva, senza impostazioni tecniche richieste
-  al docente: da 4 a 6 descrittori distinti, con la sola eccezione validata di
+  al docente: da 4 a 6 descrittori distinti, con la sola eccezione concordata di
   `Annunci pubblici`, che conserva i suoi 3 descrittori; le altre scale con
   meno di 4 descrittori non vengono proposte;
 - riepiloghi personali calcolati soltanto sui descrittori già incontrati;
@@ -42,6 +44,10 @@ La versione 0.7.0 include:
 **App online:** https://huggingface.co/spaces/Sibucs/Familiarizzap
 
 ## Stato del rilascio
+
+Le guide comparative del percorso consigliato sono bozze in attesa di
+validazione pedagogica umana. La pubblicazione del codice non equivale
+all'avvio della raccolta dati del pilot.
 
 La versione pubblica include 831 descrittori ricavati dal database validato del
 gruppo di ricerca, organizzati in 52 scale. I feedback sono provvisori.

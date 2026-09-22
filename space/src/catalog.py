@@ -88,7 +88,7 @@ class Catalog:
             item["correct_level"] = str(item["correct_level"]).strip().upper()
             if item["correct_level"] not in level_order:
                 raise CatalogError(
-                    f"Livello CEFR non valido per {descriptor_id}: "
+                    f"Livello QCER non valido per {descriptor_id}: "
                     f"{item['correct_level']}"
                 )
             item["status"] = str(item["status"]).strip().casefold()

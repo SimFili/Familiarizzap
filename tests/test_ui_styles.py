@@ -158,7 +158,7 @@ def test_exercise_exit_handlers_are_registered_on_the_home_route() -> None:
 def test_summary_scale_button_shows_the_scale_panel_directly() -> None:
     source = inspect.getsource(app.build_demo)
     binding_start = source.index("dashboard_button.click")
-    binding_end = source.index("next_block_button.click", binding_start)
+    binding_end = source.index("summary_taxonomy_button.click", binding_start)
     binding = source[binding_start:binding_end]
 
     assert "scale_group" in binding
@@ -171,7 +171,7 @@ def test_every_main_stage_exposes_a_clear_way_back_or_forward() -> None:
     for label in (
         "Continua con questo nome",
         "Continua con questo ambito",
-        "Torna ai descrittori disponibili",
+        "Torna alla scelta del percorso",
         "Torna alla scelta della scala",
         "Scegli un’altra scala",
         "Cambia ambito",
@@ -268,8 +268,22 @@ def test_annunci_pubblici_is_the_only_selectable_short_scale() -> None:
     )
     assert app._participant_scale_is_available(short_paths[0]) is True
     assert app._participant_scale_is_available(
-        (*short_paths[0][:-1], "Una scala diversa"), 3
+        (*short_paths[0][:-1], "Una scala diversa")
     ) is False
+
+
+def test_pilot_requires_four_non_plus_descriptors_except_annunci_pubblici():
+    planning = next(
+        path for path in app._all_catalog_paths()
+        if path[3] == "Pianificazione"
+        and path[0] == "Strategie linguistico-comunicative"
+    )
+    assert len(app.CATALOG.for_scale(*planning)) == 4
+    assert sum(
+        item["correct_level"] not in {"A2+", "B1+"}
+        for item in app.CATALOG.for_scale(*planning)
+    ) == 3
+    assert app._participant_scale_is_available(planning) is False
 
 
 def test_reviewed_mixed_scales_are_available_without_reopening_others() -> None:
@@ -458,6 +472,23 @@ def test_journey_describes_only_the_map_of_encountered_descriptors() -> None:
     assert "Il mio percorso completo" not in source
 
 
+def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
+    demo = app.build_demo()
+    accordions = [
+        component["props"] for component in demo.config["components"]
+        if component["type"] == "accordion"
+    ]
+    optional = next(
+        props for props in accordions
+        if "esplorazione facoltativa" in props.get("label", "")
+    )
+    assert optional["open"] is False
+    source = inspect.getsource(app.build_demo)
+    assert "Il percorso principale del pilot ha 16 descrittori" in source
+    assert "Non devi completare tutto il catalogo" in source
+    assert "I loro feedback sono ancora" in source
+
+
 def test_researcher_link_is_secondary_in_the_journey_header() -> None:
     source = inspect.getsource(app.build_demo)
     route_start = source.index('with demo.route(\n        "Il mio percorso"')
@@ -523,6 +554,19 @@ def test_personal_sessions_are_cards_with_direct_resume_links() -> None:
                 "modality": "Ricezione",
                 "activity": "Comprensione orale",
                 "scale": "Comprensione orale generale",
+                "descriptor_ids": [
+                    next(
+                        item["descriptor_id"]
+                        for item in app.CATALOG.for_scale(
+                            "Attività linguistico-comunicative",
+                            "Ricezione",
+                            "Comprensione orale",
+                            "Comprensione orale generale",
+                        )
+                        if item["correct_level"] == "B1"
+                    )
+                ],
+                "available_levels": ["A1", "A2", "B1", "B2"],
                 "status": "in_progress",
                 "status_label": "In corso",
                 "descriptors_completed": 1,
@@ -663,3 +707,15 @@ def test_remote_storage_banner_does_not_claim_success_when_unhealthy(
     assert "Archivio non disponibile" in banner
     assert "Non usare l’app per raccogliere dati" in banner
     assert "token non valido" not in banner
+
+
+def test_demo_storage_banner_uses_short_copy_without_catalog_detail(monkeypatch) -> None:
+    class _DemoSettings:
+        storage_mode = "demo"
+
+    monkeypatch.setattr(app, "SETTINGS", _DemoSettings())
+
+    assert app._storage_banner() == (
+        "**Modalità dimostrativa:** i dati sono temporanei e possono sparire "
+        "al riavvio. Non usare questa modalità per la ricerca."
+    )

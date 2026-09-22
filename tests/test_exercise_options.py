@@ -33,6 +33,26 @@ def test_exercise_options_show_descriptor_count_but_submit_level_value(
     ]
 
 
+def test_exercise_displays_only_the_latest_feedback():
+    descriptors = app.CATALOG.for_scale(
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+    session = app.SESSIONS.start_session(
+        f"feedback-display-{uuid.uuid4()}", "Anna", descriptors
+    )
+    session["feedbacks"] = ["Prima indicazione.", "Nuovo confronto."]
+    session["attempts"] = ["A2", "B2"]
+
+    rendered = app._exercise_view(session)[5]
+
+    assert "Nuovo confronto." in rendered
+    assert "Prima indicazione." not in rendered
+    assert "Per riprovare" in rendered
+
+
 def test_progress_map_reveals_levels_only_after_descriptor_completion():
     descriptors = app.CATALOG.for_scale(
         "Attività linguistico-comunicative",
@@ -120,7 +140,8 @@ def test_pausing_exercise_returns_to_selected_scale_without_losing_session():
         "Comprensione orale generale",
     )
     session = app.SESSIONS.start_session(
-        "pause-participant", "Anna", descriptors
+        "pause-participant", "Anna", descriptors,
+        include_plus_levels=False,
     )
     state = {
         **app._empty_ui_state(),
@@ -220,6 +241,76 @@ def test_app_starts_with_a_gentle_canonical_orientation():
     assert session["progression_phase"] == "orientation"
     assert app.SESSIONS.available_levels(session) == ["A1", "A2", "B1", "B2"]
     assert result[5]["total"] == 4
+
+
+def test_pilot_progression_never_presents_plus_levels():
+    participant_id = f"pilot-no-plus-{uuid.uuid4()}"
+    path = (
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+    state = {
+        **app._empty_ui_state(),
+        "participant_id": participant_id,
+        "display_name": "Anna",
+    }
+    state = app.start_session(state, *path)[0]
+    for encounter in range(6):
+        session = state["session"]
+        assert session["include_plus_levels"] is False
+        assert 4 <= len(session["descriptor_ids"]) <= 6
+        assert not {"A2+", "B1+"}.intersection(session["available_levels"])
+        assert all(
+            app.CATALOG.get(item_id)["correct_level"]
+            not in {"A2+", "B1+"}
+            for item_id in session["descriptor_ids"]
+        )
+        assert not session["progression_phase"].startswith("introduce_")
+        while not session["session_finished"]:
+            correct = app.SESSIONS.current_descriptor(session)["correct_level"]
+            session = app.SESSIONS.submit_answer(session, correct)
+            session = app.SESSIONS.advance(session)
+        state = {**state, "session": session}
+        if encounter < 5:
+            state = app.continue_with_next_block(state)[0]
+
+
+def test_pilot_does_not_resume_a_legacy_plus_session():
+    participant_id = f"legacy-plus-{uuid.uuid4()}"
+    path = (
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )
+    descriptors = app.CATALOG.for_scale(*path)
+    plus_id = next(
+        item["descriptor_id"] for item in descriptors
+        if item["correct_level"] == "A2+"
+    )
+    legacy = app.SESSIONS.start_session(
+        participant_id,
+        "Anna",
+        descriptors,
+        selected_descriptor_ids=[plus_id],
+    )
+    state = {
+        **app._empty_ui_state(),
+        "participant_id": participant_id,
+        "display_name": "Anna",
+    }
+
+    assert not app._session_is_resumable(
+        next(iter(app.SESSIONS.incomplete_sessions(participant_id)))
+    )
+    rejected = app.resume_session(state, legacy["session_id"])
+    assert rejected[0].get("session") is None
+
+    restarted = app.start_session(state, *path)
+    assert restarted[0]["session"]["session_id"] != legacy["session_id"]
+    assert restarted[0]["session"]["include_plus_levels"] is False
 
 
 def test_annunci_pubblici_starts_as_a_three_descriptor_exception():

@@ -102,8 +102,8 @@ class SessionService:
             ]
         if not descriptors:
             raise SessionError(
-                "La scala selezionata non contiene descrittori con i livelli "
-                "scelti. Riattiva A2+ e B1+."
+                "Questa scala non contiene descrittori attivi per questa "
+                "fase della sperimentazione."
             )
         all_events = self.event_store.list_events(participant_id)
         exposure_counts: dict[str, int] = defaultdict(int)
@@ -266,15 +266,25 @@ class SessionService:
         participant_id: str,
         display_name: str,
         descriptors: list[dict[str, Any]],
+        *,
+        include_plus_levels: bool = True,
     ) -> dict[str, Any]:
+        if not include_plus_levels:
+            descriptors = [
+                item for item in descriptors
+                if item["correct_level"] not in {"A2+", "B1+"}
+            ]
         if not descriptors:
-            raise SessionError("La scala selezionata non contiene descrittori.")
+            raise SessionError(
+                "Questa scala non contiene descrittori attivi per questa "
+                "fase della sperimentazione."
+            )
         plan = self._progressive_plan(participant_id, descriptors)
         return self.start_session(
             participant_id,
             display_name,
             descriptors,
-            include_plus_levels=True,
+            include_plus_levels=include_plus_levels,
             selected_descriptor_ids=plan["descriptor_ids"],
             progression_phase=plan["phase"],
             progression_label=plan["label"],
@@ -1024,6 +1034,9 @@ class SessionService:
                         "modality": start.get("modality", ""),
                         "activity": start.get("activity", ""),
                         "scale": start.get("scale", ""),
+                        "progression_phase": start.get("progression_phase", ""),
+                        "descriptor_ids": list(start.get("descriptor_order", [])),
+                        "available_levels": list(start.get("answer_levels", [])),
                         "descriptor_count": len(
                             start.get("descriptor_order", [])
                         ),

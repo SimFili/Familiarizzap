@@ -18,6 +18,27 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-09-22 — Percorso guidato del pilot
+
+Il percorso principale del docente è ora presentato come quattro tappe
+consigliate di quattro descrittori ciascuna (A1, A2, B1, B2): Scala generale
+QCER, Comprensione orale generale, Produzione orale generale e Interazione
+orale generale. Le altre scale restano nel catalogo e sono raggiungibili in
+una sezione facoltativa, senza un obiettivo di completamento. A2+ e B1+ sono
+sospesi da tutti gli esercizi e dalle opzioni di risposta del pilot; catalogo
+e cronologia pregressa non sono stati cancellati. Le vecchie sessioni
+incomplete contenenti quei livelli restano visibili ma non riprendibili.
+`Pianificazione` non raggiunge il minimo di quattro descrittori canonici e
+non è avviabile; `Annunci pubblici` conserva l'eccezione concordata a tre.
+
+Il collegamento fra ogni pulsante e il proprio percorso completo è stato
+reso diretto. Gli aggiornamenti automatici delle tendine non attivano più i
+gestori riservati alla selezione manuale: questo evita che `Strategie →
+Ricezione` mostri scale di `Interazione`. Sei motivazioni-segnaposto del
+catalogo sono escluse dal feedback mostrato. Le guide comparative delle
+quattro tappe restano bozze in attesa di validazione pedagogica umana.
+Nessun secret è stato modificato.
+
 ## 2026-09-20 — Selezione delle scale pertinenti alle lingue segnate
 
 È stata completata una revisione delle scale che mescolano riferimenti alla

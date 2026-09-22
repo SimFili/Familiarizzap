@@ -169,7 +169,7 @@ def test_pilot_catalog_rejects_levels_above_b2():
         "active": True,
     }
 
-    with pytest.raises(CatalogError, match="Livello CEFR non valido"):
+    with pytest.raises(CatalogError, match="Livello QCER non valido"):
         Catalog([row])
 
 

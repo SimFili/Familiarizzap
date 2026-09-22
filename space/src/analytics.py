@@ -320,6 +320,9 @@ def session_records(
                 "modality": start.get("modality", ""),
                 "activity": start.get("activity", ""),
                 "scale": start.get("scale", ""),
+                "progression_phase": start.get("progression_phase", ""),
+                "descriptor_ids": list(start.get("descriptor_order", [])),
+                "available_levels": list(start.get("answer_levels", [])),
                 "started_at": start.get("occurred_at", ""),
                 "completed_at": (
                     completed_event.get("occurred_at", "")

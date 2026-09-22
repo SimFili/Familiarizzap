@@ -141,3 +141,68 @@ def test_taxonomy_available_buttons_have_a_real_participant_route() -> None:
         for item in column["items"]:
             route = (item["schema"], item["modality"])
             assert item["available"] is (route in available_categories)
+
+
+def test_strategy_reception_button_never_opens_interaction_scales() -> None:
+    schema = "Strategie linguistico-comunicative"
+    result = app.navigation_click(
+        SimpleNamespace(schema=schema, modality="Ricezione")
+    )
+    selector, schema_box, modality_box, _, _, message = result
+
+    assert schema_box.value == schema
+    assert modality_box.value == "Ricezione"
+    assert "Ricezione" in message
+    assert all(
+        card["modality"] == "Ricezione"
+        for branch in selector
+        for card in branch["scales"]
+    )
+    interaction_scales = {
+        path[3] for path in app._all_catalog_paths()
+        if path[:2] == (schema, "Interazione")
+    }
+    assert not interaction_scales.intersection(
+        card["scale"]
+        for branch in selector
+        for card in branch["scales"]
+    )
+
+
+def test_each_scale_card_starts_its_own_exact_path(monkeypatch) -> None:
+    started_paths = []
+
+    def capture_start(state, schema, modality, activity, scale):
+        started_paths.append((schema, modality, activity, scale))
+        return ("started",)
+
+    monkeypatch.setattr(app, "start_session", capture_start)
+    for path in app._catalog_paths():
+        event = SimpleNamespace(
+            schema=path[0], modality=path[1],
+            activity=path[2], scale=path[3],
+        )
+        result = app.start_session_from_scale_click({}, event)
+        assert result[-1] == "started"
+        assert started_paths[-1] == path
+        assert (result[0].value, result[1].value,
+                result[2].value, result[3].value) == path
+
+
+def test_dropdown_updates_only_follow_user_input() -> None:
+    dependencies = app.build_demo().config["dependencies"]
+    events = {
+        dependency["api_name"]: dependency["targets"][0][1]
+        for dependency in dependencies
+        if dependency.get("api_name") in {
+            "update_schema", "update_modality", "update_activity",
+            "navigation_click", "start_session_from_scale_click",
+        }
+    }
+    assert events == {
+        "update_schema": "input",
+        "update_modality": "input",
+        "update_activity": "input",
+        "navigation_click": "click",
+        "start_session_from_scale_click": "click",
+    }
