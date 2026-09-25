@@ -18,6 +18,24 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-09-25 — Archivio durevole attivo e verificato
+
+`HF_DATA_TOKEN` e' stato impostato: lo Space scrive nel Dataset privato
+`Sibucs/Familiarizzap-events`. Verificato con una sessione di prova reale:
+1 partecipante in `participants/` e 22 eventi in `events/2026/09/25/`.
+La fascia informativa compare solo dopo l'identificazione, perche' e' dentro
+il gruppo nascosto della home: sulla prima schermata non e' visibile.
+
+**Nota di riservatezza da riportare nell'informativa.** Gli eventi sono
+anonimi: contengono solo `participant_id_hash`. Il record in `participants/`
+contiene pero' `display_name` **in chiaro**, accanto all'hash. L'archivio e'
+privato, ma il nome del docente e' quindi conservato come dato personale, non
+soltanto in forma pseudonimizzata. Va dichiarato nell'informativa e nel piano
+di conservazione, oppure va deciso se il nome visibile serve davvero.
+
+I dati della sessione di prova vanno eliminati prima dell'avvio della raccolta
+reale, come prescrive `docs/CONFIGURAZIONE_STORAGE_HF.md`.
+
 ## 2026-09-25 — Archivio eventi: Dataset creato, manca il token
 
 Creato il Dataset privato `Sibucs/Familiarizzap-events` (verificato: privato).
