@@ -18,6 +18,25 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-09-25 — Archivio eventi: Dataset creato, manca il token
+
+Creato il Dataset privato `Sibucs/Familiarizzap-events` (verificato: privato).
+E' vuoto: sara' l'app a creare `participants/` ed `events/`.
+
+Impostata nello Space la variabile `EVENTS_REPO_ID` con quel percorso.
+Restano attivi i secret `RESEARCHER_ACCESS_KEY` e `PARTICIPANT_HASH_SALT`,
+invariati dal 2026-07-30.
+
+**Manca `HF_DATA_TOKEN`**, che solo Simone puo' creare: i token Hugging Face
+si generano unicamente dall'interfaccia web, non esiste API o comando. Finche'
+non c'e', `has_remote_storage` resta falso e l'app continua in modalita'
+dimostrativa con fascia arancione, senza errori.
+
+Quando il token sara' impostato andra' eseguita la verifica descritta in
+[docs/CONFIGURAZIONE_STORAGE_HF.md](docs/CONFIGURAZIONE_STORAGE_HF.md):
+fascia verde, prova con nome fittizio, riavvio dello Space, ricomparsa della
+sessione e comparsa dei file nel Dataset. I dati fittizi vanno poi eliminati.
+
 ## 2026-09-22 — Percorso guidato del pilot
 
 Il percorso principale del docente è ora presentato come quattro tappe
