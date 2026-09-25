@@ -18,6 +18,28 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-09-25 — Bozza di questionario per il pilot
+
+Aggiunta la bozza del questionario di valutazione rivolto ai docenti dopo la
+prova dell'app: testo completo in
+[docs/QUESTIONARIO_PILOT.md](docs/QUESTIONARIO_PILOT.md), generatore per Google
+Moduli in [tools/crea-questionario-tam.gs](tools/crea-questionario-tam.gs).
+
+Impianto: Technology Acceptance Model (Davis, 1989) in forma breve, quattro item
+per costrutto come in TAM2 e UTAUT. 21 domande, 7-8 minuti. Struttura e scala
+1-5 ricalcano il questionario dell'altra valutazione esplorativa del gruppo, per
+rendere i due studi confrontabili.
+
+Gli item di utilita' sono al condizionale, come nell'originale di Davis: dopo una
+prova singola il docente puo' stimare un effetto, non constatarlo. Restano
+all'indicativo gli item che riferiscono cio' che e' accaduto durante la prova.
+
+**Non ancora somministrato e non approvato.** Serve la verifica di informativa,
+consenso e conservazione. Due punti da decidere insieme: se mantenere l'item 18,
+che chiede ai docenti se descrittori nati per le lingue vocali siano applicabili
+alla lingua dei segni (lo stesso nodo per cui le scale segnate sono sospese), e
+se la lunghezza va bene.
+
 ## 2026-09-25 — Archivio durevole attivo e verificato
 
 `HF_DATA_TOKEN` e' stato impostato: lo Space scrive nel Dataset privato
