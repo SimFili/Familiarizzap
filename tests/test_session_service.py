@@ -208,6 +208,30 @@ def test_access_event_is_append_only_and_does_not_contain_name(tmp_path: Path):
     assert "Nome Privato" not in json.dumps(events, ensure_ascii=False)
 
 
+def test_participant_entry_records_consent_and_access_in_one_batch(
+    tmp_path: Path,
+):
+    catalog, _, _, _ = make_service(tmp_path)
+
+    class Store:
+        def __init__(self):
+            self.batches = []
+
+        def append_events(self, events):
+            self.batches.append(events)
+
+    store = Store()
+    service = SessionService(catalog, store, "test", "test")
+
+    service.record_participant_entry("participant", "pilot-1", "name_only")
+
+    assert len(store.batches) == 1
+    assert [event["event_type"] for event in store.batches[0]] == [
+        "consent_recorded",
+        "participant_accessed",
+    ]
+
+
 def test_level_counts_are_stored_for_the_selected_scale(tmp_path: Path):
     _, store, service, descriptors = make_service(tmp_path)
 

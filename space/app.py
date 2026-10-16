@@ -3,12 +3,17 @@ from __future__ import annotations
 import hmac
 import html
 import json
+import os
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
+
+# Usage telemetry is not needed for the pilot and must not add a network task to
+# every cold start of the Space.
+os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import gradio as gr
 
@@ -967,17 +972,23 @@ def _storage_banner() -> str:
         else f"catalogo `{CATALOG_RESULT.source_label}`"
     )
     if SETTINGS.storage_mode == "huggingface":
-        healthy, _ = STORE.health_check()
-        if not healthy:
+        cached_health = STORE.cached_health_status
+        if cached_health is not None and not cached_health[0]:
             return (
                 f"🔴 **Archivio non disponibile:** {catalog_note}; lo Space "
                 "non riesce a confermare l’accesso al Dataset privato. Non "
                 "usare l’app per raccogliere dati finché il proprietario non "
                 "ha corretto la configurazione."
             )
+        if cached_health is None:
+            return (
+                f"🔵 **Modalità pilot:** {catalog_note}; il Dataset privato è "
+                "configurato e la connessione verrà verificata al primo "
+                "salvataggio."
+            )
         return (
-            f"🟢 **Modalità pilot:** {catalog_note}; percorso ed eventi vengono "
-            "salvati in modo durevole nel Dataset privato configurato."
+            f"🟢 **Modalità pilot:** {catalog_note}; percorso ed eventi sono "
+            "salvati nel Dataset privato configurato."
         )
     if SETTINGS.storage_mode == "local":
         return (
@@ -1791,8 +1802,11 @@ def _register_identity(
         shown_name,
         name_lookup_hash=identifier,
     )
-    SESSIONS.record_consent(identifier, SETTINGS.consent_version)
-    SESSIONS.record_participant_access(identifier, "name_only")
+    SESSIONS.record_participant_entry(
+        identifier,
+        SETTINGS.consent_version,
+        "name_only",
+    )
     updated = {
         **_empty_ui_state(),
         "participant_id": identifier,

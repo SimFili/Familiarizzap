@@ -403,7 +403,32 @@ def test_common_catalog_hint_is_not_mislabelled_as_specific_feedback():
         completed_records=[],
     )
     assert basis == "reflection"
+    assert message.startswith("Che cosa è in grado di fare?")
+    assert "deve fare la persona" not in message
     assert "ampiezza del compito" not in message
+
+
+def test_active_feedback_describes_capabilities_instead_of_obligations():
+    guides = json.loads(GUIDE_DATA_PATH.read_text(encoding="utf-8"))["items"]
+    editorial_texts = []
+    for guide in guides:
+        editorial_texts.extend((guide["focus"], guide["reason"]))
+        editorial_texts.extend(guide.get("first_hints", {}).values())
+        editorial_texts.extend(
+            contrast["text"] for contrast in guide["contrasts"].values()
+        )
+    for descriptor in full_catalog():
+        editorial_texts.extend(
+            text for key in ("rationale", "hint_1", "hint_2")
+            if (text := descriptor.get(key, ""))
+            and "feedback provvisorio" not in text.casefold()
+        )
+    for text in editorial_texts:
+        assert not re.search(
+            r"\b(?:deve|richiede|richiedono|richiesto|richiesta|si chiede|si chiedono)\b",
+            text,
+            re.IGNORECASE,
+        ), text
 
 
 def test_full_catalog_feedback_is_short_and_wrong_hints_hide_target():

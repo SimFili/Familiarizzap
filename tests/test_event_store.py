@@ -70,6 +70,7 @@ class _FakeHfApi:
         self.private = private
         self.error = error
         self.calls = 0
+        self.commits = []
 
     def repo_info(self, *, repo_id: str, repo_type: str):
         assert repo_id == "Sibucs/Familiarizzap-events"
@@ -78,6 +79,34 @@ class _FakeHfApi:
         if self.error:
             raise self.error
         return _FakeRepoInfo(self.private)
+
+    def create_commit(self, **kwargs):
+        self.commits.append(kwargs)
+
+
+class _CachedStore(HuggingFaceEventStore):
+    def __init__(self, files):
+        super().__init__(
+            "Sibucs/Familiarizzap-events", "secret", api=_FakeHfApi()
+        )
+        self.files = {path: dict(value) for path, value in files.items()}
+        self.list_calls = 0
+        self.download_calls = 0
+        self.upload_calls = 0
+
+    def _list_files(self, prefix):
+        self.list_calls += 1
+        return sorted(path for path in self.files if path.startswith(prefix))
+
+    def _download_json(self, path):
+        self.download_calls += 1
+        value = self.files.get(path)
+        return dict(value) if value is not None else None
+
+    def _upload_participant(self, path, record, commit_message):
+        del commit_message
+        self.upload_calls += 1
+        self.files[path] = dict(record)
 
 
 def test_huggingface_store_accepts_only_a_reachable_private_dataset():
@@ -115,3 +144,78 @@ def test_huggingface_store_reports_an_unreachable_dataset():
 
     assert healthy is False
     assert "non raggiungibile" in message
+
+
+def test_huggingface_event_reads_are_cached_after_first_archive_load():
+    event = {
+        "event_id": "e1",
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": "s1",
+        "participant_id_hash": "p1",
+    }
+    store = _CachedStore(
+        {"events/2026/07/30/s1/e1.json": event}
+    )
+
+    assert store.list_events("p1") == [event]
+    assert store.list_events("p1") == [event]
+    assert store.list_calls == 1
+    assert store.download_calls == 1
+
+
+def test_huggingface_unchanged_participant_is_not_uploaded_again():
+    participant = {
+        "participant_id": "p1",
+        "display_name": "Anna",
+        "created_at": "2026-07-30T10:00:00+00:00",
+        "updated_at": "2026-07-30T10:00:00+00:00",
+        "status": "active",
+        "merged_into": None,
+        "name_lookup_hash": "lookup",
+    }
+    store = _CachedStore({"participants/p1.json": participant})
+
+    first = store.register_participant("p1", "Anna", "lookup")
+    second = store.register_participant("p1", "Anna", "lookup")
+
+    assert first == participant
+    assert second == participant
+    assert store.download_calls == 1
+    assert store.upload_calls == 0
+
+
+def test_huggingface_event_append_lists_remote_paths_only_once():
+    store = _CachedStore({})
+    event = {
+        "event_id": "e1",
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": "s1",
+        "participant_id_hash": "p1",
+    }
+
+    store.append_events([event])
+    store.append_events([event])
+
+    assert store.list_calls == 1
+    assert len(store.api.commits) == 1
+    assert store.list_events("p1") == [event]
+    assert store.download_calls == 0
+
+
+def test_new_participant_does_not_download_other_participants_events():
+    other_event = {
+        "event_id": "other",
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": "s-other",
+        "participant_id_hash": "other",
+    }
+    store = _CachedStore(
+        {"events/2026/07/30/s-other/other.json": other_event}
+    )
+
+    store.register_participant("new", "Nuova", "new")
+
+    assert store.list_events("new") == []
+    # One lookup confirms that the participant is new; the unrelated event is
+    # never downloaded.
+    assert store.download_calls == 1

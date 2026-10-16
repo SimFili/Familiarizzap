@@ -211,7 +211,7 @@ def _editorial_text(descriptor: dict[str, Any], attempt: int, finished: bool) ->
 
 
 PHASE_PROMPTS = {
-    "orientation": "Che cosa deve fare la persona? Guarda anche le condizioni del compito.",
+    "orientation": "Che cosa è in grado di fare? Guarda anche le condizioni del compito.",
     "canonical_variation": "Che cosa cambia rispetto agli esempi precedenti: azione, autonomia o condizioni?",
     "introduce_a2_plus": "Quale dettaglio distingue questo compito dai livelli vicini?",
     "introduce_b1_plus": "Quale dettaglio distingue questo compito dai livelli vicini?",

@@ -78,6 +78,39 @@ class SessionService:
             ]
         )
 
+    def record_participant_entry(
+        self,
+        participant_id: str,
+        consent_version: str,
+        access_method: str,
+    ) -> None:
+        """Persist consent and access together to avoid two remote commits."""
+        consent_session_id = f"consent-{participant_id}"
+        access_id = str(uuid.uuid4())
+        self.event_store.append_events(
+            [
+                self._base_event(
+                    event_id=str(
+                        uuid.uuid5(
+                            EVENT_NAMESPACE,
+                            f"{consent_session_id}:{consent_version}",
+                        )
+                    ),
+                    event_type="consent_recorded",
+                    session_id=consent_session_id,
+                    participant_id=participant_id,
+                    consent_version=consent_version,
+                ),
+                self._base_event(
+                    event_id=access_id,
+                    event_type="participant_accessed",
+                    session_id=f"access-{access_id}",
+                    participant_id=participant_id,
+                    access_method=access_method,
+                ),
+            ]
+        )
+
     def start_session(
         self,
         participant_id: str,

@@ -24,10 +24,8 @@ def test_name_only_access_is_registered_and_remembered(
     tmp_path: Path, monkeypatch
 ):
     class Sessions:
-        def record_consent(self, participant, version):
-            return None
-
-        def record_participant_access(self, participant, method):
+        def record_participant_entry(self, participant, version, method):
+            assert version
             assert method == "name_only"
 
     store = LocalEventStore(tmp_path)
@@ -51,10 +49,7 @@ def test_same_normalized_name_recovers_the_same_profile(
     tmp_path: Path, monkeypatch
 ):
     class Sessions:
-        def record_consent(self, participant, version):
-            return None
-
-        def record_participant_access(self, participant, method):
+        def record_participant_entry(self, participant, version, method):
             return None
 
     store = LocalEventStore(tmp_path)
@@ -77,10 +72,7 @@ def test_practice_access_does_not_build_the_personal_map(
     tmp_path: Path, monkeypatch
 ):
     class Sessions:
-        def record_consent(self, participant, version):
-            return None
-
-        def record_participant_access(self, participant, method):
+        def record_participant_entry(self, participant, version, method):
             return None
 
         def incomplete_sessions(self, participant):

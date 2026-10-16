@@ -723,9 +723,7 @@ def test_remote_storage_banner_does_not_claim_success_when_unhealthy(
         storage_mode = "huggingface"
 
     class _UnhealthyStore:
-        @staticmethod
-        def health_check():
-            return False, "token non valido"
+        cached_health_status = (False, "token non valido")
 
     monkeypatch.setattr(app, "SETTINGS", _RemoteSettings())
     monkeypatch.setattr(app, "STORE", _UnhealthyStore())
@@ -735,6 +733,28 @@ def test_remote_storage_banner_does_not_claim_success_when_unhealthy(
     assert "Archivio non disponibile" in banner
     assert "Non usare l’app per raccogliere dati" in banner
     assert "token non valido" not in banner
+
+
+def test_remote_storage_banner_does_not_probe_network_during_startup(
+    monkeypatch,
+) -> None:
+    class _RemoteSettings:
+        storage_mode = "huggingface"
+
+    class _UncheckedStore:
+        cached_health_status = None
+
+        @staticmethod
+        def health_check():
+            raise AssertionError("startup must not perform remote I/O")
+
+    monkeypatch.setattr(app, "SETTINGS", _RemoteSettings())
+    monkeypatch.setattr(app, "STORE", _UncheckedStore())
+
+    banner = app._storage_banner()
+
+    assert "verificata al primo salvataggio" in banner
+    assert "🟢" not in banner
 
 
 def test_demo_storage_banner_uses_short_copy_without_catalog_detail(monkeypatch) -> None:
