@@ -272,7 +272,7 @@ def test_annunci_pubblici_is_the_only_selectable_short_scale() -> None:
     ) is False
 
 
-def test_pilot_requires_four_non_plus_descriptors_except_annunci_pubblici():
+def test_pilot_allows_planning_with_three_non_plus_descriptors():
     planning = next(
         path for path in app._all_catalog_paths()
         if path[3] == "Pianificazione"
@@ -283,7 +283,7 @@ def test_pilot_requires_four_non_plus_descriptors_except_annunci_pubblici():
         item["correct_level"] not in {"A2+", "B1+"}
         for item in app.CATALOG.for_scale(*planning)
     ) == 3
-    assert app._participant_scale_is_available(planning) is False
+    assert app._participant_scale_is_available(planning) is True
 
 
 def test_reviewed_mixed_scales_are_available_without_reopening_others() -> None:

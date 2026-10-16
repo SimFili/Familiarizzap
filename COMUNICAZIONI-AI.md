@@ -87,8 +87,8 @@ una sezione facoltativa, senza un obiettivo di completamento. A2+ e B1+ sono
 sospesi da tutti gli esercizi e dalle opzioni di risposta del pilot; catalogo
 e cronologia pregressa non sono stati cancellati. Le vecchie sessioni
 incomplete contenenti quei livelli restano visibili ma non riprendibili.
-`Pianificazione` non raggiunge il minimo di quattro descrittori canonici e
-non è avviabile; `Annunci pubblici` conserva l'eccezione concordata a tre.
+`Pianificazione` e `Annunci pubblici` restano avviabili come eccezioni con
+tre descrittori canonici.
 
 Il collegamento fra ogni pulsante e il proprio percorso completo è stato
 reso diretto. Gli aggiornamenti automatici delle tendine non attivano più i

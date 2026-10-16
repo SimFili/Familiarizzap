@@ -79,6 +79,12 @@ SHORT_SCALE_EXCEPTIONS = {
         "Produzione orale",
         "Annunci pubblici",
     ): 3,
+    (
+        "Strategie linguistico-comunicative",
+        "Produzione",
+        "Scale disponibili",
+        "Pianificazione",
+    ): 3,
 }
 SUSPENDED_SCALE_PATHS = {
     (

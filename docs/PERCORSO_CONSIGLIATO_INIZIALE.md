@@ -42,9 +42,8 @@ non solo nella sequenza introduttiva: non appaiono come testi target né come
 opzioni di risposta. Restano nel catalogo e nella cronologia pregressa del
 ricercatore, senza cancellare dati. Le vecchie sessioni incomplete che li
 includono non sono riprendibili; il docente può avviare un nuovo incontro
-senza quei livelli. «Pianificazione» ha soltanto tre descrittori canonici e
-non è avviabile in questo pilot; resta l'eccezione a tre già concordata per
-«Annunci pubblici».
+senza quei livelli. «Pianificazione» e «Annunci pubblici» restano avviabili
+come eccezioni con i loro tre descrittori canonici.
 
 La pubblicazione tecnica non equivale all'avvio del pilot: le guide comparative
 richiedono ancora validazione pedagogica umana e la configurazione dei dati
