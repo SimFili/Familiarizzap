@@ -201,6 +201,11 @@ def test_app_can_pause_resume_and_finish_all_guided_stages(tmp_path: Path, monke
     monkeypatch.setattr(app, "SESSIONS", service)
     participant_id = "guided-integration"
     state = {"participant_id": participant_id, "display_name": "Test", "session": None}
+    locked = app.optional_exploration_access_view(state)
+    assert locked[0].interactive is False
+    assert "dopo il percorso consigliato" in locked[0].value
+    assert locked[1]["visible"] is False
+    assert locked[2]["visible"] is False
 
     first_result = app.start_guided_stage(state)
     first_session = first_result[0]["session"]
@@ -222,6 +227,10 @@ def test_app_can_pause_resume_and_finish_all_guided_stages(tmp_path: Path, monke
         assert session["progression_phase"] == stage.phase
         assert set(session["descriptor_ids"]) == set(stage.descriptor_ids)
         assert tuple(session["available_levels"]) == CANONICAL_LEVELS
+        if index == 1:
+            paused_later_stage = app.pause_session_and_choose_scale(started[0])
+            assert paused_later_stage[1]["visible"] is True
+            assert paused_later_stage[2]["visible"] is False
         for _ in range(4):
             correct = service.current_descriptor(session)["correct_level"]
             session = service.submit_answer(session, correct)
@@ -245,6 +254,9 @@ def test_app_can_pause_resume_and_finish_all_guided_stages(tmp_path: Path, monke
     entry_gate = app.questionnaire_entry_gate(state)
     assert entry_gate[0]["visible"] is False  # Catalog remains blocked on reload.
     assert entry_gate[2]["visible"] is True
+    still_locked = app.optional_exploration_access_view(state)
+    assert still_locked[0].interactive is False
+    assert "dopo il questionario finale" in still_locked[0].value
     submission = app.submit_questionnaire(
         state,
         True,
@@ -258,6 +270,13 @@ def test_app_can_pause_resume_and_finish_all_guided_stages(tmp_path: Path, monke
     assert submission[0]["visible"] is False
     assert submission[1]["visible"] is True
     assert submission[3]["visible"] is True
+    unlocked = app.optional_exploration_access_view(state)
+    assert unlocked[0].interactive is True
+    assert unlocked[0].value == "Esplora tutte le altre scale"
+    assert unlocked[2]["visible"] is True
+    summary_buttons = app.summary_exploration_buttons_view(state)
+    assert summary_buttons[0].interactive is True
+    assert summary_buttons[1].value == "Cambia ambito"
     completed_status, _, back_button = app.guided_intro_view(state)
     assert "inviato il questionario" in completed_status.casefold()
     assert back_button.visible is True

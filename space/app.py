@@ -2471,6 +2471,60 @@ def guided_intro_view(state: dict[str, Any]):
     )
 
 
+def _optional_exploration_status(
+    state: dict[str, Any],
+) -> tuple[bool, str]:
+    participant_id = str(state.get("participant_id", ""))
+    if not participant_id:
+        return False, "Disponibile dopo il percorso consigliato"
+    try:
+        events = STORE.list_events(participant_id)
+        progress = guided_progress(events)
+    except EventStoreError:
+        return False, "Esplorazione temporaneamente non disponibile"
+    if progress["next_index"] is not None:
+        return False, "Disponibile dopo il percorso consigliato"
+    if not questionnaire_is_submitted(events):
+        return False, "Disponibile dopo il questionario finale"
+    return True, "Esplora tutte le altre scale"
+
+
+def optional_exploration_access_view(state: dict[str, Any]):
+    """Keep the alternative catalogue visible but locked until the pilot ends."""
+    unlocked, label = _optional_exploration_status(state)
+    return (
+        gr.Button(
+            label,
+            visible=True,
+            interactive=unlocked,
+            variant="secondary",
+        ),
+        gr.update(visible=False),
+        gr.update(visible=unlocked),
+    )
+
+
+def summary_exploration_buttons_view(state: dict[str, Any]):
+    unlocked, _ = _optional_exploration_status(state)
+    return (
+        gr.Button(
+            "Scegli un’altra scala"
+            if unlocked
+            else "Altre scale disponibili dopo il percorso",
+            visible=True,
+            interactive=unlocked,
+            variant="primary" if unlocked else "secondary",
+        ),
+        gr.Button(
+            "Cambia ambito"
+            if unlocked
+            else "Torna al percorso consigliato",
+            visible=True,
+            interactive=True,
+        ),
+    )
+
+
 def questionnaire_panel_view(state: dict[str, Any]):
     """Show the mandatory form only after the recommended route is complete."""
     participant_id = str(state.get("participant_id", ""))
@@ -3158,14 +3212,17 @@ def pause_session_and_choose_scale(state: dict[str, Any]):
         str(session.get("activity", "")),
         str(session.get("scale", "")),
     )
-    if path == GUIDED_STAGES[0].path:
-        # The introductory QCER scale deliberately has no free-exploration
-        # card. Return to the catalog, where its route can be resumed.
+    is_guided_session = session.get("progression_phase") in {
+        stage.phase for stage in GUIDED_STAGES
+    }
+    if is_guided_session:
+        # Every recommended stage resumes through its own route.  Returning to
+        # the free scale page here would bypass the pilot sequence.
         _, schema, modality, _, _ = _first_path_values()
         navigation = _navigation_selection(schema, modality)
         navigation = (
             *navigation[:-1],
-            "Tappa introduttiva messa in pausa. I tentativi restano salvati: "
+            "Tappa consigliata messa in pausa. I tentativi restano salvati: "
             "usa «Percorso consigliato» per riprenderla.",
         )
     elif all(path):
@@ -3189,8 +3246,8 @@ def pause_session_and_choose_scale(state: dict[str, Any]):
         navigation = _navigation_selection(*_first_path_values()[1:3])
     return (
         updated,
-        gr.update(visible=path == GUIDED_STAGES[0].path),
-        gr.update(visible=path != GUIDED_STAGES[0].path),
+        gr.update(visible=is_guided_session),
+        gr.update(visible=not is_guided_session),
         gr.update(visible=False),
         gr.update(visible=False),
         *navigation,
@@ -3629,8 +3686,9 @@ def build_demo() -> gr.Blocks:
                 variant="primary",
             )
             explore_other_scales_button = gr.Button(
-                "Esplora tutte le altre scale",
+                "Disponibile dopo il percorso consigliato",
                 variant="secondary",
+                interactive=False,
                 elem_classes="alternate-path-button",
             )
             with gr.Group(visible=False) as optional_catalog:
@@ -3664,13 +3722,14 @@ def build_demo() -> gr.Blocks:
                         "Continua con questo ambito", variant="primary"
                     )
                 close_other_scales_button = gr.Button("Chiudi le altre scale")
-            with gr.Accordion("Riprendi una sessione", open=False):
-                resume_choice = gr.Dropdown(
-                    choices=[],
-                    label="Sessione da riprendere",
-                    interactive=False,
-                )
-                resume_button = gr.Button("Riprendi")
+            with gr.Group(visible=False) as resume_sessions_group:
+                with gr.Accordion("Riprendi una sessione", open=False):
+                    resume_choice = gr.Dropdown(
+                        choices=[],
+                        label="Sessione da riprendere",
+                        interactive=False,
+                    )
+                    resume_button = gr.Button("Riprendi")
             taxonomy_logout_button = gr.Button("Cambia nome")
             gr.HTML(
                 '<nav class="page-links" aria-label="Altre pagine">'
@@ -4057,6 +4116,14 @@ def build_demo() -> gr.Blocks:
                 questionnaire_success_group,
                 questionnaire_message,
             ],
+        ).then(
+            optional_exploration_access_view,
+            inputs=ui_state,
+            outputs=[
+                explore_other_scales_button,
+                optional_catalog,
+                resume_sessions_group,
+            ],
         )
 
         identify_button.click(
@@ -4089,6 +4156,14 @@ def build_demo() -> gr.Blocks:
                 questionnaire_form_group,
                 questionnaire_success_group,
                 questionnaire_message,
+            ],
+        ).then(
+            optional_exploration_access_view,
+            inputs=ui_state,
+            outputs=[
+                explore_other_scales_button,
+                optional_catalog,
+                resume_sessions_group,
             ],
         )
         guided_intro_button.click(
@@ -4269,6 +4344,10 @@ def build_demo() -> gr.Blocks:
                 summary_navigation_group,
                 questionnaire_message,
             ],
+        ).then(
+            summary_exploration_buttons_view,
+            inputs=ui_state,
+            outputs=[dashboard_button, summary_taxonomy_button],
         )
         leave_exercise_button.click(
             open_exercise_exit_confirmation,
@@ -4349,8 +4428,13 @@ def build_demo() -> gr.Blocks:
                 user_message,
             ],
         ).then(
-            lambda: gr.update(visible=True),
-            outputs=optional_catalog,
+            optional_exploration_access_view,
+            inputs=ui_state,
+            outputs=[
+                explore_other_scales_button,
+                optional_catalog,
+                resume_sessions_group,
+            ],
         )
         next_block_button.click(
             continue_with_next_block,
@@ -4384,6 +4468,10 @@ def build_demo() -> gr.Blocks:
                 questionnaire_message,
                 summary_navigation_group,
             ],
+        ).then(
+            summary_exploration_buttons_view,
+            inputs=ui_state,
+            outputs=[dashboard_button, summary_taxonomy_button],
         )
         questionnaire_finish_button.click(
             finish_questionnaire,
@@ -4395,6 +4483,14 @@ def build_demo() -> gr.Blocks:
                 summary_group,
                 taxonomy_group,
                 user_message,
+            ],
+        ).then(
+            optional_exploration_access_view,
+            inputs=ui_state,
+            outputs=[
+                explore_other_scales_button,
+                optional_catalog,
+                resume_sessions_group,
             ],
         )
 

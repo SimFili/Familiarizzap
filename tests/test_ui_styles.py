@@ -494,10 +494,11 @@ def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
         component for component in components
         if component["type"] == "button"
         and component["props"].get("value")
-        == "Esplora tutte le altre scale"
+        == "Disponibile dopo il percorso consigliato"
     )
     assert guided["props"]["variant"] == "primary"
     assert alternate["props"]["variant"] == "secondary"
+    assert alternate["props"]["interactive"] is False
     assert "alternate-path-button" in alternate["props"]["elem_classes"]
     click = next(
         dependency for dependency in demo.config["dependencies"]
@@ -515,6 +516,9 @@ def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
     source = inspect.getsource(app.build_demo)
     assert "Non devi completare tutto il catalogo" in source
     assert "I loro feedback sono ancora" in source
+    assert "Disponibile dopo il questionario finale" in inspect.getsource(
+        app._optional_exploration_status
+    )
 
 
 def test_researcher_link_is_secondary_in_the_journey_header() -> None:
