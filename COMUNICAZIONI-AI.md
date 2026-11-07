@@ -34,11 +34,10 @@ Gli item di utilita' sono al condizionale, come nell'originale di Davis: dopo un
 prova singola il docente puo' stimare un effetto, non constatarlo. Restano
 all'indicativo gli item che riferiscono cio' che e' accaduto durante la prova.
 
-**Non ancora somministrato e non approvato.** Serve la verifica di informativa,
-consenso e conservazione. Due punti da decidere insieme: se mantenere l'item 18,
-che chiede ai docenti se descrittori nati per le lingue vocali siano applicabili
-alla lingua dei segni (lo stesso nodo per cui le scale segnate sono sospese), e
-se la lunghezza va bene.
+**Nota storica sulla prima bozza.** Informativa, consenso e conservazione
+andavano ancora verificati. L'item 18 allora in discussione è stato poi
+eliminato: non compare nel questionario finale del pilot, che contiene 16
+domande.
 
 ## 2026-09-25 — Archivio durevole attivo e verificato
 
