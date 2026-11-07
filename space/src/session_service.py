@@ -111,6 +111,39 @@ class SessionService:
             ]
         )
 
+    def record_questionnaire(
+        self,
+        participant_id: str,
+        questionnaire_version: str,
+        responses: dict[str, Any],
+    ) -> bool:
+        """Persist one idempotent questionnaire submission per version.
+
+        The deterministic event id protects against double clicks and network
+        retries.  Returning ``False`` means that the same participant/version
+        had already been recorded.
+        """
+        session_id = f"questionnaire-{participant_id}-{questionnaire_version}"
+        event_id = self._event_id(session_id, "submitted")
+        if any(
+            event.get("event_id") == event_id
+            for event in self.event_store.list_events(participant_id)
+        ):
+            return False
+        self.event_store.append_events(
+            [
+                self._base_event(
+                    event_id=event_id,
+                    event_type="questionnaire_submitted",
+                    session_id=session_id,
+                    participant_id=participant_id,
+                    questionnaire_version=questionnaire_version,
+                    responses=copy.deepcopy(responses),
+                )
+            ]
+        )
+        return True
+
     def start_session(
         self,
         participant_id: str,
@@ -1300,7 +1333,11 @@ def _group_by_session(
 ) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for event in events:
-        if event.get("event_type") == "consent_recorded":
+        if event.get("event_type") in {
+            "consent_recorded",
+            "participant_accessed",
+            "questionnaire_submitted",
+        }:
             continue
         grouped[str(event.get("session_id", ""))].append(event)
     for session_events in grouped.values():

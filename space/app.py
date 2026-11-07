@@ -45,6 +45,16 @@ from src.guided_track import (
     guided_progress,
     stage_descriptors,
 )
+from src.questionnaire import (
+    QUESTIONNAIRE_VERSION,
+    RATING_ITEMS,
+    RATING_KEYS,
+    TEACHING_CONTEXT_CHOICES,
+    TEACHING_EXPERIENCE_CHOICES,
+    QuestionnaireValidationError,
+    questionnaire_is_submitted,
+    validate_questionnaire,
+)
 from src.research_export import build_research_export
 from src.session_service import SessionError, SessionService
 from src.settings import Settings
@@ -2408,19 +2418,35 @@ def guided_intro_view(state: dict[str, Any]):
         return (
             "Identificati prima di iniziare il percorso consigliato.",
             gr.Button(visible=False),
+            gr.Button(visible=True),
         )
     try:
-        progress = guided_progress(STORE.list_events(participant_id))
+        events = STORE.list_events(participant_id)
+        progress = guided_progress(events)
     except EventStoreError as exc:
-        return f"⚠️ Percorso non disponibile: {exc}", gr.Button(visible=False)
+        return (
+            f"⚠️ Percorso non disponibile: {exc}",
+            gr.Button(visible=False),
+            gr.Button(visible=True),
+        )
     next_index = progress["next_index"]
     completed = len(progress["completed_indices"])
     if next_index is None:
+        submitted = questionnaire_is_submitted(events)
         return (
-            "Hai completato le quattro tappe previste per questo pilot. "
-            "Le altre scale sono facoltative: non devi completare il catalogo. "
-            "La tua cronologia resta disponibile.",
+            (
+                "Hai completato le quattro tappe previste per questo pilot "
+                "e inviato il questionario finale. Le altre scale sono "
+                "facoltative: non devi completare il catalogo. La tua "
+                "cronologia resta disponibile."
+                if submitted
+                else "Hai completato le quattro tappe previste per questo "
+                "pilot. Per concludere il percorso, compila ora il "
+                "questionario obbligatorio che trovi qui sotto. Le due "
+                "domande aperte restano facoltative."
+            ),
             gr.Button(visible=False),
+            gr.Button(visible=submitted),
         )
     stage = GUIDED_STAGES[next_index]
     resume = bool(progress["resume_session_id"])
@@ -2438,7 +2464,195 @@ def guided_intro_view(state: dict[str, Any]):
         if resume
         else f"Inizia · {stage.title}"
     )
-    return status, gr.Button(label, visible=True, interactive=True, variant="primary")
+    return (
+        status,
+        gr.Button(label, visible=True, interactive=True, variant="primary"),
+        gr.Button(visible=True),
+    )
+
+
+def questionnaire_panel_view(state: dict[str, Any]):
+    """Show the mandatory form only after the recommended route is complete."""
+    participant_id = str(state.get("participant_id", ""))
+    if not participant_id:
+        return (
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "",
+        )
+    try:
+        events = STORE.list_events(participant_id)
+        complete = guided_progress(events)["next_index"] is None
+        submitted = questionnaire_is_submitted(events)
+    except EventStoreError as exc:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "⚠️ Non riesco a verificare il questionario salvato. "
+            f"Puoi riprovare l’invio. Dettaglio: {exc}",
+        )
+    if complete and not submitted:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "Compila tutti i campi obbligatori. Le due domande aperte sono "
+            "facoltative.",
+        )
+    return (
+        gr.update(visible=False),
+        gr.update(visible=True),
+        gr.update(visible=False),
+        "",
+    )
+
+
+def questionnaire_entry_gate(state: dict[str, Any]):
+    """Resume a pending mandatory questionnaire after login or a reload."""
+    participant_id = str(state.get("participant_id", ""))
+    if not participant_id:
+        return (
+            gr.update(),
+            gr.update(),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "",
+        )
+    try:
+        events = STORE.list_events(participant_id)
+        pending = (
+            guided_progress(events)["next_index"] is None
+            and not questionnaire_is_submitted(events)
+        )
+    except EventStoreError as exc:
+        return (
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "⚠️ Non riesco a verificare se il questionario è già stato "
+            f"inviato. Puoi riprovare l’invio. Dettaglio: {exc}",
+        )
+    if pending:
+        return (
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "Hai completato il percorso consigliato. Per concluderlo, invia "
+            "il questionario obbligatorio.",
+        )
+    return (
+        gr.update(),
+        gr.update(),
+        gr.update(visible=False),
+        gr.update(visible=True),
+        gr.update(visible=False),
+        "",
+    )
+
+
+def questionnaire_summary_gate(state: dict[str, Any]):
+    """Hide summary exits while the final questionnaire is pending."""
+    session = state.get("session") or {}
+    is_final_guided_stage = (
+        session.get("progression_phase") == GUIDED_STAGES[-1].phase
+        and session.get("session_finished")
+    )
+    if not is_final_guided_stage:
+        return (
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            "",
+        )
+    panel, form, success, message = questionnaire_panel_view(state)
+    pending = bool(getattr(panel, "get", lambda *_: False)("visible", False))
+    return panel, form, success, gr.update(visible=not pending), message
+
+
+def submit_questionnaire(
+    state: dict[str, Any],
+    consent: bool,
+    teaching_experience: str | None,
+    teaching_contexts: list[str] | None,
+    teaching_context_other: str | None,
+    *answers: Any,
+):
+    """Validate and save the final pilot questionnaire."""
+    participant_id = str(state.get("participant_id", ""))
+    if not participant_id:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "⚠️ Identificazione non disponibile. Ricarica la pagina e riprova.",
+            gr.update(visible=False),
+        )
+    rating_values = answers[: len(RATING_KEYS)]
+    open_values = answers[len(RATING_KEYS):]
+    payload = {
+        "data_collection_consent": bool(consent),
+        "q2_teaching_experience": teaching_experience,
+        "q3_teaching_contexts": teaching_contexts or [],
+        "q3_teaching_context_other": teaching_context_other or "",
+        **dict(zip(RATING_KEYS, rating_values)),
+        "q15_problems": open_values[0] if len(open_values) > 0 else "",
+        "q16_positive_aspects": open_values[1] if len(open_values) > 1 else "",
+    }
+    try:
+        events = STORE.list_events(participant_id)
+        if guided_progress(events)["next_index"] is not None:
+            raise QuestionnaireValidationError(
+                "Il questionario finale si attiva dopo le quattro tappe del "
+                "percorso consigliato."
+            )
+        responses = validate_questionnaire(payload)
+        SESSIONS.record_questionnaire(
+            participant_id,
+            QUESTIONNAIRE_VERSION,
+            responses,
+        )
+    except QuestionnaireValidationError as exc:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            f"⚠️ {exc}",
+            gr.update(visible=False),
+        )
+    except (EventStoreError, SessionError) as exc:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "⚠️ Il questionario non è stato salvato. Le risposte restano "
+            f"nella pagina: riprova. Dettaglio: {exc}",
+            gr.update(visible=False),
+        )
+    return (
+        gr.update(visible=False),
+        gr.update(visible=True),
+        "✅ Questionario inviato e salvato. Il percorso consigliato è completo.",
+        gr.update(visible=True),
+    )
+
+
+def finish_questionnaire(state: dict[str, Any]):
+    updated = dict(state)
+    updated["session"] = None
+    return (
+        updated,
+        gr.update(visible=False),
+        gr.update(visible=False),
+        gr.update(visible=False),
+        gr.update(visible=True),
+        "Questionario completato. Ora puoi consultare la cronologia o esplorare "
+        "facoltativamente le altre scale.",
+    )
 
 
 def start_guided_stage(state: dict[str, Any]):
@@ -3680,12 +3894,110 @@ def build_demo() -> gr.Blocks:
                 visible=False,
                 variant="primary",
             )
-            with gr.Row():
-                dashboard_button = gr.Button(
-                    "Scegli un’altra scala", variant="primary"
+            with gr.Group(visible=True) as summary_navigation_group:
+                with gr.Row():
+                    dashboard_button = gr.Button(
+                        "Scegli un’altra scala", variant="primary"
+                    )
+                    summary_taxonomy_button = gr.Button("Cambia ambito")
+                    summary_logout_button = gr.Button("Cambia nome")
+
+        rating_definitions = {
+            key: (text, scale_help) for key, text, scale_help in RATING_ITEMS
+        }
+
+        def questionnaire_rating(key: str, number: int):
+            text, scale_help = rating_definitions[key]
+            return gr.Radio(
+                choices=[1, 2, 3, 4, 5],
+                label=f"{number}. {text}",
+                info=scale_help,
+            )
+
+        with gr.Group(visible=False) as questionnaire_group:
+            gr.Markdown(
+                "## Questionario finale obbligatorio\n"
+                "Hai completato le quattro tappe del percorso consigliato. "
+                "Per concludere il pilot, compila questo questionario una "
+                "sola volta. Le domande 15 e 16 sono facoltative."
+            )
+            questionnaire_message = gr.Markdown()
+            with gr.Group(visible=True) as questionnaire_form_group:
+                questionnaire_consent = gr.Checkbox(
+                    label=(
+                        "Acconsento alla raccolta e al trattamento delle "
+                        "risposte fornite in questo questionario, in forma "
+                        "pseudonimizzata e aggregata, per finalità di ricerca "
+                        "e pubblicazione scientifica."
+                    )
                 )
-                summary_taxonomy_button = gr.Button("Cambia ambito")
-                summary_logout_button = gr.Button("Cambia nome")
+                gr.Markdown("### Il tuo profilo")
+                questionnaire_ratings: dict[str, Any] = {}
+                questionnaire_ratings["q1_qcer_familiarity"] = (
+                    questionnaire_rating("q1_qcer_familiarity", 1)
+                )
+                questionnaire_experience = gr.Radio(
+                    choices=list(TEACHING_EXPERIENCE_CHOICES),
+                    label="2. Da quanti anni insegni LIS?",
+                )
+                questionnaire_contexts = gr.CheckboxGroup(
+                    choices=list(TEACHING_CONTEXT_CHOICES),
+                    label=(
+                        "3. In quale contesto insegni? Seleziona tutte le "
+                        "opzioni pertinenti."
+                    ),
+                )
+                questionnaire_context_other = gr.Textbox(
+                    label="3. Altro contesto (specifica)",
+                    max_length=500,
+                )
+
+                gr.Markdown("### Utilità dello strumento")
+                for number, key in enumerate(RATING_KEYS[1:4], start=4):
+                    questionnaire_ratings[key] = questionnaire_rating(key, number)
+
+                gr.Markdown("### Facilità d’uso")
+                for number, key in enumerate(RATING_KEYS[4:8], start=7):
+                    questionnaire_ratings[key] = questionnaire_rating(key, number)
+
+                gr.Markdown("### Intenzione d’uso")
+                for number, key in enumerate(RATING_KEYS[8:10], start=11):
+                    questionnaire_ratings[key] = questionnaire_rating(key, number)
+
+                gr.Markdown("### Feedback e familiarizzazione")
+                for number, key in enumerate(RATING_KEYS[10:12], start=13):
+                    questionnaire_ratings[key] = questionnaire_rating(key, number)
+
+                gr.Markdown("### Le tue parole")
+                questionnaire_problems = gr.Textbox(
+                    label=(
+                        "15. Quali problemi hai trovato usando FamiliarizzApp? "
+                        "Segnalaceli, proveremo a risolverli."
+                    ),
+                    lines=5,
+                    max_length=4000,
+                )
+                questionnaire_positive = gr.Textbox(
+                    label=(
+                        "16. Ci sono lati positivi dell’applicazione che vuoi "
+                        "sottolineare?"
+                    ),
+                    lines=5,
+                    max_length=4000,
+                )
+                questionnaire_submit_button = gr.Button(
+                    "Invia il questionario e concludi il percorso",
+                    variant="primary",
+                )
+            with gr.Group(visible=False) as questionnaire_success_group:
+                gr.Markdown(
+                    "### Grazie della collaborazione\n"
+                    "Le risposte sono state salvate. Ora puoi continuare a "
+                    "esplorare l’app oppure consultare il tuo percorso."
+                )
+                questionnaire_finish_button = gr.Button(
+                    "Continua in FamiliarizzApp", variant="primary"
+                )
 
         user_message = gr.Markdown()
 
@@ -3734,6 +4046,17 @@ def build_demo() -> gr.Blocks:
             taxonomy_after_requested_resume,
             inputs=ui_state,
             outputs=taxonomy_group,
+        ).then(
+            questionnaire_entry_gate,
+            inputs=ui_state,
+            outputs=[
+                taxonomy_group,
+                guided_intro_group,
+                questionnaire_group,
+                questionnaire_form_group,
+                questionnaire_success_group,
+                questionnaire_message,
+            ],
         )
 
         identify_button.click(
@@ -3756,14 +4079,34 @@ def build_demo() -> gr.Blocks:
             taxonomy_after_requested_resume,
             inputs=ui_state,
             outputs=taxonomy_group,
+        ).then(
+            questionnaire_entry_gate,
+            inputs=ui_state,
+            outputs=[
+                taxonomy_group,
+                guided_intro_group,
+                questionnaire_group,
+                questionnaire_form_group,
+                questionnaire_success_group,
+                questionnaire_message,
+            ],
         )
         guided_intro_button.click(
             guided_intro_view,
             inputs=ui_state,
-            outputs=[guided_status, guided_start_button],
+            outputs=[guided_status, guided_start_button, guided_back_button],
         ).then(
             lambda: (gr.update(visible=False), gr.update(visible=True)),
             outputs=[taxonomy_group, guided_intro_group],
+        ).then(
+            questionnaire_panel_view,
+            inputs=ui_state,
+            outputs=[
+                questionnaire_group,
+                questionnaire_form_group,
+                questionnaire_success_group,
+                questionnaire_message,
+            ],
         )
         guided_back_button.click(
             lambda: (gr.update(visible=False), gr.update(visible=True)),
@@ -3916,6 +4259,16 @@ def build_demo() -> gr.Blocks:
             guided_next_button_view,
             inputs=ui_state,
             outputs=guided_next_button,
+        ).then(
+            questionnaire_summary_gate,
+            inputs=ui_state,
+            outputs=[
+                questionnaire_group,
+                questionnaire_form_group,
+                questionnaire_success_group,
+                summary_navigation_group,
+                questionnaire_message,
+            ],
         )
         leave_exercise_button.click(
             open_exercise_exit_confirmation,
@@ -4008,6 +4361,41 @@ def build_demo() -> gr.Blocks:
             start_guided_stage,
             inputs=ui_state,
             outputs=exercise_outputs,
+        )
+
+        questionnaire_submit_button.click(
+            submit_questionnaire,
+            inputs=[
+                ui_state,
+                questionnaire_consent,
+                questionnaire_experience,
+                questionnaire_contexts,
+                questionnaire_context_other,
+                *[
+                    questionnaire_ratings[key]
+                    for key in RATING_KEYS
+                ],
+                questionnaire_problems,
+                questionnaire_positive,
+            ],
+            outputs=[
+                questionnaire_form_group,
+                questionnaire_success_group,
+                questionnaire_message,
+                summary_navigation_group,
+            ],
+        )
+        questionnaire_finish_button.click(
+            finish_questionnaire,
+            inputs=ui_state,
+            outputs=[
+                ui_state,
+                questionnaire_group,
+                guided_intro_group,
+                summary_group,
+                taxonomy_group,
+                user_message,
+            ],
         )
 
         def bind_logout(button):

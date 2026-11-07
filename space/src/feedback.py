@@ -1,4 +1,4 @@
-"""Short feedback grounded in prevalidated descriptor text.
+"""Short feedback grounded in validated or prevalidated descriptor text.
 
 Only descriptor-level matches from the active prevalidation nuclei are included.
 The other descriptors get a reflective prompt, never an invented CEFR rule.
@@ -17,7 +17,7 @@ from typing import Any
 from .guided_track import GUIDED_DESCRIPTOR_IDS, GUIDED_STAGES
 
 
-FEEDBACK_VERSION = "3"
+FEEDBACK_VERSION = "5"
 MAX_FEEDBACK_LENGTH = 180
 FEEDBACK_DATA_PATH = Path(__file__).resolve().parents[1] / "data/feedback.prevalidated.json"
 GUIDE_DATA_PATH = Path(__file__).resolve().parents[1] / "data/feedback.descriptor_guides.json"
@@ -75,13 +75,16 @@ LEVEL_ORDER = ("A1", "A2", "A2+", "B1", "B1+", "B2")
 
 
 def _load_descriptor_guides(path: Path) -> dict[str, dict[str, Any]]:
-    """Load draft editorial contrasts, bound to the exact catalog text."""
+    """Load editorial contrasts, bound to the exact catalog text."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if (
             not isinstance(data, dict)
             or data.get("schema_version") != 1
-            or data.get("review_status") != "draft_pending_human_review"
+            or data.get("review_status") != "mixed_validated_pending_and_draft"
+            or data.get("pilot_validation_status")
+            != "guided_track_partial_validation"
+            or data.get("pilot_validation_date") != "2026-10-25"
             or not isinstance(data.get("items"), list)
         ):
             raise ValueError("metadata non valida")
@@ -113,7 +116,9 @@ def _load_descriptor_guides(path: Path) -> dict[str, dict[str, Any]]:
                     "first_hints" in item
                     and (
                         not isinstance(item["first_hints"], dict)
-                        or set(item["first_hints"]) != set(item["contrasts"])
+                        or not set(item["first_hints"]).issubset(
+                            set(item["contrasts"])
+                        )
                         or any(
                             not isinstance(hint, str)
                             or not 20 <= len(hint) <= 155
@@ -140,7 +145,35 @@ def _load_descriptor_guides(path: Path) -> dict[str, dict[str, Any]]:
                 )
             ):
                 raise ValueError(f"guida non valida: {descriptor_id}")
+            validation_status = item.get(
+                "validation_status", "draft_pending_human_review"
+            )
+            if validation_status not in {
+                "draft_pending_human_review",
+                "validated_for_guided_pilot",
+                "pending_targeted_review",
+            }:
+                raise ValueError(f"stato di validazione non valido: {descriptor_id}")
+            if validation_status in {
+                "validated_for_guided_pilot",
+                "pending_targeted_review",
+            }:
+                required_levels = {"A1", "A2", "B1", "B2"} - {item["level"]}
+                if (
+                    descriptor_id not in GUIDED_DESCRIPTOR_IDS
+                    or set(item.get("first_hints", {})) != required_levels
+                    or not required_levels.issubset(item["contrasts"])
+                ):
+                    raise ValueError(f"guida del percorso incompleta: {descriptor_id}")
             guides[descriptor_id] = item
+        classified_ids = {
+            descriptor_id
+            for descriptor_id, guide in guides.items()
+            if guide.get("validation_status")
+            in {"validated_for_guided_pilot", "pending_targeted_review"}
+        }
+        if classified_ids != set(GUIDED_DESCRIPTOR_IDS):
+            raise ValueError("insieme delle guide del percorso non valido")
         return guides
     except (OSError, ValueError, TypeError, KeyError) as exc:
         LOGGER.warning("Guide editoriali non caricate: %s", exc)
@@ -148,8 +181,17 @@ def _load_descriptor_guides(path: Path) -> dict[str, dict[str, Any]]:
 
 
 DESCRIPTOR_GUIDES = _load_descriptor_guides(GUIDE_DATA_PATH)
-# Draft editorial content must not silently become pilot feedback.
+# Draft editorial content outside the guided route must not silently become
+# pilot feedback. Pending items remain explicitly distinguishable in events.
 DRAFT_GUIDES_ENABLED = os.getenv("FAMILIARIZZAPP_DRAFT_FEEDBACK", "") == "1"
+
+
+def _guide_basis(guide: dict[str, Any]) -> str:
+    return (
+        "guide_validated"
+        if guide.get("validation_status") == "validated_for_guided_pilot"
+        else "guide_draft"
+    )
 
 
 def _matched_guide(descriptor: dict[str, Any]) -> dict[str, Any] | None:
@@ -264,7 +306,7 @@ def compose_feedback(
                     if selected_level in previous_attempts
                     else contrast[0].lower() + contrast[1:]
                 )
-            return _short_sentence(message, MAX_FEEDBACK_LENGTH), "guide_draft"
+            return _short_sentence(message, MAX_FEEDBACK_LENGTH), _guide_basis(guide)
 
         if selected_level == correct:
             lead = f"Esatto: {correct}. "
@@ -279,20 +321,12 @@ def compose_feedback(
         if selected_level != correct and selected_level in guide["contrasts"]:
             # The final, unsuccessful choice has not received a comparison yet.
             comparison_level = selected_level
-        elif selected_level == correct and previous_attempts:
-            # After one error, revisit that choice. After two different errors,
-            # revisit the first: the latest hint already compared the second.
-            if attempt_number == 2 or (
-                len(previous_attempts) > 1
-                and previous_attempts[0] != previous_attempts[1]
-            ):
-                comparison_level = previous_attempts[0]
         if comparison_level in guide["contrasts"]:
             comparison = guide["contrasts"][comparison_level]["text"]
             reason = f"Confronta con {comparison_level}: {comparison[0].lower()}{comparison[1:]}"
         else:
             reason = guide["reason"]
-        return _short_sentence(lead + reason, MAX_FEEDBACK_LENGTH), "guide_draft"
+        return _short_sentence(lead + reason, MAX_FEEDBACK_LENGTH), _guide_basis(guide)
 
     prevalidated = PREVALIDATED_CUES.get(str(descriptor.get("descriptor_id", "")))
     descriptor_hash = hashlib.sha256(

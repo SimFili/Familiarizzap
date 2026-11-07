@@ -61,16 +61,27 @@ def build_research_export(
             )
 
     attempts = []
+    questionnaires = []
     for event in event_rows:
-        if event.get("event_type") != "answer_submitted":
-            continue
         participant_id = str(event.get("participant_id_hash", ""))
-        attempts.append(
-            {
-                "display_name": participant_names.get(participant_id, ""),
-                **event,
-            }
-        )
+        if event.get("event_type") == "answer_submitted":
+            attempts.append(
+                {
+                    "display_name": participant_names.get(participant_id, ""),
+                    **event,
+                }
+            )
+        elif event.get("event_type") == "questionnaire_submitted":
+            questionnaires.append(
+                {
+                    "participant_id": participant_id,
+                    "questionnaire_version": event.get(
+                        "questionnaire_version", ""
+                    ),
+                    "submitted_at": event.get("occurred_at", ""),
+                    **dict(event.get("responses") or {}),
+                }
+            )
     issues = integrity_report(event_rows, participant_rows)
 
     files: dict[str, bytes] = {
@@ -78,6 +89,7 @@ def build_research_export(
         "sessions.csv": _csv_bytes(sessions),
         "descriptor_history.csv": _csv_bytes(histories),
         "attempts.csv": _csv_bytes(attempts),
+        "questionnaires.csv": _csv_bytes(questionnaires),
         "integrity.csv": _csv_bytes(issues),
         "events.jsonl": _jsonl_bytes(event_rows),
         "manifest.json": json.dumps(
@@ -88,12 +100,14 @@ def build_research_export(
                 "sessions": len(sessions),
                 "descriptor_completions": len(histories),
                 "attempts": len(attempts),
+                "questionnaires": len(questionnaires),
                 "integrity_issues": len(issues),
                 "notes": (
                     "I timestamp originali sono in UTC. I nomi compaiono "
                     "soltanto nei file derivati riservati al ricercatore. "
                     "Gli hash dei codici percorso e le chiavi HMAC usate per "
-                    "cercare i nomi non sono esportati."
+                    "cercare i nomi non sono esportati. Il file dei questionari "
+                    "usa soltanto l’identificativo pseudonimo del partecipante."
                 ),
             },
             ensure_ascii=False,

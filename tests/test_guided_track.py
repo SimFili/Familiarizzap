@@ -119,9 +119,15 @@ def test_tailored_guides_are_active_only_in_guided_route_by_default(monkeypatch)
         previous_attempts=[],
         completed_records=[],
     )
-    assert guided_basis == "guide_draft"
+    expected_basis = (
+        "guide_validated"
+        if DESCRIPTOR_GUIDES[descriptor["descriptor_id"]].get("validation_status")
+        == "validated_for_guided_pilot"
+        else "guide_draft"
+    )
+    assert guided_basis == expected_basis
     assert guided_text != free_text
-    assert free_basis != "guide_draft"
+    assert free_basis not in {"guide_draft", "guide_validated"}
     assert "B1" not in guided_text
 
 
@@ -141,7 +147,15 @@ def test_all_guided_feedback_paths_exclude_suspended_plus_levels(monkeypatch):
                 previous_attempts=[],
                 completed_records=[],
             )
-            assert basis == "guide_draft"
+            expected_basis = (
+                "guide_validated"
+                if DESCRIPTOR_GUIDES[descriptor["descriptor_id"]].get(
+                    "validation_status"
+                )
+                == "validated_for_guided_pilot"
+                else "guide_draft"
+            )
+            assert basis == expected_basis
             assert "A2+" not in correct_first and "B1+" not in correct_first
 
             for first_wrong in wrong_choices:
@@ -153,7 +167,7 @@ def test_all_guided_feedback_paths_exclude_suspended_plus_levels(monkeypatch):
                     previous_attempts=[],
                     completed_records=[],
                 )
-                assert basis == "guide_draft"
+                assert basis == expected_basis
                 assert "A2+" not in first and "B1+" not in first
 
                 for second_wrong in wrong_choices:
@@ -173,7 +187,7 @@ def test_all_guided_feedback_paths_exclude_suspended_plus_levels(monkeypatch):
                         previous_attempts=[first_wrong, second_wrong],
                         completed_records=[],
                     )
-                    assert second_basis == finished_basis == "guide_draft"
+                    assert second_basis == finished_basis == expected_basis
                     assert all(
                         "A2+" not in message and "B1+" not in message
                         for message in (second, finished)
@@ -219,9 +233,34 @@ def test_app_can_pause_resume_and_finish_all_guided_stages(tmp_path: Path, monke
             assert GUIDED_STAGES[index + 1].title in app.guided_next_button_view(state).value
 
     assert guided_progress(store.list_events(participant_id))["next_index"] is None
-    completed_status, next_button = app.guided_intro_view(state)
-    assert "non devi completare il catalogo" in completed_status.casefold()
+    completed_status, next_button, back_button = app.guided_intro_view(state)
+    assert "questionario obbligatorio" in completed_status.casefold()
     assert next_button.visible is False
+    assert back_button.visible is False
+    panel = app.questionnaire_panel_view(state)
+    assert panel[0]["visible"] is True
+    summary_gate = app.questionnaire_summary_gate(state)
+    assert summary_gate[0]["visible"] is True
+    assert summary_gate[3]["visible"] is False  # No summary exit before submit.
+    entry_gate = app.questionnaire_entry_gate(state)
+    assert entry_gate[0]["visible"] is False  # Catalog remains blocked on reload.
+    assert entry_gate[2]["visible"] is True
+    submission = app.submit_questionnaire(
+        state,
+        True,
+        "4-10 anni",
+        ["Università"],
+        "",
+        *([4] * 12),
+        "",
+        "Percorso utile.",
+    )
+    assert submission[0]["visible"] is False
+    assert submission[1]["visible"] is True
+    assert submission[3]["visible"] is True
+    completed_status, _, back_button = app.guided_intro_view(state)
+    assert "inviato il questionario" in completed_status.casefold()
+    assert back_button.visible is True
     personal = app._personal_view(participant_id)
     assert any(
         "Scala generale QCER" in label for label, _ in personal[1].choices

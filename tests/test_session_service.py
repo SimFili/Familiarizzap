@@ -64,7 +64,26 @@ def test_correct_answer_closes_descriptor_and_records_once(tmp_path: Path):
         if event["event_type"] == "descriptor_completed"
     )
     assert completed["rationale"] == updated["feedbacks"][-1]
-    assert completed["feedback_version"] == "3"
+    assert completed["feedback_version"] == "5"
+
+
+def test_questionnaire_submission_is_idempotent(tmp_path: Path):
+    _, store, service, _ = make_service(tmp_path)
+    responses = {
+        "data_collection_consent": True,
+        "q1_qcer_familiarity": 3,
+    }
+
+    first = service.record_questionnaire("participant", "pilot-v1", responses)
+    second = service.record_questionnaire("participant", "pilot-v1", responses)
+
+    events = store.list_events("participant")
+    assert first is True
+    assert second is False
+    assert [event["event_type"] for event in events] == [
+        "questionnaire_submitted"
+    ]
+    assert events[0]["responses"] == responses
 
 
 def test_three_attempts_reveal_solution_and_retry_is_idempotent(tmp_path: Path):

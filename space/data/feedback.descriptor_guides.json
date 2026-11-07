@@ -1,192 +1,441 @@
 {
   "schema_version": 1,
-  "review_status": "draft_pending_human_review",
-  "scales": ["Scala generale QCER", "Comprensione orale generale", "Produzione orale generale", "Interazione orale generale"],
+  "review_status": "mixed_validated_pending_and_draft",
+  "scales": [
+    "Scala generale QCER",
+    "Comprensione orale generale",
+    "Produzione orale generale",
+    "Interazione orale generale"
+  ],
   "items": [
     {
       "descriptor_id": "SRC-6",
       "level": "B2",
       "descriptor_sha256": "2cf90cf2b08e40acef604cc2e8dd2bda2c54606072cf17a3d0c21ad6ce6dd6d3",
-      "evidence": ["argomenti concreti e astratti", "concettualmente e linguisticamente complessi"],
+      "evidence": [
+        "argomenti concreti e astratti",
+        "concettualmente e linguisticamente complessi"
+      ],
       "focus": "Qui compaiono temi concreti e astratti e discorsi complessi: basta coglierne solo i punti salienti?",
       "contrasts": {
-        "A1": {"ref": "SRC-13", "text": "Lì si coglie un dato concreto, come luogo o orario; qui si comprendono anche discorsi complessi e discussioni tecniche."},
-        "A2": {"ref": "SRC-11", "text": "Lì si comprendono espressioni di priorità immediata; qui entrano temi astratti e discorsi complessi."},
-        "A2+": {"ref": "SRC-10", "text": "Lì la comprensione basta per bisogni concreti con parlato lento e chiaro; qui si affrontano anche discorsi complessi."},
-        "B1": {"ref": "SRC-9", "text": "Lì si colgono i punti salienti su temi familiari; qui compaiono anche contenuti astratti e discussioni tecniche."},
-        "B1+": {"ref": "SRC-8", "text": "Lì si riconoscono informazioni specifiche su temi comuni; qui si comprendono anche discorsi concettualmente complessi."}
+        "A1": {
+          "ref": "SRC-13",
+          "text": "Lì si coglie un dato concreto, come luogo o orario; qui si comprendono anche discorsi complessi e discussioni tecniche."
+        },
+        "A2": {
+          "ref": "SRC-11",
+          "text": "Lì si comprendono espressioni di priorità immediata; qui entrano temi astratti e discorsi complessi."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì la comprensione basta per bisogni concreti con parlato lento e chiaro; qui si affrontano anche discorsi complessi."
+        },
+        "B1": {
+          "ref": "SRC-9",
+          "text": "Lì si colgono i punti salienti su temi familiari; qui compaiono anche contenuti astratti e discussioni tecniche."
+        },
+        "B1+": {
+          "ref": "SRC-8",
+          "text": "Lì si riconoscono informazioni specifiche su temi comuni; qui si comprendono anche discorsi concettualmente complessi."
+        }
       },
-      "reason": "Temi astratti, discorsi complessi e discussioni tecniche: il descrittore B1 vicino tende a concentrarsi sui punti salienti di temi familiari."
+      "reason": "Concetti fondamentali di discorsi concreti e astratti, anche complessi, e discussioni tecniche del proprio settore."
     },
     {
       "descriptor_id": "SRC-7",
       "level": "B2",
       "descriptor_sha256": "bfcdbde5fda9a52132b12396149c5a655a11013686791e0fe780dee9e8dbe676",
-      "evidence": ["discorso lungo e argomentazioni complesse", "segnali espliciti"],
+      "evidence": [
+        "discorso lungo e argomentazioni complesse",
+        "segnali espliciti"
+      ],
       "focus": "Quanto è lungo il discorso e quali argomentazioni riesce a seguire la persona? Nota anche i segnali espliciti.",
       "contrasts": {
-        "A1": {"ref": "SRC-13", "text": "Lì si coglie un dato concreto, come luogo o orario, se comunicato lentamente e con chiarezza; qui si segue un discorso lungo e argomentato."},
-        "A2": {"ref": "SRC-11", "text": "Lì si comprendono espressioni di priorità immediata; qui si segue un discorso lungo e argomentato."},
-        "A2+": {"ref": "SRC-10", "text": "Lì la comprensione basta per bisogni concreti con parlato lento; qui si segue un'argomentazione complessa."},
-        "B1": {"ref": "SRC-9", "text": "Lì si colgono i punti salienti di un discorso chiaro; qui se ne segue uno lungo, con argomentazioni complesse."},
-        "B1+": {"ref": "SRC-8", "text": "Lì si riconoscono informazioni specifiche in un discorso chiaro; qui si segue un discorso lungo e complesso."}
+        "A1": {
+          "ref": "SRC-13",
+          "text": "Nel descrittore A1 si coglie un dato concreto comunicato lentamente; qui si segue un discorso lungo con argomentazioni complesse."
+        },
+        "A2": {
+          "ref": "SRC-11",
+          "text": "Nel descrittore A2 si comprendono espressioni di priorità immediata; qui si segue un discorso lungo con argomentazioni complesse."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì la comprensione basta per bisogni concreti con parlato lento; qui si segue un'argomentazione complessa."
+        },
+        "B1": {
+          "ref": "SRC-9",
+          "text": "Nel descrittore B1 si colgono i punti salienti di un discorso chiaro; qui si segue un discorso lungo con argomentazioni complesse."
+        },
+        "B1+": {
+          "ref": "SRC-8",
+          "text": "Lì si riconoscono informazioni specifiche in un discorso chiaro; qui si segue un discorso lungo e complesso."
+        }
       },
-      "reason": "Discorso lungo e complesso, su tema relativamente familiare, con segnali espliciti; il descrittore B1 si concentra principalmente sui punti salienti."
+      "reason": "Un discorso lungo e argomentazioni complesse, su un tema relativamente familiare e con una struttura indicata da segnali espliciti.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A1": "Si coglie un dato concreto comunicato lentamente, oppure si segue un discorso lungo con argomentazioni complesse?",
+        "A2": "Si comprendono espressioni di priorità immediata, oppure si segue un discorso lungo con argomentazioni complesse?",
+        "B1": "Si colgono i punti salienti di un discorso chiaro, oppure si segue un discorso lungo con argomentazioni complesse?"
+      }
     },
     {
       "descriptor_id": "SRC-8",
       "level": "B1+",
       "descriptor_sha256": "e0fa2f12c63ad435f2df875a4b0cdfa8eb021a2516e708e3776b3b88b2051815",
-      "evidence": ["significato generale sia le informazioni specifiche", "varietà piuttosto familiare"],
+      "evidence": [
+        "significato generale sia le informazioni specifiche",
+        "varietà piuttosto familiare"
+      ],
       "focus": "La persona riconosce solo il significato generale o anche informazioni specifiche? In quali condizioni?",
       "contrasts": {
-        "A1": {"ref": "SRC-13", "text": "Lì si coglie un dato concreto; qui si riconoscono il senso generale e informazioni specifiche."},
-        "A2": {"ref": "SRC-11", "text": "Lì si comprendono espressioni di priorità immediata; qui si riconoscono informazioni fattuali generali e specifiche."},
-        "A2+": {"ref": "SRC-10", "text": "Lì la comprensione basta per bisogni concreti; qui si riconoscono anche informazioni specifiche su temi comuni."},
-        "B1": {"ref": "SRC-9", "text": "Lì il B1 della stessa scala mette l'accento principalmente sui punti salienti; qui si riconoscono il senso generale e informazioni specifiche."},
-        "B2": {"ref": "SRC-6", "text": "Lì si comprendono discorsi astratti e complessi; qui restano temi comuni e una varietà familiare."}
+        "A1": {
+          "ref": "SRC-13",
+          "text": "Lì si coglie un dato concreto; qui si riconoscono il senso generale e informazioni specifiche."
+        },
+        "A2": {
+          "ref": "SRC-11",
+          "text": "Lì si comprendono espressioni di priorità immediata; qui si riconoscono informazioni fattuali generali e specifiche."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì la comprensione basta per bisogni concreti; qui si riconoscono anche informazioni specifiche su temi comuni."
+        },
+        "B1": {
+          "ref": "SRC-9",
+          "text": "Lì il B1 della stessa scala mette l'accento principalmente sui punti salienti; qui si riconoscono il senso generale e informazioni specifiche."
+        },
+        "B2": {
+          "ref": "SRC-6",
+          "text": "Lì si comprendono discorsi astratti e complessi; qui restano temi comuni e una varietà familiare."
+        }
       },
-      "reason": "Qui si riconoscono il senso generale e informazioni specifiche; il B1 della stessa scala mette l'accento principalmente sui punti salienti."
+      "reason": "Informazioni fattuali chiare su argomenti comuni, riconoscendo il significato generale e le informazioni specifiche in una varietà piuttosto familiare."
     },
     {
       "descriptor_id": "SRC-9",
       "level": "B1",
       "descriptor_sha256": "419dc3ec9dfc97a9190a769ece8e57baa3aa775ddf5c4c983d32eb2798064bdc",
-      "evidence": ["punti salienti di un discorso chiaro", "argomenti familiari"],
+      "evidence": [
+        "punti salienti di un discorso chiaro",
+        "argomenti familiari"
+      ],
       "focus": "Che cosa comprende la persona: un dato isolato, i punti salienti o un discorso lungo? Conta anche la familiarità dei temi.",
       "contrasts": {
-        "A1": {"ref": "SRC-13", "text": "Lì si coglie un solo dato concreto; qui si comprendono i punti salienti di un discorso."},
-        "A2": {"ref": "SRC-11", "text": "Lì si comprendono espressioni di priorità immediata, non i punti salienti di un discorso."},
-        "A2+": {"ref": "SRC-10", "text": "Lì la comprensione basta per bisogni concreti con parlato lento; qui si colgono i punti salienti di un discorso familiare."},
-        "B1+": {"ref": "SRC-8", "text": "Lì si riconoscono anche informazioni specifiche; qui si colgono i punti salienti di temi familiari."},
-        "B2": {"ref": "SRC-7", "text": "Lì si segue un discorso lungo e argomentazioni complesse; qui si colgono i punti salienti di un discorso chiaro."}
+        "A1": {
+          "ref": "SRC-13",
+          "text": "Nel descrittore A1 si coglie un’informazione concreta; qui si colgono i punti salienti di un discorso chiaro su temi familiari."
+        },
+        "A2": {
+          "ref": "SRC-11",
+          "text": "Nel descrittore A2 si comprendono espressioni di priorità immediata; qui si colgono i punti salienti di un discorso chiaro."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì la comprensione basta per bisogni concreti con parlato lento; qui si colgono i punti salienti di un discorso familiare."
+        },
+        "B1+": {
+          "ref": "SRC-8",
+          "text": "Lì si riconoscono anche informazioni specifiche; qui si colgono i punti salienti di temi familiari."
+        },
+        "B2": {
+          "ref": "SRC-7",
+          "text": "Nel descrittore B2 si segue un discorso lungo con argomentazioni complesse; qui si colgono i punti salienti di un discorso chiaro."
+        }
       },
-      "reason": "Più delle espressioni immediate di A2, meno del discorso lungo e complesso di B2: qui si colgono i punti salienti di temi familiari."
+      "reason": "I punti salienti di un discorso chiaro su argomenti familiari affrontati abitualmente, compresi brevi racconti.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A1": "Si coglie un’informazione concreta, oppure i punti salienti di un discorso chiaro su argomenti familiari?",
+        "A2": "Si comprendono espressioni di priorità immediata, oppure i punti salienti di un discorso chiaro su temi familiari?",
+        "B2": "Si colgono i punti salienti di un discorso chiaro, oppure si segue un discorso lungo con argomentazioni complesse?"
+      }
     },
     {
       "descriptor_id": "SRC-11",
       "level": "A2",
       "descriptor_sha256": "46b9af0fe8d271fb419c6c389e23c116593a2faa19cea3266780284d9e2ebaff",
-      "evidence": ["aree di priorità immediata", "lentamente e chiaramente"],
+      "evidence": [
+        "aree di priorità immediata",
+        "lentamente e chiaramente"
+      ],
       "focus": "Quanto sono circoscritti i contenuti? Guarda gli esempi: persona, famiglia, acquisti, luoghi e lavoro.",
       "contrasts": {
-        "A1": {"ref": "SRC-13", "text": "Lì si coglie un dato concreto; qui le espressioni coprono più aree di priorità immediata."},
-        "A2+": {"ref": "SRC-10", "text": "Lì si comprende quanto basta per bisogni concreti; qui si comprendono espressioni di priorità immediata."},
-        "B1": {"ref": "SRC-9", "text": "Lì si colgono i punti salienti di un discorso familiare; qui restano espressioni di priorità immediata."},
-        "B1+": {"ref": "SRC-8", "text": "Lì si riconoscono anche informazioni specifiche; qui si comprendono espressioni di priorità immediata."},
-        "B2": {"ref": "SRC-7", "text": "Lì si segue un discorso lungo con argomentazioni complesse; qui si tratta di espressioni di priorità immediata."}
+        "A1": {
+          "ref": "SRC-13",
+          "text": "Nel descrittore A1 si coglie un’informazione concreta; qui si comprendono espressioni riferite a più aree di priorità immediata."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì si comprende quanto basta per bisogni concreti; qui si comprendono espressioni di priorità immediata."
+        },
+        "B1": {
+          "ref": "SRC-9",
+          "text": "Nel descrittore B1 si colgono i punti salienti di un discorso; qui si comprendono espressioni riferite ad aree di priorità immediata."
+        },
+        "B1+": {
+          "ref": "SRC-8",
+          "text": "Lì si riconoscono anche informazioni specifiche; qui si comprendono espressioni di priorità immediata."
+        },
+        "B2": {
+          "ref": "SRC-7",
+          "text": "Nel descrittore B2 si segue un discorso lungo con argomentazioni complesse; qui si comprendono espressioni di priorità immediata."
+        }
       },
-      "reason": "Si comprendono espressioni in più aree di priorità immediata, non solo il dato isolato del descrittore A1 vicino; il discorso resta lento e chiaro."
+      "reason": "Comprende espressioni su più aree di priorità immediata, con un discorso articolato in maniera lenta e chiara.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A1": "Si tratta di un’informazione concreta, oppure di espressioni relative a più aree di priorità immediata?",
+        "B1": "Sono espressioni di priorità immediata, oppure i punti salienti di un discorso chiaro su temi familiari?",
+        "B2": "Sono espressioni di priorità immediata, oppure un discorso lungo con argomentazioni complesse?"
+      }
     },
     {
       "descriptor_id": "SRC-12",
       "level": "A1",
       "descriptor_sha256": "cdee420bcc92b635142c091b6d650cdd06c91c330e0c032efabc8c2403a5ef83",
-      "evidence": ["molto lentamente", "lunghe pause"],
+      "evidence": [
+        "molto lentamente",
+        "lunghe pause"
+      ],
       "focus": "Quanto sostegno offre chi segna? Osserva il ritmo e le pause necessarie per assimilare il senso.",
       "contrasts": {
-        "A2": {"ref": "SRC-11", "text": "Lì si comprende con un segnato lento e chiaro; qui servono anche lunghe pause per assimilare il senso."},
-        "A2+": {"ref": "SRC-10", "text": "Lì la comprensione basta per bisogni concreti con parlato lento; qui dipende da lunghe pause."},
-        "B1": {"ref": "SRC-9", "text": "Lì si colgono i punti salienti di un discorso familiare; qui sono necessarie lunghe pause."},
-        "B1+": {"ref": "SRC-8", "text": "Lì si colgono anche informazioni specifiche; qui si comprende solo con un segnato molto lento e lunghe pause."},
-        "B2": {"ref": "SRC-7", "text": "Lì si segue un discorso lungo e complesso; qui servono ritmo molto lento e lunghe pause."}
+        "A2": {
+          "ref": "SRC-11",
+          "text": "Lì si comprende con un segnato lento e chiaro; qui servono anche lunghe pause per assimilare il senso."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì la comprensione basta per bisogni concreti con parlato lento; qui dipende da lunghe pause."
+        },
+        "B1": {
+          "ref": "SRC-9",
+          "text": "Lì si colgono i punti salienti di un discorso familiare; qui sono necessarie lunghe pause."
+        },
+        "B1+": {
+          "ref": "SRC-8",
+          "text": "Lì si colgono anche informazioni specifiche; qui si comprende solo con un segnato molto lento e lunghe pause."
+        },
+        "B2": {
+          "ref": "SRC-7",
+          "text": "Lì si segue un discorso lungo e complesso; qui servono ritmo molto lento e lunghe pause."
+        }
       },
-      "reason": "Qui si comprende con un segnato molto lento e lunghe pause; nell'A2 vicino il segnato è lento e chiaro, ma non sono menzionate lunghe pause."
+      "reason": "Un discorso articolato molto lentamente e con precisione, con lunghe pause che permettono di assimilarne il senso."
     },
     {
       "descriptor_id": "SRC-13",
       "level": "A1",
       "descriptor_sha256": "5bb5cf1ef18fa42028f0732d2fab82c844fb7a6808c3dcd1fbcb9d11df8f5c25",
-      "evidence": ["un’informazione concreta", "lentamente e chiaramente"],
+      "evidence": [
+        "un’informazione concreta",
+        "lentamente e chiaramente"
+      ],
       "focus": "La persona comprende il messaggio nel suo insieme o coglie un dato concreto, come luogo e orario?",
       "contrasts": {
-        "A2": {"ref": "SRC-11", "text": "Lì si comprendono espressioni di più aree di priorità immediata; qui si coglie un dato concreto, come luogo o orario."},
-        "A2+": {"ref": "SRC-10", "text": "Lì si comprende quanto basta per bisogni concreti; qui si coglie solo un'informazione concreta."},
-        "B1": {"ref": "SRC-9", "text": "Lì si colgono i punti salienti di un discorso; qui basta un dato concreto su un tema quotidiano."},
-        "B1+": {"ref": "SRC-8", "text": "Lì si riconoscono informazioni generali e specifiche; qui si coglie un dato concreto."},
-        "B2": {"ref": "SRC-7", "text": "Lì si segue un discorso lungo e complesso; qui si coglie un dato concreto, come luogo o orario."}
+        "A2": {
+          "ref": "SRC-11",
+          "text": "Nel descrittore A2 si comprendono espressioni di più aree immediate; qui si coglie un’informazione concreta, come luogo o orario."
+        },
+        "A2+": {
+          "ref": "SRC-10",
+          "text": "Lì si comprende quanto basta per bisogni concreti; qui si coglie solo un'informazione concreta."
+        },
+        "B1": {
+          "ref": "SRC-9",
+          "text": "Nel descrittore B1 si colgono i punti salienti di un discorso; qui si coglie un’informazione concreta su un tema quotidiano."
+        },
+        "B1+": {
+          "ref": "SRC-8",
+          "text": "Lì si riconoscono informazioni generali e specifiche; qui si coglie un dato concreto."
+        },
+        "B2": {
+          "ref": "SRC-7",
+          "text": "Nel descrittore B2 si segue un discorso lungo con argomentazioni complesse; qui si coglie un’informazione concreta, come luogo o orario."
+        }
       },
-      "reason": "Si coglie un dato concreto, come luogo o orario; A2 copre espressioni di più aree di priorità immediata."
+      "reason": "Un’informazione concreta su temi familiari quotidiani, come luogo e orario, purché si parli/segni lentamente e chiaramente.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A2": "Cerca l’ampiezza dell’informazione: più aree di priorità immediata, oppure un dato concreto come luogo e orario?",
+        "B1": "La persona coglie i punti salienti di un discorso, oppure un’informazione concreta comunicata lentamente e chiaramente?",
+        "B2": "Segue un discorso lungo e argomentazioni complesse, oppure coglie un dato concreto comunicato lentamente e chiaramente?"
+      }
     },
     {
       "descriptor_id": "SRC-229",
       "level": "B2",
       "descriptor_sha256": "045f594d966b5e060e3a95f325c83912aa140f51e9a15d903f59624c11d557a4",
-      "evidence": ["descrizioni ed esposizioni chiare e precise", "sostenendo le idee con elementi supplementari ed esempi pertinenti"],
+      "evidence": [
+        "descrizioni ed esposizioni chiare e precise",
+        "sostenendo le idee con elementi supplementari ed esempi pertinenti"
+      ],
       "focus": "La persona si limita a elencare argomenti, o sviluppa e sostiene le opinioni con esempi pertinenti?",
       "contrasts": {
-        "A1": {"ref": "SRC-232", "text": "Lì le espressioni sono prevalentemente isolate; qui le opinioni sono sviluppate e sostenute con esempi."},
-        "A2": {"ref": "SRC-231", "text": "Lì le frasi formano un elenco; qui le opinioni vengono sviluppate e sostenute con esempi pertinenti."},
-        "B1": {"ref": "SRC-230", "text": "Lì la descrizione è ragionevolmente scorrevole e segue una sequenza lineare; qui l'esposizione è chiara e precisa e sostiene le opinioni con esempi."}
+        "A1": {
+          "ref": "SRC-232",
+          "text": "Nel descrittore A1 prevalgono espressioni isolate; qui l’esposizione è chiara e precisa e le idee sono sostenute con elementi ed esempi."
+        },
+        "A2": {
+          "ref": "SRC-231",
+          "text": "Nel descrittore A2 le frasi formano un elenco; qui l’esposizione è chiara e precisa e le idee sono sostenute con elementi ed esempi."
+        },
+        "B1": {
+          "ref": "SRC-230",
+          "text": "Nel descrittore B1 c’è una sequenza lineare; qui l’esposizione è chiara e precisa e sostiene le idee con elementi ed esempi."
+        }
       },
-      "reason": "Esposizione chiara e precisa: sostiene le opinioni con elementi ed esempi pertinenti; nel B1 vicino la sequenza è lineare e scorrevole."
+      "reason": "Esposizioni chiare e precise su svariati temi d’interesse, con idee sviluppate e sostenute da elementi ed esempi pertinenti.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A1": "Prevalgono espressioni isolate su persone e luoghi, oppure le idee sono sviluppate e sostenute con elementi ed esempi pertinenti?",
+        "A2": "Le frasi semplici formano un elenco, oppure le idee sono sviluppate e sostenute con elementi ed esempi pertinenti?",
+        "B1": "La descrizione segue una sequenza lineare con ragionevole scorrevolezza, oppure sviluppa e sostiene le idee con elementi ed esempi?"
+      }
     },
     {
       "descriptor_id": "SRC-230",
       "level": "B1",
       "descriptor_sha256": "859df8e1a31b8fe163dc4655b6c3e8c1fbbdf48205b367113a63d5635b69e95f",
-      "evidence": ["in modo ragionevolmente scorrevole", "sequenza lineare di punti"],
+      "evidence": [
+        "in modo ragionevolmente scorrevole",
+        "sequenza lineare di punti"
+      ],
       "focus": "Le espressioni restano isolate, formano un elenco o diventano una descrizione ragionevolmente scorrevole in sequenza lineare?",
       "contrasts": {
-        "A1": {"ref": "SRC-232", "text": "Lì prevalgono espressioni isolate; qui la descrizione scorre e segue una sequenza lineare di punti."},
-        "A2": {"ref": "SRC-231", "text": "Lì le frasi legate formano un elenco; qui la descrizione è ragionevolmente scorrevole e segue una sequenza lineare."},
-        "B2": {"ref": "SRC-229", "text": "Lì le opinioni sono sviluppate e sostenute con esempi pertinenti; qui la descrizione resta semplice e lineare."}
+        "A1": {
+          "ref": "SRC-232",
+          "text": "Nel descrittore A1 prevalgono espressioni isolate; qui la descrizione è ragionevolmente scorrevole e segue una sequenza lineare."
+        },
+        "A2": {
+          "ref": "SRC-231",
+          "text": "Nel descrittore A2 le frasi semplici formano un elenco; qui la descrizione è ragionevolmente scorrevole e segue una sequenza lineare."
+        },
+        "B2": {
+          "ref": "SRC-229",
+          "text": "Nel descrittore B2 le idee sono sviluppate e sostenute con elementi ed esempi; qui la descrizione resta semplice e lineare."
+        }
       },
-      "reason": "La descrizione procede con ragionevole scorrevolezza in una sequenza lineare di punti; nel descrittore A2 vicino, le frasi formano un elenco."
+      "reason": "Una descrizione semplice, ragionevolmente scorrevole, strutturata in una sequenza lineare di punti su temi d’interesse.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A1": "Prevalgono espressioni isolate, oppure la descrizione procede con ragionevole scorrevolezza in una sequenza lineare?",
+        "A2": "Le frasi formano un elenco, oppure la descrizione procede con ragionevole scorrevolezza in una sequenza lineare?",
+        "B2": "La descrizione resta semplice e lineare, oppure l’esposizione sviluppa e sostiene idee con elementi ed esempi pertinenti?"
+      }
     },
     {
       "descriptor_id": "SRC-231",
       "level": "A2",
       "descriptor_sha256": "fd26e04814a94d952abacaf1831ac031cc84c7f529a06057124dfbe984e5bd5d",
-      "evidence": ["semplici espressioni e frasi legate insieme", "così da formare un elenco"],
+      "evidence": [
+        "semplici espressioni e frasi legate insieme",
+        "così da formare un elenco"
+      ],
       "focus": "Le espressioni sono isolate o sono collegate? E il risultato è un elenco o una descrizione sviluppata?",
       "contrasts": {
-        "A1": {"ref": "SRC-232", "text": "Lì le espressioni sono prevalentemente isolate; qui frasi semplici si legano fino a formare un elenco."},
-        "B1": {"ref": "SRC-230", "text": "Lì la descrizione procede in modo ragionevolmente scorrevole, in una sequenza lineare di punti; qui frasi semplici formano un elenco."},
-        "B2": {"ref": "SRC-229", "text": "Lì le opinioni sono sviluppate con elementi ed esempi; qui le frasi semplici formano un elenco."}
+        "A1": {
+          "ref": "SRC-232",
+          "text": "Nel descrittore A1 le espressioni restano prevalentemente isolate; qui le frasi semplici sono collegate fino a formare un elenco."
+        },
+        "B1": {
+          "ref": "SRC-230",
+          "text": "Nel descrittore B1 la descrizione segue con ragionevole scorrevolezza una sequenza lineare; qui le frasi formano un elenco."
+        },
+        "B2": {
+          "ref": "SRC-229",
+          "text": "Nel descrittore B2 le idee sono sviluppate e sostenute con elementi ed esempi; qui le frasi semplici formano un elenco."
+        }
       },
-      "reason": "Le frasi semplici formano un elenco; nel descrittore B1 la descrizione procede in modo ragionevolmente scorrevole, in una sequenza lineare di punti."
+      "reason": "Espressioni e frasi semplici collegate tra loro fino a formare un elenco su persone, vita, lavoro e attività quotidiane.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A1": "Le espressioni restano prevalentemente isolate, oppure le frasi semplici sono collegate fino a formare un elenco?",
+        "B1": "Le frasi formano un elenco, oppure la descrizione procede con ragionevole scorrevolezza in una sequenza lineare?",
+        "B2": "Le frasi formano un elenco, oppure l’esposizione sviluppa e sostiene idee con elementi ed esempi pertinenti?"
+      }
     },
     {
       "descriptor_id": "SRC-232",
       "level": "A1",
       "descriptor_sha256": "03fd8a4b6d44415c6ec9bf17a31e542499d61c723f64668f0504106ce870b4e3",
-      "evidence": ["espressioni semplici", "prevalentemente isolate"],
+      "evidence": [
+        "espressioni semplici",
+        "prevalentemente isolate"
+      ],
       "focus": "Le espressioni vengono collegate in un elenco o restano prevalentemente isolate?",
       "contrasts": {
-        "A2": {"ref": "SRC-231", "text": "Lì le frasi semplici sono legate in un elenco; qui le espressioni restano prevalentemente isolate."},
-        "B1": {"ref": "SRC-230", "text": "Lì la descrizione scorre in una sequenza lineare; qui prevalgono espressioni isolate."},
-        "B2": {"ref": "SRC-229", "text": "Lì le opinioni sono sviluppate e sostenute con esempi; qui si formulano espressioni semplici e isolate."}
+        "A2": {
+          "ref": "SRC-231",
+          "text": "Nel descrittore A2 le frasi semplici sono collegate in un elenco; qui le espressioni restano prevalentemente isolate."
+        },
+        "B1": {
+          "ref": "SRC-230",
+          "text": "Nel descrittore B1 la descrizione segue una sequenza lineare; qui prevalgono espressioni semplici isolate su persone e luoghi."
+        },
+        "B2": {
+          "ref": "SRC-229",
+          "text": "Nel descrittore B2 le idee sono sviluppate e sostenute con esempi; qui prevalgono espressioni semplici isolate su persone e luoghi."
+        }
       },
-      "reason": "Il punto decisivo è «prevalentemente isolate»: nel descrittore A2 di confronto, le frasi semplici sono legate in un elenco."
+      "reason": "Espressioni semplici, prevalentemente isolate, riferite a persone e luoghi.",
+      "validation_status": "validated_for_guided_pilot",
+      "first_hints": {
+        "A2": "Le frasi semplici sono collegate fino a formare un elenco, oppure le espressioni restano prevalentemente isolate?",
+        "B1": "La descrizione segue una sequenza lineare con ragionevole scorrevolezza, oppure prevalgono espressioni semplici isolate?",
+        "B2": "L’esposizione sviluppa e sostiene idee con esempi, oppure prevalgono espressioni semplici isolate su persone e luoghi?"
+      }
     },
     {
       "descriptor_id": "SRC-406",
       "level": "B2",
       "descriptor_sha256": "1c646a448491eb05970c7e8badd4bfe9a8a16f01ee7042972346fcdc28e83d33",
-      "evidence": ["spontaneità e scioltezza", "senza sforzi per nessuna delle due parti", "spiegazioni e argomentazioni"],
+      "evidence": [
+        "spontaneità e scioltezza",
+        "senza sforzi per nessuna delle due parti",
+        "spiegazioni e argomentazioni"
+      ],
       "focus": "Quanto è spontaneo lo scambio? Guarda se le due parti interagiscono senza sforzo e come sostengono i punti di vista.",
       "first_hints": {
-        "A1": "Il dialogo dipende da ripetizioni lente e riparazioni, o procede senza sforzo per le due parti?",
-        "A2": "Si parla di scambi molto brevi, o di un'interazione normale e agevole per entrambe le parti?",
-        "A2+": "Servono conversazioni brevi e strutturate con l'aiuto dell'interlocutore, oppure uno scambio spontaneo?",
-        "B1": "Si interviene senza preparazione su temi familiari, oppure lo scambio scorre senza sforzo e si argomentano i punti di vista?",
-        "B1+": "Il testo parla di discreta sicurezza o di scioltezza senza sforzo per entrambe le parti?"
+        "A1": "L’interazione dipende da ripetizioni e riparazioni, oppure procede con spontaneità e senza sforzo per entrambe le parti?",
+        "A2": "Gli scambi restano molto brevi e con autonomia limitata, oppure l’interazione è spontanea e agevole per entrambe le parti?",
+        "B1": "La persona esprime opinioni e scambia informazioni su temi familiari, oppure interagisce con spontaneità e sostiene i punti di vista con argomentazioni?"
       },
       "contrasts": {
-        "A1": {"ref": "SRC-411", "text": "Lì la comunicazione dipende da ripetizioni lente e riparazioni; qui l'interazione è spontanea e agevole per entrambe le parti."},
-        "A2": {"ref": "SRC-410", "text": "Lì gli scambi sono molto brevi e poco autonomi; qui l'interazione è normale e senza sforzo per entrambe le parti."},
-        "A2+": {"ref": "SRC-409", "text": "Lì le conversazioni sono brevi e strutturate e l'interlocutore può collaborare; qui lo scambio è spontaneo e agevole."},
-        "B1": {"ref": "SRC-408", "text": "Lì si interviene senza preparazione su temi familiari; qui lo scambio è spontaneo e agevole e i punti di vista sono argomentati."},
-        "B1+": {"ref": "SRC-407", "text": "Lì si comunica con discreta sicurezza anche su temi meno frequenti; qui l'interazione scorre senza sforzo per le due parti."}
+        "A1": {
+          "ref": "SRC-411",
+          "text": "Nel descrittore A1 la comunicazione dipende da ripetizioni e riparazioni; qui l’interazione è spontanea e agevole per entrambe le parti."
+        },
+        "A2": {
+          "ref": "SRC-410",
+          "text": "Nel descrittore A2 gli scambi sono molto brevi e con autonomia limitata; qui l’interazione è spontanea e agevole per entrambe le parti."
+        },
+        "A2+": {
+          "ref": "SRC-409",
+          "text": "Lì le conversazioni sono brevi e strutturate e l'interlocutore può collaborare; qui lo scambio è spontaneo e agevole."
+        },
+        "B1": {
+          "ref": "SRC-408",
+          "text": "Nel descrittore B1 si esprimono opinioni su temi familiari; qui l’interazione è spontanea e i punti di vista sono argomentati."
+        },
+        "B1+": {
+          "ref": "SRC-407",
+          "text": "Lì si comunica con discreta sicurezza anche su temi meno frequenti; qui l'interazione scorre senza sforzo per le due parti."
+        }
       },
-      "reason": "Spontaneità e scioltezza rendono l'interazione agevole per entrambe le parti; i punti di vista sono sostenuti con argomentazioni."
+      "reason": "Interazione spontanea e sciolta, agevole per entrambe le parti, con punti di vista sostenuti da spiegazioni e argomentazioni.",
+      "validation_status": "validated_for_guided_pilot"
     },
     {
       "descriptor_id": "SRC-407",
       "level": "B1+",
       "descriptor_sha256": "166e7ce142b2d3390a4be63aec22963eb06c7ad45a5774c82ab6e6eab107d27c",
-      "evidence": ["discreta sicurezza", "situazioni meno frequenti", "argomenti più astratti"],
+      "evidence": [
+        "discreta sicurezza",
+        "situazioni meno frequenti",
+        "argomenti più astratti"
+      ],
       "focus": "La persona gestisce solo situazioni abituali, o anche problemi meno frequenti e temi più astratti?",
       "first_hints": {
         "A1": "L'interazione dipende da ripetizioni lente, o gestisce anche situazioni meno frequenti?",
@@ -196,41 +445,78 @@
         "B2": "Il testo promette scioltezza senza sforzo per entrambe le parti, o parla di discreta sicurezza?"
       },
       "contrasts": {
-        "A1": {"ref": "SRC-411", "text": "Lì ripetizioni lente e riparazioni sostengono lo scambio; qui si gestiscono anche situazioni meno frequenti."},
-        "A2": {"ref": "SRC-410", "text": "Lì gli scambi sono molto brevi e poco autonomi; qui si controllano informazioni e si spiegano problemi."},
-        "A2+": {"ref": "SRC-409", "text": "Lì l'interazione è breve e strutturata, con possibile aiuto dell'interlocutore; qui si affrontano anche casi meno frequenti."},
-        "B1": {"ref": "SRC-408", "text": "Lì si interviene senza preparazione su temi familiari; qui si affrontano situazioni meno frequenti e temi più astratti."},
-        "B2": {"ref": "SRC-406", "text": "Lì l'interazione è spontanea e senza sforzo per entrambi; qui si parla di discreta sicurezza e temi non di routine."}
+        "A1": {
+          "ref": "SRC-411",
+          "text": "Lì ripetizioni lente e riparazioni sostengono lo scambio; qui si gestiscono anche situazioni meno frequenti."
+        },
+        "A2": {
+          "ref": "SRC-410",
+          "text": "Lì gli scambi sono molto brevi e poco autonomi; qui si controllano informazioni e si spiegano problemi."
+        },
+        "A2+": {
+          "ref": "SRC-409",
+          "text": "Lì l'interazione è breve e strutturata, con possibile aiuto dell'interlocutore; qui si affrontano anche casi meno frequenti."
+        },
+        "B1": {
+          "ref": "SRC-408",
+          "text": "Lì si interviene senza preparazione su temi familiari; qui si affrontano situazioni meno frequenti e temi più astratti."
+        },
+        "B2": {
+          "ref": "SRC-406",
+          "text": "Lì l'interazione è spontanea e senza sforzo per entrambi; qui si parla di discreta sicurezza e temi non di routine."
+        }
       },
-      "reason": "Si controllano informazioni e si spiegano problemi anche meno frequenti; il testo parla di discreta sicurezza, non di scioltezza senza sforzo."
+      "reason": "Comunicazione con discreta sicurezza su temi familiari, anche non di routine, con controllo delle informazioni e spiegazione di problemi."
     },
     {
       "descriptor_id": "SRC-408",
       "level": "B1",
       "descriptor_sha256": "025a36d4b737830cebd1a12cae677e707398b8cb5a4a0359be0f498baf92ea9e",
-      "evidence": ["senza bisogno di una precedente preparazione", "esprime opinioni personali", "vita di tutti i giorni"],
-      "focus": "L'intervento è preparato? In quali situazioni e su quali temi riesce a partecipare alla conversazione?",
+      "evidence": [
+        "senza bisogno di una precedente preparazione",
+        "esprime opinioni personali",
+        "vita di tutti i giorni"
+      ],
+      "focus": "Quali strumenti linguistici usa? Su quali temi partecipa alla conversazione e che cosa riesce a esprimere o scambiare?",
       "first_hints": {
-        "A1": "Il dialogo dipende da ripetizioni lente, o la persona interviene senza preparazione su temi familiari?",
-        "A2": "Resta negli scambi molto brevi, o interviene senza preparazione ed esprime opinioni?",
-        "A2+": "Le situazioni sono solo strutturate e prevedibili, o la persona interviene senza preparazione?",
-        "B1+": "Ci sono anche situazioni meno frequenti e temi astratti, o prevalgono questioni familiari e quotidiane?",
-        "B2": "L'interazione è senza sforzo e i punti di vista sono argomentati, o si esprimono opinioni su temi abituali?"
+        "A1": "L’interazione dipende da ripetizioni e riparazioni, oppure la persona esprime opinioni e scambia informazioni su temi familiari?",
+        "A2": "Gli scambi restano molto brevi e con autonomia limitata, oppure la persona esprime opinioni e scambia informazioni su temi familiari?",
+        "B2": "La persona interviene su temi familiari ed esprime opinioni, oppure interagisce con spontaneità e sostiene i punti di vista con argomentazioni?"
       },
       "contrasts": {
-        "A1": {"ref": "SRC-411", "text": "Lì lo scambio dipende da ripetizioni lente e riparazioni; qui si interviene senza preparazione su questioni familiari."},
-        "A2": {"ref": "SRC-410", "text": "Lì gli scambi sono molto brevi e raramente si capisce abbastanza per sostenerli; qui si interviene senza preparazione e si esprimono opinioni."},
-        "A2+": {"ref": "SRC-409", "text": "Lì l'interazione è breve e strutturata, con eventuale collaborazione; qui si interviene senza preparazione su temi familiari."},
-        "B1+": {"ref": "SRC-407", "text": "Lì si affrontano anche situazioni meno frequenti e temi più astratti; qui prevalgono questioni familiari e vita quotidiana."},
-        "B2": {"ref": "SRC-406", "text": "Lì la scioltezza rende lo scambio agevole e sostiene argomentazioni; qui si esprimono opinioni e si scambiano informazioni su temi abituali."}
+        "A1": {
+          "ref": "SRC-411",
+          "text": "Nel descrittore A1 servono ripetizioni e riparazioni; qui si esprimono opinioni e si scambiano informazioni su temi familiari."
+        },
+        "A2": {
+          "ref": "SRC-410",
+          "text": "Nel descrittore A2 gli scambi sono molto brevi e con autonomia limitata; qui si esprimono opinioni e si scambiano informazioni."
+        },
+        "A2+": {
+          "ref": "SRC-409",
+          "text": "Lì l'interazione è breve e strutturata, con eventuale collaborazione; qui si interviene senza preparazione su temi familiari."
+        },
+        "B1+": {
+          "ref": "SRC-407",
+          "text": "Lì si affrontano anche situazioni meno frequenti e temi più astratti; qui prevalgono questioni familiari e vita quotidiana."
+        },
+        "B2": {
+          "ref": "SRC-406",
+          "text": "Nel descrittore B2 l’interazione è spontanea e i punti di vista sono argomentati; qui si esprimono opinioni su temi familiari."
+        }
       },
-      "reason": "Interviene senza preparazione su questioni familiari, esprime opinioni personali e scambia informazioni su temi abituali e di interesse."
+      "reason": "Usa un’ampia gamma di strumenti linguistici semplici, esprime opinioni e scambia informazioni su temi abituali, personali o quotidiani.",
+      "validation_status": "validated_for_guided_pilot"
     },
     {
       "descriptor_id": "SRC-409",
       "level": "A2+",
       "descriptor_sha256": "a0332dbebc3e0f57e9ba158e18f41b609233e3491648dde931b32eeb12dd8865",
-      "evidence": ["ragionevole disinvoltura", "situazioni strutturate e conversazioni brevi", "l’interlocutore collabori"],
+      "evidence": [
+        "ragionevole disinvoltura",
+        "situazioni strutturate e conversazioni brevi",
+        "l’interlocutore collabori"
+      ],
       "focus": "Quanto aiutano la struttura della situazione e, se necessario, la collaborazione dell'interlocutore?",
       "first_hints": {
         "A1": "Lo scambio dipende da ripetizioni lente, o procede con ragionevole disinvoltura in situazioni strutturate?",
@@ -240,11 +526,26 @@
         "B2": "L'interazione è senza sforzo per entrambe le parti, o la collaborazione dell'interlocutore resta una condizione?"
       },
       "contrasts": {
-        "A1": {"ref": "SRC-411", "text": "Lì la comunicazione dipende completamente da ripetizioni lente; qui gli scambi brevi e strutturati avvengono con ragionevole disinvoltura."},
-        "A2": {"ref": "SRC-410", "text": "Lì gli scambi molto brevi sono difficili da sostenere con autonomia; qui le conversazioni brevi si gestiscono con ragionevole disinvoltura."},
-        "B1": {"ref": "SRC-408", "text": "Lì si interviene senza preparazione su temi familiari; qui le conversazioni restano brevi, strutturate e dipendono talvolta dalla collaborazione."},
-        "B1+": {"ref": "SRC-407", "text": "Lì si gestiscono situazioni meno frequenti e temi più astratti; qui gli scambi riguardano situazioni quotidiane prevedibili."},
-        "B2": {"ref": "SRC-406", "text": "Lì lo scambio è spontaneo e senza sforzo per entrambi; qui è breve, strutturato e dipende talvolta dalla collaborazione."}
+        "A1": {
+          "ref": "SRC-411",
+          "text": "Lì la comunicazione dipende completamente da ripetizioni lente; qui gli scambi brevi e strutturati avvengono con ragionevole disinvoltura."
+        },
+        "A2": {
+          "ref": "SRC-410",
+          "text": "Lì gli scambi molto brevi sono difficili da sostenere con autonomia; qui le conversazioni brevi si gestiscono con ragionevole disinvoltura."
+        },
+        "B1": {
+          "ref": "SRC-408",
+          "text": "Lì si interviene senza preparazione su temi familiari; qui le conversazioni restano brevi, strutturate e dipendono talvolta dalla collaborazione."
+        },
+        "B1+": {
+          "ref": "SRC-407",
+          "text": "Lì si gestiscono situazioni meno frequenti e temi più astratti; qui gli scambi riguardano situazioni quotidiane prevedibili."
+        },
+        "B2": {
+          "ref": "SRC-406",
+          "text": "Lì lo scambio è spontaneo e senza sforzo per entrambi; qui è breve, strutturato e dipende talvolta dalla collaborazione."
+        }
       },
       "reason": "Le conversazioni sono brevi e strutturate, gestite con ragionevole disinvoltura ma con possibile collaborazione dell'interlocutore."
     },
@@ -252,117 +553,208 @@
       "descriptor_id": "SRC-410",
       "level": "A2",
       "descriptor_sha256": "8435a4dadb95c9b0fb19d7b077fe7cc63ae2d9ef9fb8a881a3e35a93220e0f31",
-      "evidence": ["scambi comunicativi molto brevi", "sostenere con una certa autonomia la conversazione"],
+      "evidence": [
+        "scambi comunicativi molto brevi",
+        "sostenere con una certa autonomia la conversazione"
+      ],
       "focus": "Quanto è breve lo scambio? La persona riesce davvero a sostenere la conversazione con autonomia?",
       "first_hints": {
-        "A1": "La comunicazione dipende del tutto da ripetizioni lente, o avviene in scambi semplici e diretti di routine?",
-        "A2+": "Lo scambio è già disinvolto in conversazioni brevi strutturate, o resta molto breve e poco autonomo?",
-        "B1": "La persona interviene senza preparazione ed esprime opinioni, o fatica a sostenere da sola la conversazione?",
-        "B1+": "Controlla informazioni e spiega problemi, o si limita a compiti di routine e scambi molto brevi?",
-        "B2": "Si tratta di un'interazione spontanea senza sforzo, o di scambi molto brevi di informazioni?"
+        "A1": "La comunicazione dipende completamente da ripetizioni e riparazioni, oppure avviene in scambi semplici e diretti di routine?",
+        "B1": "Gli scambi restano molto brevi e con autonomia limitata, oppure la persona esprime opinioni e scambia informazioni su temi familiari?",
+        "B2": "Gli scambi restano molto brevi e con autonomia limitata, oppure l’interazione è spontanea e agevole per entrambe le parti?"
       },
       "contrasts": {
-        "A1": {"ref": "SRC-411", "text": "Lì il dialogo dipende completamente da ripetizioni lente e riformulazioni; qui si svolgono compiti di routine con scambi diretti."},
-        "A2+": {"ref": "SRC-409", "text": "Lì si interagisce con ragionevole disinvoltura in conversazioni brevi; qui gli scambi sono molto brevi e difficili da sostenere autonomamente."},
-        "B1": {"ref": "SRC-408", "text": "Lì si interviene senza preparazione e si esprimono opinioni su temi familiari; qui si gestiscono soprattutto scambi di routine molto brevi."},
-        "B1+": {"ref": "SRC-407", "text": "Lì si controllano e confermano informazioni e si spiegano problemi; qui lo scambio semplice e diretto resta molto breve."},
-        "B2": {"ref": "SRC-406", "text": "Lì lo scambio è spontaneo e senza sforzo per entrambi; qui manca spesso l'autonomia per sostenere una conversazione."}
+        "A1": {
+          "ref": "SRC-411",
+          "text": "Nel descrittore A1 la comunicazione dipende da ripetizioni e riparazioni; qui ci sono scambi semplici e diretti di routine."
+        },
+        "A2+": {
+          "ref": "SRC-409",
+          "text": "Lì si interagisce con ragionevole disinvoltura in conversazioni brevi; qui gli scambi sono molto brevi e difficili da sostenere autonomamente."
+        },
+        "B1": {
+          "ref": "SRC-408",
+          "text": "Nel descrittore B1 si esprimono opinioni e si scambiano informazioni; qui gli scambi sono molto brevi e con autonomia limitata."
+        },
+        "B1+": {
+          "ref": "SRC-407",
+          "text": "Lì si controllano e confermano informazioni e si spiegano problemi; qui lo scambio semplice e diretto resta molto breve."
+        },
+        "B2": {
+          "ref": "SRC-406",
+          "text": "Nel descrittore B2 l’interazione è spontanea e agevole; qui gli scambi di routine sono molto brevi e con autonomia limitata."
+        }
       },
-      "reason": "Gestisce scambi diretti e molto brevi in compiti di routine, ma raramente comprende abbastanza per sostenere la conversazione con una certa autonomia."
+      "reason": "Scambi semplici, diretti e molto brevi nelle attività di routine, ma con un’autonomia ancora limitata nel sostenere la conversazione.",
+      "validation_status": "validated_for_guided_pilot"
     },
     {
       "descriptor_id": "SRC-411",
       "level": "A1",
       "descriptor_sha256": "c32f5306420277c01c8e930961ef6993de1af1a767ec20399f38381e50202d98",
-      "evidence": ["dipende completamente da ripetizioni", "riformulazioni e riparazioni", "bisogni immediati"],
+      "evidence": [
+        "dipende completamente da ripetizioni",
+        "riformulazioni e riparazioni",
+        "bisogni immediati"
+      ],
       "focus": "Quanto dipende l'interazione da ripetizioni lente, riformulazioni e riparazioni?",
       "first_hints": {
-        "A2": "Lo scambio è semplice e diretto, o dipende completamente da ripetizioni lente e riformulazioni?",
-        "A2+": "C'è ragionevole disinvoltura in conversazioni brevi, o serve che l'interlocutore ripeta e riformuli?",
-        "B1": "La persona interviene senza preparazione, o la comunicazione dipende da ripetizioni e riparazioni?",
-        "B1+": "Può affrontare situazioni meno frequenti e spiegare problemi, o ha bisogno di ripetizioni e riformulazioni?",
-        "B2": "Lo scambio procede spontaneamente senza sforzo, o dipende da ripetizioni lente e riparazioni?"
+        "A2": "Lo scambio è semplice e diretto in attività di routine, oppure dipende completamente da ripetizioni, riformulazioni e riparazioni?",
+        "B1": "La persona esprime opinioni e scambia informazioni su temi familiari, oppure l’interazione dipende da ripetizioni e riparazioni?",
+        "B2": "L’interazione è spontanea e agevole, oppure dipende completamente da ripetizioni, riformulazioni e riparazioni?"
       },
       "contrasts": {
-        "A2": {"ref": "SRC-410", "text": "Lì si svolgono compiti di routine con scambi diretti; qui la comunicazione dipende completamente da ripetizioni lente e riparazioni."},
-        "A2+": {"ref": "SRC-409", "text": "Lì gli scambi brevi avvengono con ragionevole disinvoltura; qui occorrono ripetizioni lente e riformulazioni."},
-        "B1": {"ref": "SRC-408", "text": "Lì si entra senza preparazione in conversazioni su temi familiari; qui l'interazione dipende da ripetizioni e riparazioni."},
-        "B1+": {"ref": "SRC-407", "text": "Lì si spiegano problemi in situazioni meno frequenti; qui l'interazione riguarda bisogni immediati e dipende da ripetizioni."},
-        "B2": {"ref": "SRC-406", "text": "Lì l'interazione è spontanea e senza sforzo; qui dipende da ritmo ridotto, riformulazioni e riparazioni."}
+        "A2": {
+          "ref": "SRC-410",
+          "text": "Nel descrittore A2 ci sono scambi diretti di routine; qui la comunicazione dipende da ripetizioni a velocità ridotta e riparazioni."
+        },
+        "A2+": {
+          "ref": "SRC-409",
+          "text": "Lì gli scambi brevi avvengono con ragionevole disinvoltura; qui occorrono ripetizioni lente e riformulazioni."
+        },
+        "B1": {
+          "ref": "SRC-408",
+          "text": "Nel descrittore B1 si esprimono opinioni su temi familiari; qui la comunicazione dipende da ripetizioni e riparazioni."
+        },
+        "B1+": {
+          "ref": "SRC-407",
+          "text": "Lì si spiegano problemi in situazioni meno frequenti; qui l'interazione riguarda bisogni immediati e dipende da ripetizioni."
+        },
+        "B2": {
+          "ref": "SRC-406",
+          "text": "Nel descrittore B2 l’interazione è spontanea e agevole; qui dipende da ripetizioni a velocità ridotta, riformulazioni e riparazioni."
+        }
       },
-      "reason": "La comunicazione dipende completamente da ripetizioni lente, riformulazioni e riparazioni; i temi sono immediati o molto familiari."
+      "reason": "Interazione semplice, del tutto dipendente da ripetizioni, riformulazioni e riparazioni, su bisogni immediati o temi molto familiari.",
+      "validation_status": "validated_for_guided_pilot"
     },
     {
       "descriptor_id": "QCER-GEN-A1",
       "level": "A1",
       "descriptor_sha256": "ac35a4ab4764a9167d835e1a12cdab5e1d3a29ca83537f6eafebe93b0368c47a",
-      "evidence": ["espressioni familiari di uso quotidiano", "bisogni di tipo concreto", "lentamente e chiaramente"],
+      "evidence": [
+        "espressioni familiari di uso quotidiano",
+        "bisogni di tipo concreto",
+        "lentamente e chiaramente"
+      ],
       "focus": "Osserva che cosa sa fare la persona e con quale sostegno: quanto dipende dalla collaborazione dell'interlocutore?",
       "first_hints": {
-        "A2": "Conta solo la familiarità del tema, o anche la necessità che l'interlocutore si esprima lentamente e collabori?",
-        "B1": "Si colgono punti essenziali e si motivano opinioni, o servono formule comuni e collaborazione?",
-        "B2": "Si gestiscono testi complessi, o interazioni semplici sostenute da un interlocutore collaborativo?"
+        "A2": "Guarda il tipo di scambio: attività semplici di routine, oppure interazione semplice sostenuta da lentezza, chiarezza e collaborazione?",
+        "B1": "Compaiono punti essenziali e testi coerenti, oppure formule comuni per bisogni concreti e un’interazione sostenuta dall’interlocutore?",
+        "B2": "Compaiono testi complessi e relativa scioltezza, oppure formule comuni e un’interazione semplice sostenuta dall’interlocutore?"
       },
       "contrasts": {
-        "A2": {"ref": "QCER-GEN-A2", "text": "Lì compaiono scambi diretti in attività di routine; qui l'interazione semplice dipende da lentezza e collaborazione."},
-        "B1": {"ref": "QCER-GEN-B1", "text": "Lì si colgono punti essenziali e si esprimono ragioni; qui prevalgono formule comuni per bisogni concreti."},
-        "B2": {"ref": "QCER-GEN-B2", "text": "Lì si trattano testi complessi e opinioni articolate; qui l'interazione resta semplice e dipende dalla collaborazione."}
+        "A2": {
+          "ref": "QCER-GEN-A2",
+          "text": "Nel descrittore A2 ci sono attività semplici di routine; qui l’interazione è sostenuta da lentezza, chiarezza e collaborazione."
+        },
+        "B1": {
+          "ref": "QCER-GEN-B1",
+          "text": "Nel descrittore B1 ci sono punti essenziali e testi coerenti; qui formule comuni per bisogni concreti e un’interazione semplice."
+        },
+        "B2": {
+          "ref": "QCER-GEN-B2",
+          "text": "Nel descrittore B2 ci sono testi complessi e scioltezza; qui formule comuni e interazione semplice dipendente dalla collaborazione."
+        }
       },
-      "reason": "La soglia è l'interazione semplice su bisogni concreti, sostenuta da lentezza, chiarezza e collaborazione dell'interlocutore."
+      "reason": "L’interazione è semplice, con l’interlocutore disposto a collaborare esprimendosi lentamente e chiaramente.",
+      "validation_status": "pending_targeted_review"
     },
     {
       "descriptor_id": "QCER-GEN-A2",
       "level": "A2",
       "descriptor_sha256": "d0c44603b7f135ea12c6d697a7a0b783dfbfb821ac41443777022c8b82ec05c6",
-      "evidence": ["frasi isolate ed espressioni di uso frequente", "attività semplici e di routine", "scambio di informazioni semplice e diretto"],
+      "evidence": [
+        "frasi isolate ed espressioni di uso frequente",
+        "attività semplici e di routine",
+        "scambio di informazioni semplice e diretto"
+      ],
       "focus": "Guarda il tipo di scambio: formule per bisogni concreti, attività di routine o discussioni complesse?",
       "first_hints": {
-        "A1": "Servono solo formule comuni e collaborazione, o si svolgono scambi diretti in attività di routine?",
-        "B1": "Si producono testi semplici ma coerenti e si spiegano opinioni, o restano attività di routine?",
-        "B2": "I testi sono complessi e l'interazione spontanea, o gli scambi restano semplici e diretti?"
+        "A1": "L’interazione dipende dalla collaborazione dell’interlocutore, oppure avviene in attività semplici di routine con scambi diretti?",
+        "B1": "Il testo descrive scambi semplici di routine, oppure anche punti essenziali, testi coerenti ed esperienze?",
+        "B2": "Gli scambi restano semplici e diretti in attività di routine, oppure compaiono testi complessi, scioltezza e pro e contro?"
       },
       "contrasts": {
-        "A1": {"ref": "QCER-GEN-A1", "text": "Lì formule comuni e collaborazione sostengono bisogni concreti; qui si svolgono scambi diretti in attività di routine."},
-        "B1": {"ref": "QCER-GEN-B1", "text": "Lì si comprendono punti essenziali e si producono testi coerenti; qui gli scambi restano semplici e di routine."},
-        "B2": {"ref": "QCER-GEN-B2", "text": "Lì si comprendono testi complessi e si argomentano opinioni; qui si scambiano informazioni semplici e dirette."}
+        "A1": {
+          "ref": "QCER-GEN-A1",
+          "text": "Nel descrittore A1 l’interazione dipende dalla collaborazione; qui ci sono attività di routine e scambi semplici e diretti."
+        },
+        "B1": {
+          "ref": "QCER-GEN-B1",
+          "text": "Nel descrittore B1 ci sono punti essenziali, testi coerenti ed esperienze; qui prevalgono espressioni frequenti e scambi di routine."
+        },
+        "B2": {
+          "ref": "QCER-GEN-B2",
+          "text": "Nel descrittore B2 ci sono testi complessi, relativa scioltezza e pro e contro; qui gli scambi restano semplici, diretti e di routine."
+        }
       },
-      "reason": "Comprende espressioni frequenti e scambia informazioni semplici e dirette in attività di routine; lo scambio resta circoscritto."
+      "reason": "Comprende espressioni frequenti su ambiti immediati, comunica in attività semplici di routine e descrive il vissuto e l’ambiente.",
+      "validation_status": "validated_for_guided_pilot"
     },
     {
       "descriptor_id": "QCER-GEN-B1",
       "level": "B1",
       "descriptor_sha256": "c4c58d74225974bc3703af77fcf0d9a494d898492ca84095b2175d521e7c22ee",
-      "evidence": ["punti essenziali di messaggi chiari", "testi semplici e coerenti", "esporre brevemente ragioni"],
+      "evidence": [
+        "punti essenziali di messaggi chiari",
+        "testi semplici e coerenti",
+        "esporre brevemente ragioni"
+      ],
       "focus": "Non fermarti a una parola: considera insieme comprensione, produzione e possibilità di spiegare le proprie opinioni.",
       "first_hints": {
-        "A1": "Il testo si limita a bisogni concreti e formule comuni, o include messaggi chiari e opinioni spiegate brevemente?",
-        "A2": "Ci sono solo scambi semplici di routine, o anche testi coerenti e opinioni spiegate brevemente?",
-        "B2": "Si affrontano testi complessi e pro e contro articolati, o messaggi chiari e opinioni spiegate brevemente?"
+        "A1": "Il testo resta su formule comuni per bisogni concreti, oppure combina punti essenziali, testi coerenti, esperienze e brevi spiegazioni?",
+        "A2": "Il profilo unisce scambi di routine e descrizioni semplici, oppure punti essenziali, testi coerenti, esperienze e progetti?",
+        "B2": "Cerca il grado: testi semplici e coerenti e brevi spiegazioni, oppure testi complessi, relativa scioltezza e pro e contro?"
       },
       "contrasts": {
-        "A1": {"ref": "QCER-GEN-A1", "text": "Lì l'interazione semplice dipende dalla collaborazione; qui si colgono punti essenziali e si danno brevi spiegazioni delle proprie opinioni."},
-        "A2": {"ref": "QCER-GEN-A2", "text": "Lì gli scambi sono semplici e di routine; qui si producono testi coerenti e si spiegano brevemente opinioni."},
-        "B2": {"ref": "QCER-GEN-B2", "text": "Lì si trattano testi complessi e si espongono pro e contro; qui si comprendono messaggi chiari e si spiegano brevemente le proprie opinioni."}
+        "A1": {
+          "ref": "QCER-GEN-A1",
+          "text": "Nel descrittore A1 l’interazione dipende dalla collaborazione; qui ci sono punti essenziali, testi coerenti ed esperienze."
+        },
+        "A2": {
+          "ref": "QCER-GEN-A2",
+          "text": "Nel descrittore A2 prevalgono scambi semplici di routine; qui ci sono punti essenziali, testi coerenti, esperienze e progetti."
+        },
+        "B2": {
+          "ref": "QCER-GEN-B2",
+          "text": "Nel descrittore B2 ci sono testi complessi, relativa scioltezza e pro e contro; qui testi semplici, esperienze e brevi spiegazioni."
+        }
       },
-      "reason": "Coglie i punti essenziali di messaggi chiari, produce testi semplici ma coerenti, espone brevemente ragioni e spiega le proprie opinioni."
+      "reason": "Punti essenziali di messaggi chiari, testi semplici e coerenti, descrizione di esperienze e brevi spiegazioni su opinioni e progetti.",
+      "validation_status": "pending_targeted_review"
     },
     {
       "descriptor_id": "QCER-GEN-B2",
       "level": "B2",
       "descriptor_sha256": "5538c306882991055b4568588474297ffcc05c0b979ac2d40cf0269e414d7ee7",
-      "evidence": ["testi complessi su argomenti sia concreti sia astratti", "relativa scioltezza e spontaneità", "i pro e i contro delle diverse opzioni"],
+      "evidence": [
+        "testi complessi su argomenti sia concreti sia astratti",
+        "relativa scioltezza e spontaneità",
+        "i pro e i contro delle diverse opzioni"
+      ],
       "focus": "Quanto sono complessi i testi e quanto articolate le opinioni che la persona sa esprimere? Guarda anche la spontaneità dell'interazione.",
       "first_hints": {
-        "A1": "Si tratta di formule comuni per bisogni concreti, o di testi complessi e opinioni articolate?",
-        "A2": "Gli scambi restano semplici e di routine, o compaiono testi complessi e pro e contro?",
-        "B1": "Si colgono punti essenziali e si spiegano brevemente opinioni, o si espongono pro e contro su un tema d'attualità?"
+        "A1": "Il testo riguarda formule comuni e interazione dipendente dalla collaborazione, oppure testi complessi, scioltezza e produzione articolata?",
+        "A2": "Gli scambi restano semplici e di routine, oppure compaiono testi complessi, relativa scioltezza e pro e contro?",
+        "B1": "Sono testi semplici e coerenti con brevi spiegazioni, oppure testi complessi, relativa scioltezza e pro e contro?"
       },
       "contrasts": {
-        "A1": {"ref": "QCER-GEN-A1", "text": "Lì formule comuni e collaborazione bastano per bisogni concreti; qui si affrontano testi complessi e opinioni articolate."},
-        "A2": {"ref": "QCER-GEN-A2", "text": "Lì gli scambi sono semplici e di routine; qui si comprendono testi complessi e si espongono pro e contro."},
-        "B1": {"ref": "QCER-GEN-B1", "text": "Lì si colgono punti essenziali e si spiegano brevemente opinioni; qui si trattano testi complessi e si espongono pro e contro."}
+        "A1": {
+          "ref": "QCER-GEN-A1",
+          "text": "Nel descrittore A1 l’interazione dipende dalla collaborazione; qui testi complessi, scioltezza e produzione articolata."
+        },
+        "A2": {
+          "ref": "QCER-GEN-A2",
+          "text": "Nel descrittore A2 prevalgono scambi semplici di routine; qui ci sono testi complessi, relativa scioltezza e pro e contro."
+        },
+        "B1": {
+          "ref": "QCER-GEN-B1",
+          "text": "Nel descrittore B1 ci sono testi semplici e coerenti e brevi spiegazioni; qui testi complessi, relativa scioltezza e pro e contro."
+        }
       },
-      "reason": "Testi complessi, interazione relativamente sciolta e opinioni articolate con pro e contro mostrano capacità più ampie rispetto ai temi familiari."
+      "reason": "Testi complessi concreti e astratti, interazione relativamente sciolta, produzione articolata e opinione d’attualità con pro e contro.",
+      "validation_status": "pending_targeted_review"
     }
   ],
   "suspended_items": [
@@ -373,5 +765,7 @@
       "previous_focus": "Che cosa permette di fare questa comprensione? Quanto pesa la condizione «lentamente e chiaramente»?",
       "previous_reason": "Oltre le espressioni immediate di A2, la comprensione basta per bisogni concreti; B1 richiede già i punti salienti di un discorso."
     }
-  ]
+  ],
+  "pilot_validation_status": "guided_track_partial_validation",
+  "pilot_validation_date": "2026-10-25"
 }

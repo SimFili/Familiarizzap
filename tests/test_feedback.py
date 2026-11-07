@@ -17,7 +17,12 @@ from src.feedback import (
     _load_feedback_bank,
     compose_feedback,
 )
-from src.guided_track import guided_general_descriptors
+from src.guided_track import (
+    CANONICAL_LEVELS,
+    GUIDED_DESCRIPTOR_IDS,
+    GUIDED_STAGES,
+    guided_general_descriptors,
+)
 
 
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "space/data/catalog.full.json"
@@ -83,7 +88,7 @@ def test_draft_guide_changes_content_between_attempts_and_explains_answer():
         previous_attempts=["B2", "B2"],
         completed_records=[],
     )
-    assert basis == "guide_draft"
+    assert basis == "guide_validated"
     assert "punti salienti" in first
     assert "B1" not in first and "B1" not in second
     assert "di nuovo B2" in second
@@ -91,12 +96,13 @@ def test_draft_guide_changes_content_between_attempts_and_explains_answer():
     assert first != second
     assert "Esatto: B1" in final
     assert "B2" in second
-    assert "A2" in final and "B2" in final
     assert "punti salienti" in final
+    assert "Confronta con" not in final
+    assert "A2" not in final and "B2" not in final
     assert "Non ancora." not in first + second + final
 
 
-def test_src_8_comparison_is_local_to_its_b1_neighbour():
+def test_src_8_correct_feedback_explains_only_the_target_descriptor():
     descriptor = next(
         item for item in full_catalog() if item["descriptor_id"] == "SRC-8"
     )
@@ -110,14 +116,28 @@ def test_src_8_comparison_is_local_to_its_b1_neighbour():
         completed_records=[],
     )
     assert basis == "guide_draft"
-    assert "B1 della stessa scala" in corrected
-    assert "mette l'accento principalmente sui punti salienti" in corrected
+    assert "significato generale" in corrected
+    assert "informazioni specifiche" in corrected
+    assert "Confronta con" not in corrected
+    assert set(re.findall(
+        r"(?<!\w)(?:A1|A2\+?|B1\+?|B2)(?!\w)", corrected
+    )) == {"B1+"}
 
 
 def test_each_draft_guide_is_bound_to_a_real_descriptor_and_contrast():
     catalog = {item["descriptor_id"]: item for item in full_catalog()}
     bank = json.loads(GUIDE_DATA_PATH.read_text(encoding="utf-8"))
-    assert bank["review_status"] == "draft_pending_human_review"
+    assert bank["review_status"] == "mixed_validated_pending_and_draft"
+    assert bank["pilot_validation_status"] == "guided_track_partial_validation"
+    assert bank["pilot_validation_date"] == "2026-10-25"
+    assert sum(
+        item.get("validation_status") == "validated_for_guided_pilot"
+        for item in bank["items"]
+    ) == 13
+    assert sum(
+        item.get("validation_status") == "pending_targeted_review"
+        for item in bank["items"]
+    ) == 3
     assert len(DESCRIPTOR_GUIDES) == len(bank["items"]) == 21
     assert [item["descriptor_id"] for item in bank["suspended_items"]] == ["SRC-10"]
     assert "SRC-10" not in DESCRIPTOR_GUIDES
@@ -144,9 +164,16 @@ def test_each_draft_guide_is_bound_to_a_real_descriptor_and_contrast():
         }
         assert set(guide["contrasts"]) == available_levels - {guide["level"]}
         if "first_hints" in guide:
-            assert set(guide["first_hints"]) == set(guide["contrasts"])
+            assert set(guide["first_hints"]).issubset(guide["contrasts"])
             assert len(set(guide["first_hints"].values())) == len(guide["first_hints"])
             assert all(hint.endswith("?") for hint in guide["first_hints"].values())
+        if guide.get("validation_status") in {
+            "validated_for_guided_pilot",
+            "pending_targeted_review",
+        }:
+            assert set(guide["first_hints"]) == {
+                "A1", "A2", "B1", "B2"
+            } - {guide["level"]}
         for selected_level, contrast in guide["contrasts"].items():
             reference = catalog[contrast["ref"]]
             assert tuple(
@@ -177,7 +204,13 @@ def test_draft_guides_compare_each_wrong_level_without_repeating_a_hint():
                 previous_attempts=[selected_level],
                 completed_records=[],
             )
-            assert first_basis == second_basis == "guide_draft"
+            expected_basis = (
+                "guide_validated"
+                if guide.get("validation_status")
+                == "validated_for_guided_pilot"
+                else "guide_draft"
+            )
+            assert first_basis == second_basis == expected_basis
             assert first != second
             assert "Non ancora." not in first + second
             assert guide["level"] not in re.findall(
@@ -187,6 +220,126 @@ def test_draft_guides_compare_each_wrong_level_without_repeating_a_hint():
             assert len(first) <= MAX_FEEDBACK_LENGTH
             assert len(second) <= MAX_FEEDBACK_LENGTH
             assert guide["contrasts"][selected_level]["text"] in second
+
+
+def test_all_848_guided_feedback_states_are_safe_and_complete(monkeypatch):
+    monkeypatch.setattr(feedback_module, "DRAFT_GUIDES_ENABLED", False)
+    catalog = {item["descriptor_id"]: item for item in full_catalog()}
+    phase_by_id = {
+        descriptor_id: stage.phase
+        for stage in GUIDED_STAGES
+        for descriptor_id in stage.descriptor_ids
+    }
+    forbidden = re.compile(
+        r"Non ancora|si limita|catalogo sorgente|Quale azione e quali condizioni|"
+        r"\bLì\b|\bparlato\b",
+        re.IGNORECASE,
+    )
+    checked = 0
+
+    def verify(
+        message: str,
+        basis: str,
+        expected_basis: str,
+        *,
+        correct: bool = False,
+    ) -> None:
+        nonlocal checked
+        checked += 1
+        assert basis == expected_basis
+        assert len(message) <= MAX_FEEDBACK_LENGTH
+        assert "…" not in message
+        assert not forbidden.search(message)
+        if correct:
+            assert "Confronta con" not in message
+            assert "Hai scelto" not in message
+
+    for descriptor_id in GUIDED_DESCRIPTOR_IDS:
+        descriptor = catalog[descriptor_id]
+        phase = phase_by_id[descriptor_id]
+        correct_level = descriptor["correct_level"]
+        expected_basis = (
+            "guide_validated"
+            if DESCRIPTOR_GUIDES[descriptor_id].get("validation_status")
+            == "validated_for_guided_pilot"
+            else "guide_draft"
+        )
+        wrong_levels = [
+            level for level in CANONICAL_LEVELS if level != correct_level
+        ]
+
+        message, basis = compose_feedback(
+            descriptor,
+            phase=phase,
+            selected_level=correct_level,
+            attempt_number=1,
+            previous_attempts=[],
+            completed_records=[],
+        )
+        verify(message, basis, expected_basis, correct=True)
+        message, basis = compose_feedback(
+            descriptor,
+            phase=phase,
+            selected_level=correct_level,
+            attempt_number=1,
+            previous_attempts=[],
+            completed_records=[],
+            prior_exposure_count=1,
+        )
+        verify(message, basis, expected_basis, correct=True)
+
+        for first_wrong in wrong_levels:
+            message, basis = compose_feedback(
+                descriptor,
+                phase=phase,
+                selected_level=first_wrong,
+                attempt_number=1,
+                previous_attempts=[],
+                completed_records=[],
+            )
+            verify(message, basis, expected_basis)
+            message, basis = compose_feedback(
+                descriptor,
+                phase=phase,
+                selected_level=correct_level,
+                attempt_number=2,
+                previous_attempts=[first_wrong],
+                completed_records=[],
+            )
+            verify(message, basis, expected_basis, correct=True)
+
+            for second_wrong in wrong_levels:
+                message, basis = compose_feedback(
+                    descriptor,
+                    phase=phase,
+                    selected_level=second_wrong,
+                    attempt_number=2,
+                    previous_attempts=[first_wrong],
+                    completed_records=[],
+                )
+                verify(message, basis, expected_basis)
+                message, basis = compose_feedback(
+                    descriptor,
+                    phase=phase,
+                    selected_level=correct_level,
+                    attempt_number=3,
+                    previous_attempts=[first_wrong, second_wrong],
+                    completed_records=[],
+                )
+                verify(message, basis, expected_basis, correct=True)
+
+                for final_wrong in wrong_levels:
+                    message, basis = compose_feedback(
+                        descriptor,
+                        phase=phase,
+                        selected_level=final_wrong,
+                        attempt_number=3,
+                        previous_attempts=[first_wrong, second_wrong],
+                        completed_records=[],
+                    )
+                    verify(message, basis, expected_basis)
+
+    assert checked == 848
 
 
 def test_unreviewed_guides_are_not_active_by_default(monkeypatch):
@@ -217,7 +370,7 @@ def test_second_hint_uses_the_level_actually_chosen():
         previous_attempts=["A2"],
         completed_records=[],
     )
-    assert basis == "guide_draft"
+    assert basis == "guide_validated"
     assert "Confronta con B1+" in second
     assert "informazioni specifiche" in second
     assert "discorso lungo" not in second
@@ -246,16 +399,16 @@ def test_first_hint_on_interaction_scale_responds_to_chosen_level():
         previous_attempts=[],
         completed_records=[],
     )
-    assert basis == "guide_draft"
-    assert "scambi molto brevi" in first_low
-    assert "situazioni meno frequenti" in first_high
+    assert basis == "guide_validated"
+    assert "restano molto brevi" in first_low
+    assert "Su quali temi" in first_high
     assert first_low != first_high
     assert "B1" not in re.findall(
         r"(?<!\w)(?:A1|A2\+?|B1\+?|B2)(?!\w)", first_low + first_high
     )
 
 
-def test_final_feedback_revisits_a_real_wrong_choice_without_repeating_latest_hint():
+def test_correct_feedback_does_not_revisit_a_previous_wrong_choice():
     descriptor = next(
         item for item in full_catalog() if item["descriptor_id"] == "SRC-230"
     )
@@ -267,9 +420,11 @@ def test_final_feedback_revisits_a_real_wrong_choice_without_repeating_latest_hi
         previous_attempts=["A2"],
         completed_records=[],
     )
-    assert basis == "guide_draft"
-    assert "Confronta con A2" in corrected
-    assert "elenco" in corrected
+    assert basis == "guide_validated"
+    assert "Esatto: B1" in corrected
+    assert "sequenza lineare" in corrected
+    assert "Confronta con" not in corrected
+    assert "A2" not in corrected
 
     wrong_final, _ = compose_feedback(
         descriptor,
@@ -281,7 +436,7 @@ def test_final_feedback_revisits_a_real_wrong_choice_without_repeating_latest_hi
     )
     assert "Il livello previsto è B1" in wrong_final
     assert "Confronta con B2" in wrong_final
-    assert "sostenute con esempi" in wrong_final
+    assert "sostenute con elementi ed esempi" in wrong_final
     assert len(wrong_final) <= MAX_FEEDBACK_LENGTH
 
 
@@ -298,7 +453,7 @@ def test_guide_is_not_used_if_the_catalog_text_changes():
         previous_attempts=[],
         completed_records=[],
     )
-    assert basis != "guide_draft"
+    assert basis not in {"guide_draft", "guide_validated"}
 
 
 def test_cue_is_not_used_if_its_textual_evidence_is_wrong(monkeypatch):
@@ -424,6 +579,7 @@ def test_active_feedback_describes_capabilities_instead_of_obligations():
             and "feedback provvisorio" not in text.casefold()
         )
     for text in editorial_texts:
+        assert "la soglia" not in text.casefold(), text
         assert not re.search(
             r"\b(?:deve|richiede|richiedono|richiesto|richiesta|si chiede|si chiedono)\b",
             text,
@@ -461,3 +617,16 @@ def test_full_catalog_feedback_is_short_and_wrong_hints_hide_target():
             completed_records=[],
         )
         assert len(message) <= MAX_FEEDBACK_LENGTH
+        assert "Confronta con" not in message
+        assert "Hai scelto" not in message
+        corrected, _ = compose_feedback(
+            descriptor,
+            phase="orientation",
+            selected_level=level,
+            attempt_number=2,
+            previous_attempts=[wrong],
+            completed_records=[],
+        )
+        assert len(corrected) <= MAX_FEEDBACK_LENGTH
+        assert "Confronta con" not in corrected
+        assert "Hai scelto" not in corrected

@@ -16,10 +16,9 @@ la funzione `creaQuestionario`.
 Technology Acceptance Model (Davis, 1989), in forma breve.
 
 Davis valida due scale da sei item — **utilità percepita** e **facilità d'uso
-percepita** — con affidabilità .98 e .94. Qui se ne usano **quattro per
-costrutto**, come in TAM2 e UTAUT: è la prassi negli studi applicativi,
-l'affidabilità regge e il questionario resta sotto i dieci minuti. Sotto i tre
-item per costrutto non sarebbe più difendibile.
+percepita** — con affidabilità .98 e .94. Questa versione esplorativa conserva
+tre item per l'utilità e quattro per la facilità d'uso. I risultati del pilot
+non vanno quindi presentati come validazione autonoma delle scale originali.
 
 Il costrutto **atteggiamento** è stato escluso: Davis stesso rileva che media
 solo parzialmente il rapporto fra percezioni e intenzione, e dal TAM successivo
@@ -49,98 +48,94 @@ scala a 7 punti: si è preferita la coerenza interna fra i due strumenti.
 
 **Titolo:** Valutazione esplorativa di FamiliarizzApp
 
-**Descrizione:** Questionario rivolto a docenti di lingua dei segni dopo una
-prova di FamiliarizzApp, lo strumento per familiarizzare con i descrittori e i
-livelli del QCER. Obiettivo: raccogliere valutazioni esplorative su facilità
-d'uso, utilità percepita, qualità dei feedback e intenzione d'uso. Tempo stimato:
-7-8 minuti. La partecipazione è volontaria; non vengono richiesti nome,
-istituzione o luogo di lavoro. Le risposte saranno analizzate in forma aggregata
-e potranno essere utilizzate per finalità di ricerca e pubblicazione scientifica.
-È possibile interrompere la compilazione in qualsiasi momento prima dell'invio.
+**Descrizione:** Questionario rivolto a docenti di LIS dopo il completamento
+del percorso consigliato di FamiliarizzApp, lo strumento per familiarizzare con
+i descrittori e i livelli del QCER. Obiettivo: raccogliere valutazioni
+esplorative su facilità d'uso, utilità percepita, qualità dei feedback e
+intenzione d'uso. Tempo stimato: 6-8 minuti. Non vengono richiesti istituzione o
+luogo di lavoro. Le risposte sono collegate all'identificativo pseudonimo già
+usato nell'app e saranno analizzate in forma aggregata. Per concludere il pilot
+è necessario rispondere agli item chiusi; le due domande aperte sono facoltative.
 
 ### Consenso
 
-1. **Consenso alla partecipazione** — *casella, obbligatoria*
-   «Acconsento volontariamente a partecipare e all'uso anonimo e aggregato delle
-   mie risposte per finalità di ricerca e pubblicazione.»
+**Consenso alla raccolta dei dati** — *casella, obbligatoria*
+
+«Acconsento alla raccolta e al trattamento delle risposte fornite in questo
+questionario, in forma pseudonimizzata e aggregata, per finalità di ricerca e
+pubblicazione scientifica.»
 
 ### Sezione 1 — Il tuo profilo
 
-*Tre domande di inquadramento. Nessuna permette di identificarti.*
+*Tre domande di inquadramento.*
 
-2. Da quanti anni insegni lingua dei segni? — *scelta singola:* Meno di 1 anno /
+1. Prima di questa prova, quanto conoscevi il QCER e i suoi descrittori? —
+   *scala 1-5, da «per nulla» a «molto bene»*
+2. Da quanti anni insegni LIS? — *scelta singola:* Meno di 1 anno /
    1-3 anni / 4-10 anni / Più di 10 anni
 3. In quale contesto insegni? (seleziona tutte le opzioni pertinenti) —
    *caselle:* Corsi per adulti / Scuola / Università / Formazione di interpreti /
-   Corsi privati o individuali / Associazioni ed enti del terzo settore / Altro
-4. Prima di questa prova, quanto conoscevi il QCER e i suoi descrittori? —
-   *scala 1-5, da «per nulla» a «molto bene»*
+   Corsi privati o individuali / Associazioni ed enti del terzo settore /
+   Altro, con campo per specificare liberamente la risposta
 
 ### Sezione 2 — Utilità dello strumento
 
 *Rispondi pensando a quello che hai visto in questa prova.
 (1 = per nulla d'accordo; 5 = completamente d'accordo)*
 
-5. Usare FamiliarizzApp mi permetterebbe di orientarmi più rapidamente tra i
+4. Usare FamiliarizzApp mi permetterebbe di orientarmi più rapidamente tra i
    livelli del QCER.
-6. Usare FamiliarizzApp renderebbe più efficace il mio modo di riconoscere il
+5. Usare FamiliarizzApp renderebbe più efficace il mio modo di riconoscere il
    livello di un descrittore.
-7. Usare FamiliarizzApp renderebbe più facile il mio lavoro con il QCER.
-8. Nel complesso, troverei FamiliarizzApp utile per la mia attività didattica.
+6. Usare FamiliarizzApp renderebbe più facile il mio lavoro con il QCER.
 
 ### Sezione 3 — Facilità d'uso
 
 *Rispondi pensando a quello che hai visto in questa prova. (1-5)*
 
-9. Imparare a usare FamiliarizzApp è stato facile per me.
-10. La mia interazione con FamiliarizzApp è stata chiara e comprensibile.
-11. Credo che mi sarebbe facile diventare abile nell'uso di FamiliarizzApp.
-12. Nel complesso, trovo FamiliarizzApp facile da usare.
+7. Imparare a usare FamiliarizzApp è stato difficile per me.
+8. La mia interazione con FamiliarizzApp è stata chiara e comprensibile.
+9. Credo che per me sarebbe facile acquisire dimestichezza nell'uso di
+   FamiliarizzApp.
+10. Nel complesso, trovo FamiliarizzApp facile da usare.
 
 ### Sezione 4 — Intenzione d'uso
 
 *(1-5)*
 
-13. Ho intenzione di usare di nuovo FamiliarizzApp nei prossimi mesi.
-14. Consiglierei FamiliarizzApp a un collega che insegna lingua dei segni.
+11. Ho intenzione di usare di nuovo FamiliarizzApp nei prossimi mesi.
+12. Consiglierei FamiliarizzApp a un/a collega che insegna LIS.
 
-### Sezione 5 — Descrittori e feedback
+### Sezione 5 — Feedback e familiarizzazione
 
 *Questa parte riguarda i contenuti dell'esercizio, non l'interfaccia. (1-5)*
 
-15. I testi dei descrittori proposti erano comprensibili.
-16. I feedback ricevuti dopo un tentativo mi hanno aiutato a capire perché il
+13. I feedback ricevuti dopo un tentativo mi hanno aiutato a capire perché il
     livello era quello.
-17. Dopo questa prova mi sento più sicuro nel riconoscere il livello QCER di un
-    descrittore.
-18. I descrittori del QCER, pensati per le lingue vocali, mi sembrano applicabili
-    alla lingua dei segni.
+14. Dopo questa prova mi sento più sicuro/a nel riconoscere il livello QCER di
+    un descrittore.
 
 ### Sezione 6 — Le tue parole
 
-*Tre domande aperte. Rispondi liberamente, anche in poche righe.*
+*Due domande aperte facoltative. Rispondi liberamente, anche in poche righe.*
 
-19. Qual è l'aspetto più utile dello strumento per la tua pratica didattica?
-20. Qual è la principale criticità o difficoltà che hai incontrato? Se riguarda
-    l'applicazione dei descrittori alla lingua dei segni, scrivilo qui.
-21. Ulteriori commenti liberi — *facoltativa*
+15. Quali problemi hai trovato usando FamiliarizzApp? Segnalaceli, proveremo a
+    risolverli.
+16. Ci sono lati positivi dell'applicazione che vuoi sottolineare?
 
 **Messaggio finale:** Grazie della collaborazione!
-
-## Punto aperto
-
-L'item **18** chiede ai docenti di giudicare il presupposto stesso dello
-strumento: se descrittori nati per le lingue vocali siano applicabili alla lingua
-dei segni. È lo stesso nodo per cui le scale delle competenze segnate sono
-sospese in attesa di validazione. È l'item più esposto del questionario e va
-confermato o tolto consapevolmente, non per inerzia.
 
 ## Corrispondenza fra item e costrutti
 
 | Costrutto | Item | Fonte |
 | --- | --- | --- |
-| Utilità percepita | 5-8 | Davis (1989), forma breve |
-| Facilità d'uso percepita | 9-12 | Davis (1989), forma breve |
-| Intenzione d'uso | 13-14 | TAM / UTAUT |
-| Contenuti e feedback | 15-18 | specifico del progetto |
-| Esperienza pregressa | 4 | variabile di controllo |
+| Utilità percepita | 4-6 | adattamento esplorativo da Davis (1989) |
+| Facilità d'uso percepita | 7-10 | adattamento esplorativo da Davis (1989) |
+| Intenzione d'uso | 11-12 | TAM / UTAUT |
+| Feedback e familiarizzazione | 13-14 | specifico del progetto |
+| Esperienza pregressa | 1-3 | variabili di inquadramento |
+
+L'item **7** è formulato negativamente e va invertito nell'analisi. Il consenso
+alla registrazione degli eventi durante l'uso dell'app viene raccolto
+separatamente prima della prova; quello qui riportato riguarda le risposte al
+questionario finale.

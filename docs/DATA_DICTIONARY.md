@@ -88,7 +88,8 @@ Tipi implementati:
 - `descriptor_presented`;
 - `answer_submitted`;
 - `descriptor_completed`;
-- `session_completed`.
+- `session_completed`;
+- `questionnaire_submitted`.
 
 ### `session_started`
 
@@ -129,6 +130,16 @@ la durata e la fotografia del descrittore.
 
 Registra conteggi per tentativo, non risolti, percentuale al primo tentativo,
 durata, ordine e revisione dei contenuti.
+
+### `questionnaire_submitted`
+
+Registra una sola compilazione per partecipante e versione del questionario,
+con identificativo deterministico per rendere innocui doppi clic e nuovi invii
+della stessa richiesta. Il campo `responses` contiene il consenso specifico al
+questionario, le risposte chiuse, gli eventuali contesti multipli e le due
+risposte aperte facoltative. L'esportazione del ricercatore le rende disponibili
+anche in `questionnaires.csv`, collegandole soltanto all'identificativo
+pseudonimo.
 
 ## Indicatori derivati
 

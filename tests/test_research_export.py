@@ -31,6 +31,14 @@ def test_research_export_contains_raw_and_derived_data_without_lookup_hash(
     state = service.start_session("p1", "Anna", [descriptor])
     state = service.submit_answer(state, descriptor["correct_level"])
     service.advance(state)
+    service.record_questionnaire(
+        "p1",
+        "pilot-v1",
+        {
+            "data_collection_consent": True,
+            "q1_qcer_familiarity": 4,
+        },
+    )
 
     archive = build_research_export(
         store.list_participants(), store.list_events(), catalog
@@ -43,6 +51,7 @@ def test_research_export_contains_raw_and_derived_data_without_lookup_hash(
             "sessions.csv",
             "descriptor_history.csv",
             "attempts.csv",
+            "questionnaires.csv",
             "integrity.csv",
             "events.jsonl",
             "manifest.json",
@@ -50,4 +59,8 @@ def test_research_export_contains_raw_and_derived_data_without_lookup_hash(
         participants = bundle.read("participants.csv").decode("utf-8-sig")
         assert "Anna" in participants
         assert "never-export-this-name-lookup" not in participants
+        questionnaires = bundle.read("questionnaires.csv").decode("utf-8-sig")
+        assert "pilot-v1" in questionnaires
+        assert "p1" in questionnaires
+        assert "Anna" not in questionnaires
         assert bundle.read("events.jsonl")
