@@ -93,6 +93,32 @@ RATING_ITEMS = (
 
 RATING_KEYS = tuple(item[0] for item in RATING_ITEMS)
 
+_RATING_LABELS = {key: text for key, text, _ in RATING_ITEMS}
+QUESTIONNAIRE_RESEARCH_ITEMS = (
+    (
+        "data_collection_consent",
+        "Consenso alla raccolta e al trattamento dei dati del questionario",
+    ),
+    ("q1_qcer_familiarity", f"1. {_RATING_LABELS['q1_qcer_familiarity']}"),
+    ("q2_teaching_experience", "2. Da quanti anni insegni LIS?"),
+    (
+        "q3_teaching_contexts",
+        "3. In quale contesto insegni?",
+    ),
+    *(
+        (key, f"{number}. {_RATING_LABELS[key]}")
+        for number, key in enumerate(RATING_KEYS[1:], start=4)
+    ),
+    (
+        "q15_problems",
+        "15. Quali problemi hai trovato usando FamiliarizzApp?",
+    ),
+    (
+        "q16_positive_aspects",
+        "16. Ci sono lati positivi dell’applicazione che vuoi sottolineare?",
+    ),
+)
+
 
 class QuestionnaireValidationError(ValueError):
     """Raised when a required questionnaire response is missing or invalid."""

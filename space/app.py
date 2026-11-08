@@ -47,6 +47,7 @@ from src.guided_track import (
 )
 from src.questionnaire import (
     QUESTIONNAIRE_VERSION,
+    QUESTIONNAIRE_RESEARCH_ITEMS,
     RATING_ITEMS,
     RATING_KEYS,
     TEACHING_CONTEXT_CHOICES,
@@ -3318,6 +3319,68 @@ def _research_overview_rows(
     return rows
 
 
+def _questionnaire_response_value(
+    key: str, responses: dict[str, Any]
+) -> str:
+    if key == "data_collection_consent":
+        return "Sì" if responses.get(key) is True else "No"
+    if key == "q3_teaching_contexts":
+        contexts = [
+            str(value) for value in responses.get(key, []) if str(value)
+        ]
+        other = str(responses.get("q3_teaching_context_other") or "").strip()
+        if other:
+            contexts.append(f"Altro: {other}")
+        return " · ".join(contexts) or "—"
+    value = responses.get(key)
+    if value in {None, ""}:
+        return "—"
+    if key in RATING_KEYS:
+        return f"{value}/5"
+    return str(value)
+
+
+def _research_questionnaire_rows(
+    participants: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+) -> list[list[str]]:
+    participant_names = {
+        str(item.get("participant_id", "")): str(
+            item.get("display_name", "")
+        )
+        for item in participants
+    }
+    rows: list[list[str]] = []
+    submissions = sorted(
+        (
+            event
+            for event in events
+            if event.get("event_type") == "questionnaire_submitted"
+        ),
+        key=lambda item: str(item.get("occurred_at", "")),
+        reverse=True,
+    )
+    for event in submissions:
+        participant_id = str(event.get("participant_id_hash", ""))
+        participant = participant_names.get(participant_id) or (
+            f"Profilo {participant_id[:10]}…" if participant_id else "—"
+        )
+        submitted_at = exact_timestamp(event.get("occurred_at"))
+        version = str(event.get("questionnaire_version", "")) or "—"
+        responses = dict(event.get("responses") or {})
+        for key, question in QUESTIONNAIRE_RESEARCH_ITEMS:
+            rows.append(
+                [
+                    participant,
+                    submitted_at,
+                    version,
+                    question,
+                    _questionnaire_response_value(key, responses),
+                ]
+            )
+    return rows
+
+
 def researcher_login(access_key: str):
     if not SETTINGS.researcher_access_key:
         return (
@@ -3330,6 +3393,7 @@ def researcher_login(access_key: str):
             gr.Dropdown(choices=[], value=None),
             gr.Dropdown(choices=[], value="all"),
             None,
+            [],
             [],
         )
     if not hmac.compare_digest(
@@ -3345,6 +3409,7 @@ def researcher_login(access_key: str):
             gr.Dropdown(choices=[], value="all"),
             None,
             [],
+            [],
         )
     try:
         participants, events, by_participant = _research_dataset()
@@ -3352,6 +3417,9 @@ def researcher_login(access_key: str):
         archive = build_research_export(participants, events, CATALOG)
         overview_rows = _research_overview_rows(
             participants, by_participant
+        )
+        questionnaire_rows = _research_questionnaire_rows(
+            participants, events
         )
     except (EventStoreError, CatalogError, OSError) as exc:
         return (
@@ -3363,6 +3431,7 @@ def researcher_login(access_key: str):
             gr.Dropdown(choices=[], value=None),
             gr.Dropdown(choices=[], value="all"),
             None,
+            [],
             [],
         )
     participant_choices = [
@@ -3391,6 +3460,7 @@ def researcher_login(access_key: str):
         gr.Dropdown(choices=scale_choices, value="all"),
         archive,
         issue_rows,
+        questionnaire_rows,
     )
 
 
@@ -3405,6 +3475,10 @@ def _research_global_html(
     completions = sum(
         event.get("event_type") == "descriptor_completed" for event in events
     )
+    questionnaires = sum(
+        event.get("event_type") == "questionnaire_submitted"
+        for event in events
+    )
     return (
         '<section class="journey-overview"><h3>Archivio della ricerca</h3>'
         '<div class="journey-metrics">'
@@ -3414,6 +3488,8 @@ def _research_global_html(
         "sessioni avviate</div>"
         f'<div class="journey-metric"><strong>{completions}</strong>'
         "descrittori completati</div>"
+        f'<div class="journey-metric"><strong>{questionnaires}</strong>'
+        "questionari finali</div>"
         f'<div class="journey-metric"><strong>{len(events)}</strong>'
         "eventi immutabili</div>"
         f'<div class="journey-metric"><strong>{len(issues)}</strong>'
@@ -3624,6 +3700,25 @@ def refresh_research_export(research_state: dict[str, Any]):
         )
     except (EventStoreError, CatalogError, OSError) as exc:
         return None, f"Esportazione non riuscita: {exc}"
+
+
+def refresh_research_questionnaires(research_state: dict[str, Any]):
+    if not _research_authorized(research_state):
+        return [], "Accesso ricercatore non autorizzato."
+    try:
+        participants = STORE.list_participants()
+        events = STORE.list_events()
+        rows = _research_questionnaire_rows(participants, events)
+        submissions = sum(
+            event.get("event_type") == "questionnaire_submitted"
+            for event in events
+        )
+        return rows, (
+            f"Questionari aggiornati: {submissions} invii, "
+            f"{len(rows)} risposte visualizzate."
+        )
+    except EventStoreError as exc:
+        return [], f"Questionari non disponibili: {exc}"
 
 
 def build_demo() -> gr.Blocks:
@@ -4830,6 +4925,30 @@ def build_demo() -> gr.Blocks:
                     wrap=True,
                     show_search="filter",
                 )
+            with gr.Accordion("Questionari finali", open=True):
+                gr.Markdown(
+                    "Ogni riga mostra una risposta. Puoi cercare o filtrare "
+                    "per partecipante, domanda, data o versione del "
+                    "questionario. Le risposte aperte non compilate sono "
+                    "indicate con «—»."
+                )
+                researcher_questionnaires = gr.Dataframe(
+                    headers=[
+                        "Partecipante",
+                        "Data di invio",
+                        "Versione",
+                        "Domanda",
+                        "Risposta",
+                    ],
+                    datatype=["str", "str", "str", "str", "str"],
+                    interactive=False,
+                    wrap=True,
+                    show_search="filter",
+                )
+                researcher_questionnaire_refresh = gr.Button(
+                    "Aggiorna questionari"
+                )
+                researcher_questionnaire_message = gr.Markdown()
             with gr.Accordion("Integrità e backup", open=False):
                 researcher_integrity = gr.Dataframe(
                     headers=["Gravità", "Ambito", "Messaggio"],
@@ -4858,6 +4977,7 @@ def build_demo() -> gr.Blocks:
                 researcher_scale,
                 researcher_export,
                 researcher_integrity,
+                researcher_questionnaires,
             ],
         ).then(
             researcher_detail,
@@ -4914,6 +5034,14 @@ def build_demo() -> gr.Blocks:
             refresh_research_export,
             inputs=researcher_state,
             outputs=[researcher_export, researcher_export_message],
+        )
+        researcher_questionnaire_refresh.click(
+            refresh_research_questionnaires,
+            inputs=researcher_state,
+            outputs=[
+                researcher_questionnaires,
+                researcher_questionnaire_message,
+            ],
         )
 
     return demo

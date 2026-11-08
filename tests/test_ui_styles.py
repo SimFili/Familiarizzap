@@ -533,6 +533,28 @@ def test_researcher_link_is_secondary_in_the_journey_header() -> None:
     assert "Torna a FamiliarizzApp" in header
     assert "Panoramica ricercatore" in header
     assert "Panoramica ricercatore" not in journey_body
+
+
+def test_researcher_page_exposes_questionnaire_responses_directly() -> None:
+    demo = app.build_demo()
+    components = demo.config["components"]
+    questionnaire_table = next(
+        component for component in components
+        if component["type"] == "dataframe"
+        and component["props"].get("headers")
+        == [
+            "Partecipante",
+            "Data di invio",
+            "Versione",
+            "Domanda",
+            "Risposta",
+        ]
+    )
+    assert questionnaire_table["props"]["interactive"] is False
+    assert questionnaire_table["props"]["wrap"] is True
+    source = inspect.getsource(app.build_demo)
+    assert 'with gr.Accordion("Questionari finali", open=True)' in source
+    assert '"Aggiorna questionari"' in source
     assert ".journey-page-links" in CSS
 
 
