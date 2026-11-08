@@ -38,8 +38,9 @@ GUIDED_STAGES = (
             "QCER-GEN-A1", "QCER-GEN-A2", "QCER-GEN-B1", "QCER-GEN-B2"
         ),
         learning_goal=(
-            "Prima orientati: individua che cosa la persona sa fare, "
-            "su quali argomenti e con quale autonomia. Non cercare una parola magica."
+            "Prima orientati: Leggi l'intero descrittore e individua che cosa "
+            "la persona sa fare (è in grado di...), su quali argomenti e con "
+            "quale autonomia. Non cercare una parola magica."
         ),
         reflection_prompt=(
             "Quali differenze tra A2, B1 e B2 ti sembrano più utili da verificare "

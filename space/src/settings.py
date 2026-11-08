@@ -51,7 +51,7 @@ class Settings:
             researcher_access_key=os.getenv(
                 "RESEARCHER_ACCESS_KEY", ""
             ).strip(),
-            consent_version=os.getenv("CONSENT_VERSION", "demo-2026-07").strip(),
+            consent_version=os.getenv("CONSENT_VERSION", "study-2026-11").strip(),
             local_data_dir=Path(
                 os.getenv("LOCAL_DATA_DIR", str(default_local_dir))
             ),

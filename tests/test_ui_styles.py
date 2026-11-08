@@ -480,10 +480,7 @@ def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
         if component["type"] == "markdown"
         and "Iniziamo insieme" in component["props"].get("value", "")
     )
-    assert (
-        "Il percorso consigliato contiene 16 descrittori di quattro scale "
-        "principali, con descrittori solamente dei livelli A1, A2, B1 e B2."
-    ) in intro
+    assert "Quattro tappe brevi sui livelli A1, A2, B1 e B2." in intro
     guided = next(
         component for component in components
         if component["type"] == "button"
@@ -514,7 +511,7 @@ def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
     assert "background: #3154ac !important;" in CSS
     assert "color: #fff !important;" in CSS
     source = inspect.getsource(app.build_demo)
-    assert "Non devi completare tutto il catalogo" in source
+    assert "non devi completare il catalogo" in source
     assert "I loro feedback sono ancora" in source
     assert "Disponibile dopo il questionario finale" in inspect.getsource(
         app._optional_exploration_status
@@ -756,8 +753,8 @@ def test_remote_storage_banner_does_not_claim_success_when_unhealthy(
 
     banner = app._storage_banner()
 
-    assert "Archivio non disponibile" in banner
-    assert "Non usare l’app per raccogliere dati" in banner
+    assert "Salvataggio non disponibile" in banner
+    assert "Non continuare" in banner
     assert "token non valido" not in banner
 
 
@@ -779,8 +776,43 @@ def test_remote_storage_banner_does_not_probe_network_during_startup(
 
     banner = app._storage_banner()
 
-    assert "verificata al primo salvataggio" in banner
-    assert "🟢" not in banner
+    assert banner == ""
+
+
+def test_consent_notice_is_study_specific_and_compact() -> None:
+    source = inspect.getsource(app._consent_notice)
+    demo_source = inspect.getsource(app.build_demo)
+
+    assert "Perché raccogliamo i dati" in source
+    assert "tempi di risposta" in source
+    assert "archivio privato dello studio" in source
+    assert "informativa dimostrativa" not in demo_source
+    assert "per le finalità dello studio" in demo_source
+
+
+def test_guided_remote_actions_show_progress_on_the_pressed_button() -> None:
+    demo = app.build_demo()
+    components = demo.config["components"]
+    dependencies = demo.config["dependencies"]
+    labels = {
+        "Continua con questo nome",
+        "Inizia · Scala generale QCER",
+        "Conferma risposta",
+        "Descrittore successivo",
+        "Invia il questionario e concludi il percorso",
+    }
+
+    for component in components:
+        if component["type"] != "button":
+            continue
+        if component["props"].get("value") not in labels:
+            continue
+        dependency = next(
+            item for item in dependencies
+            if (component["id"], "click") in item["targets"]
+        )
+        assert dependency["show_progress"] == "full"
+        assert dependency["show_progress_on"] == [component["id"]]
 
 
 def test_demo_storage_banner_uses_short_copy_without_catalog_detail(monkeypatch) -> None:

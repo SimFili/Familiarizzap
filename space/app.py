@@ -980,42 +980,35 @@ def _empty_browser_identity() -> dict[str, str]:
 
 
 def _storage_banner() -> str:
-    catalog_note = (
-        (
-            "catalogo dimostrativo 2.0 con tre scale di ricezione; "
-            "i feedback editoriali sono ancora provvisori"
-        )
-        if CATALOG_RESULT.is_demo
-        else f"catalogo `{CATALOG_RESULT.source_label}`"
-    )
     if SETTINGS.storage_mode == "huggingface":
         cached_health = STORE.cached_health_status
         if cached_health is not None and not cached_health[0]:
             return (
-                f"🔴 **Archivio non disponibile:** {catalog_note}; lo Space "
-                "non riesce a confermare l’accesso al Dataset privato. Non "
-                "usare l’app per raccogliere dati finché il proprietario non "
-                "ha corretto la configurazione."
+                "⚠️ **Salvataggio non disponibile.** Non continuare e avvisa "
+                "chi gestisce lo studio."
             )
-        if cached_health is None:
-            return (
-                f"🔵 **Modalità pilot:** {catalog_note}; il Dataset privato è "
-                "configurato e la connessione verrà verificata al primo "
-                "salvataggio."
-            )
-        return (
-            f"🟢 **Modalità pilot:** {catalog_note}; percorso ed eventi sono "
-            "salvati nel Dataset privato configurato."
-        )
+        return ""
     if SETTINGS.storage_mode == "local":
-        return (
-            f"🔵 **Sviluppo locale:** {catalog_note}; i dati restano soltanto "
-            "nella cartella locale ignorata da Git."
-        )
+        return ""
     return (
         "**Modalità dimostrativa:** i dati sono temporanei e possono sparire "
         "al riavvio. Non usare questa modalità per la ricerca."
     )
+
+
+def _consent_notice() -> None:
+    with gr.Accordion("Informativa sul trattamento dei dati", open=False):
+        gr.Markdown(
+            "**Perché raccogliamo i dati**  \n"
+            "Per studiare come FamiliarizzApp sostiene la familiarizzazione "
+            "con i descrittori del QCER.\n\n"
+            "**Che cosa registriamo**  \n"
+            "Il nome inserito, le attività svolte, le risposte, i tentativi, "
+            "i tempi di risposta e le risposte al questionario finale.\n\n"
+            "**Come li conserviamo**  \n"
+            "I dati sono salvati nell’archivio privato dello studio e sono "
+            "accessibili soltanto al gruppo di ricerca autorizzato."
+        )
 
 
 def _is_sign_language_schema(schema: str | None) -> bool:
@@ -1810,7 +1803,7 @@ def _register_identity(
 ) -> tuple[dict[str, Any], dict[str, str], str]:
     if not consent:
         raise IdentityError(
-            "Devi confermare di aver letto l’informativa dimostrativa."
+            "Devi confermare di aver letto l’informativa sul trattamento dei dati."
         )
     shown_name = display_name_only(name)
     identifier = participant_name_id(name, SETTINGS.effective_hash_salt)
@@ -2453,12 +2446,8 @@ def guided_intro_view(state: dict[str, Any]):
     resume = bool(progress["resume_session_id"])
     status = (
         f"**{completed} tappe completate su {len(GUIDED_STAGES)}.** "
-        f"Prossima: **{stage.title}**. {stage.learning_goal} "
-        + (
-            "Riprenderai dall'ultimo descrittore affrontato."
-            if resume
-            else "Quattro descrittori: A1, A2, B1 e B2, in ordine mescolato."
-        )
+        f"Prossima: **{stage.title}**.\n\n{stage.learning_goal}"
+        + (" Riprenderai dall'ultimo descrittore affrontato." if resume else "")
     )
     label = (
         f"Riprendi · {stage.title}"
@@ -3744,10 +3733,12 @@ def build_demo() -> gr.Blocks:
                 placeholder="Es. Giulia",
                 max_length=80,
             )
+            _consent_notice()
             consent = gr.Checkbox(
                 label=(
-                    "Confermo di aver letto l’informativa dimostrativa "
-                    "e di voler proseguire."
+                    "Ho letto l’informativa sul trattamento dei dati e "
+                    "acconsento alla registrazione del mio percorso in "
+                    "FamiliarizzApp per le finalità dello studio."
                 )
             )
             identify_button = gr.Button(
@@ -3760,21 +3751,20 @@ def build_demo() -> gr.Blocks:
                 <section class="hero">
                   <div class="hero-kicker">Familiarizzazione QCER</div>
                   <h1>FamiliarizzApp</h1>
-                  <p>Esplora i descrittori, riconosci il livello e usa i
-                  feedback progressivi per affinare la tua lettura. Nessun
-                  voto, nessuna graduatoria.</p>
+                  <p>Familiarizzati con i descrittori e i livelli del QCER.</p>
                 </section>
                 """
             )
-            gr.Markdown(_storage_banner(), elem_classes="storage-banner")
+            storage_banner = _storage_banner()
+            gr.Markdown(
+                storage_banner,
+                visible=bool(storage_banner),
+                elem_classes="storage-banner",
+            )
             greeting = gr.Markdown()
             gr.Markdown(
                 "### Iniziamo insieme\n"
-                "Il percorso consigliato contiene 16 descrittori di quattro "
-                "scale principali, con descrittori solamente dei livelli "
-                "A1, A2, B1 e B2. Si comincia dalla scala generale "
-                "QCER, poi si passa a comprensione, produzione e interazione. "
-                "Non devi completare tutto il catalogo."
+                "Quattro tappe brevi sui livelli A1, A2, B1 e B2."
             )
             guided_intro_button = gr.Button(
                 "Apri il percorso consigliato · quattro tappe",
@@ -3837,23 +3827,7 @@ def build_demo() -> gr.Blocks:
             )
 
         with gr.Group(visible=False) as guided_intro_group:
-            gr.Markdown(
-                "## Percorso consigliato\n"
-                "La prima tappa usa quattro formulazioni A1–B2 della "
-                "scala generale QCER. Seguono, nell'ordine, "
-                "Comprensione orale generale, Produzione orale generale e "
-                "Interazione orale generale: sempre quattro descrittori per "
-                "tappa.\n\n"
-                "Leggi l'intero descrittore e cerca l'azione, l'ampiezza del "
-                "compito e le condizioni. Dopo una risposta puoi riprovare "
-                "e confrontare i testi: i tentativi servono a ragionare, "
-                "non producono un voto. I livelli A2+ e B1+ sono sospesi "
-                "per questa prima sperimentazione.\n\n"
-                "_Fonte della prima tappa: Consiglio d’Europa (2020), "
-                "Quadro comune europeo di riferimento per le lingue: "
-                "apprendimento, insegnamento, valutazione — Volume "
-                "complementare, p. 187._"
-            )
+            gr.Markdown("## Percorso consigliato")
             guided_status = gr.Markdown()
             guided_start_button = gr.Button(
                 "Inizia · Scala generale QCER", variant="primary"
@@ -4233,6 +4207,7 @@ def build_demo() -> gr.Blocks:
                 resume_choice,
                 user_message,
             ],
+            show_progress_on=identify_button,
         ).then(
             resume_requested_session,
             inputs=ui_state,
@@ -4294,6 +4269,7 @@ def build_demo() -> gr.Blocks:
             start_guided_stage,
             inputs=ui_state,
             outputs=exercise_outputs,
+            show_progress_on=guided_start_button,
         ).then(
             lambda: gr.update(visible=False),
             outputs=guided_intro_group,
@@ -4397,6 +4373,7 @@ def build_demo() -> gr.Blocks:
                 continue_button,
                 user_message,
             ],
+            show_progress_on=submit_button,
         )
         continue_button.click(
             continue_session,
@@ -4425,6 +4402,7 @@ def build_demo() -> gr.Blocks:
                 next_block_button,
                 user_message,
             ],
+            show_progress_on=continue_button,
         ).then(
             guided_next_button_view,
             inputs=ui_state,
@@ -4540,6 +4518,7 @@ def build_demo() -> gr.Blocks:
             start_guided_stage,
             inputs=ui_state,
             outputs=exercise_outputs,
+            show_progress_on=guided_next_button,
         )
 
         questionnaire_submit_button.click(
@@ -4563,6 +4542,7 @@ def build_demo() -> gr.Blocks:
                 questionnaire_message,
                 summary_navigation_group,
             ],
+            show_progress_on=questionnaire_submit_button,
         ).then(
             summary_exploration_buttons_view,
             inputs=ui_state,
@@ -4642,7 +4622,12 @@ def build_demo() -> gr.Blocks:
             </section>
             """
         )
-        gr.Markdown(_storage_banner(), elem_classes="storage-banner")
+        journey_storage_banner = _storage_banner()
+        gr.Markdown(
+            journey_storage_banner,
+            visible=bool(journey_storage_banner),
+            elem_classes="storage-banner",
+        )
 
         with gr.Group(visible=True) as journey_login_group:
             gr.Markdown(
@@ -4654,10 +4639,12 @@ def build_demo() -> gr.Blocks:
                 placeholder="Es. Giulia",
                 max_length=80,
             )
+            _consent_notice()
             journey_consent = gr.Checkbox(
                 label=(
-                    "Confermo di aver letto l’informativa dimostrativa "
-                    "e di voler proseguire."
+                    "Ho letto l’informativa sul trattamento dei dati e "
+                    "acconsento alla registrazione del mio percorso in "
+                    "FamiliarizzApp per le finalità dello studio."
                 )
             )
             journey_identify_button = gr.Button(
