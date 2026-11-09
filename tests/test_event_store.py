@@ -202,6 +202,23 @@ def test_huggingface_event_append_lists_remote_paths_only_once():
     assert store.download_calls == 0
 
 
+def test_huggingface_warmup_avoids_metadata_calls_on_first_write():
+    store = _CachedStore({})
+    event = {
+        "event_id": "e1",
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": "s1",
+        "participant_id_hash": "p1",
+    }
+
+    store.warm_up()
+    store.append_events([event])
+
+    assert store.api.calls == 1
+    assert store.list_calls == 1
+    assert len(store.api.commits) == 1
+
+
 def test_new_participant_does_not_download_other_participants_events():
     other_event = {
         "event_id": "other",

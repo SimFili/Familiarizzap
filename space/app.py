@@ -7,6 +7,7 @@ import os
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Thread
 from typing import Any
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -80,6 +81,16 @@ SESSIONS = SessionService(
         else "demo-2.0"
     ),
 )
+
+
+def _warm_storage_backend() -> None:
+    try:
+        STORE.warm_up()
+    except EventStoreError:
+        # The first write will show the actionable error to the participant.
+        pass
+
+
 ROME = ZoneInfo("Europe/Rome")
 MIN_PARTICIPANT_SCALE_DESCRIPTORS = 4
 PILOT_SUSPENDED_LEVELS = frozenset({"A2+", "B1+"})
@@ -3723,10 +3734,14 @@ def build_demo() -> gr.Blocks:
         )
         with gr.Group(visible=True) as login_group:
             gr.Markdown(
+                "# FamiliarizzApp\n"
+                "FamiliarizzApp ti aiuta a familiarizzare con i descrittori "
+                "del QCER e a distinguere i livelli A1, A2, B1 e B2. Nel "
+                "percorso consigliato assegni un livello a ogni descrittore "
+                "e ricevi un feedback per ragionare sulle differenze.\n\n"
                 "## Identificati per iniziare\n"
-                "Per questo piccolo gruppo è sufficiente inserire il proprio "
-                "nome. Usa sempre la stessa forma per collegare le attività "
-                "alla tua cronologia."
+                "Inserisci il tuo nome e usa sempre la stessa forma per "
+                "ritrovare il tuo percorso."
             )
             name = gr.Textbox(
                 label="Nome",
@@ -3764,7 +3779,9 @@ def build_demo() -> gr.Blocks:
             greeting = gr.Markdown()
             gr.Markdown(
                 "### Iniziamo insieme\n"
-                "Quattro tappe brevi sui livelli A1, A2, B1 e B2."
+                "Il percorso consigliato contiene 16 descrittori in quattro "
+                "tappe: scala generale QCER, comprensione, produzione e "
+                "interazione. Non è un test e non produce un voto."
             )
             guided_intro_button = gr.Button(
                 "Apri il percorso consigliato · quattro tappe",
@@ -5038,6 +5055,12 @@ demo = build_demo()
 
 
 if __name__ == "__main__":
+    if SETTINGS.storage_mode == "huggingface":
+        Thread(
+            target=_warm_storage_backend,
+            name="familiarizzapp-storage-warmup",
+            daemon=True,
+        ).start()
     demo.queue(default_concurrency_limit=8).launch(
         theme=THEME,
         css=CSS,

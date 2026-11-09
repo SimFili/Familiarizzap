@@ -480,7 +480,8 @@ def test_pilot_guided_track_is_primary_and_free_catalog_is_optional() -> None:
         if component["type"] == "markdown"
         and "Iniziamo insieme" in component["props"].get("value", "")
     )
-    assert "Quattro tappe brevi sui livelli A1, A2, B1 e B2." in intro
+    assert "16 descrittori in quattro tappe" in intro
+    assert "Non è un test e non produce un voto." in intro
     guided = next(
         component for component in components
         if component["type"] == "button"

@@ -28,6 +28,10 @@ class EventStore(ABC):
         """Return whether this backend can currently be used."""
         return True, ""
 
+    def warm_up(self) -> None:
+        """Prepare inexpensive backend metadata before the first user action."""
+        return None
+
     @property
     def cached_health_status(self) -> tuple[bool, str] | None:
         """Return the last known status without performing I/O."""
@@ -194,6 +198,13 @@ class HuggingFaceEventStore(EventStore):
             return True, ""
         except EventStoreError as exc:
             return False, str(exc)
+
+    def warm_up(self) -> None:
+        """Cache repository checks and paths while the first screen is read."""
+        self._require_private_repo()
+        with self._cache_lock:
+            if self._event_paths is None:
+                self._event_paths = set(self._list_files(prefix="events/"))
 
     @property
     def cached_health_status(self) -> tuple[bool, str] | None:
@@ -382,32 +393,33 @@ class HuggingFaceEventStore(EventStore):
         return sorted(participants, key=lambda item: item["display_name"].casefold())
 
     def _require_private_repo(self) -> None:
-        if self._private_repo_confirmed:
-            return
-        try:
-            info = self.api.repo_info(
-                repo_id=self.repo_id,
-                repo_type="dataset",
-            )
-        except Exception as exc:
-            self._cached_health_status = (
-                False,
-                "Dataset degli eventi non raggiungibile o token non valido.",
-            )
-            raise EventStoreError(
-                "Dataset degli eventi non raggiungibile o token non valido."
-            ) from exc
-        if getattr(info, "private", None) is not True:
-            self._cached_health_status = (
-                False,
-                "Il Dataset degli eventi deve essere privato.",
-            )
-            raise EventStoreError(
-                "Il Dataset degli eventi deve essere privato prima di poter "
-                "registrare partecipanti."
-            )
-        self._private_repo_confirmed = True
-        self._cached_health_status = (True, "")
+        with self._cache_lock:
+            if self._private_repo_confirmed:
+                return
+            try:
+                info = self.api.repo_info(
+                    repo_id=self.repo_id,
+                    repo_type="dataset",
+                )
+            except Exception as exc:
+                self._cached_health_status = (
+                    False,
+                    "Dataset degli eventi non raggiungibile o token non valido.",
+                )
+                raise EventStoreError(
+                    "Dataset degli eventi non raggiungibile o token non valido."
+                ) from exc
+            if getattr(info, "private", None) is not True:
+                self._cached_health_status = (
+                    False,
+                    "Il Dataset degli eventi deve essere privato.",
+                )
+                raise EventStoreError(
+                    "Il Dataset degli eventi deve essere privato prima di poter "
+                    "registrare partecipanti."
+                )
+            self._private_repo_confirmed = True
+            self._cached_health_status = (True, "")
 
     def _list_files(self, prefix: str) -> list[str]:
         try:
