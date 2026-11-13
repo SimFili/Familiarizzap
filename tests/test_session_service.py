@@ -44,6 +44,58 @@ def wrong_level(service: SessionService, state: dict) -> str:
     )
 
 
+def test_descriptor_transitions_are_batched_with_the_next_answer(
+    tmp_path: Path,
+):
+    class CountingStore(LocalEventStore):
+        def __init__(self, root: Path):
+            super().__init__(root)
+            self.batches: list[list[dict]] = []
+
+        def append_events(self, events):
+            self.batches.append(list(events))
+            super().append_events(events)
+
+    catalog = sample_catalog()
+    store = CountingStore(tmp_path)
+    service = SessionService(catalog, store, "test", "demo")
+    descriptors = catalog.for_scale(
+        "Attività linguistico-comunicative",
+        "Ricezione",
+        "Comprensione orale",
+        "Comprensione orale generale",
+    )[:2]
+
+    state = service.start_session(
+        "participant", "Nome Privato", descriptors
+    )
+    first_correct = service.current_descriptor(state)["correct_level"]
+    state = service.submit_answer(state, first_correct)
+    assert len(store.batches) == 2
+
+    state = service.advance(state)
+    assert len(store.batches) == 2
+    assert [
+        event["event_type"] for event in state["pending_events"]
+    ] == ["descriptor_presented"]
+
+    second_correct = service.current_descriptor(state)["correct_level"]
+    state = service.submit_answer(state, second_correct)
+    assert len(store.batches) == 3
+    assert [event["event_type"] for event in store.batches[-1]] == [
+        "descriptor_presented",
+        "answer_submitted",
+        "descriptor_completed",
+        "session_completed",
+    ]
+    assert state["pending_events"] == []
+    assert state["session_finished"] is True
+
+    state = service.advance(state)
+    assert len(store.batches) == 3
+    assert state["session_finished"] is True
+
+
 def test_correct_answer_closes_descriptor_and_records_once(tmp_path: Path):
     _, store, service, descriptors = make_service(tmp_path)
     state = service.start_session("participant", "Nome Privato", descriptors)

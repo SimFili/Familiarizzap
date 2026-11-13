@@ -3,11 +3,12 @@ from __future__ import annotations
 import io
 import json
 import os
+import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import RLock
+from threading import Condition, RLock
 from typing import Any
 
 from .settings import Settings
@@ -174,10 +175,23 @@ class LocalEventStore(EventStore):
 
 class HuggingFaceEventStore(EventStore):
     mode = "huggingface"
+    _MAX_COMMIT_ATTEMPTS = 2
+    _PENDING_WRITE_TIMEOUT_SECONDS = 30.0
 
     def __init__(self, repo_id: str, token: str, api: Any | None = None):
         if api is None:
-            from huggingface_hub import HfApi
+            import httpx
+            from huggingface_hub import HfApi, set_client_factory
+
+            # huggingface_hub otherwise creates a shared client without any
+            # timeout.  A stalled Hub request would leave a participant's
+            # button waiting indefinitely.
+            set_client_factory(
+                lambda: httpx.Client(
+                    follow_redirects=True,
+                    timeout=httpx.Timeout(10.0, connect=5.0, pool=5.0),
+                )
+            )
 
             api = HfApi(token=token)
         self.repo_id = repo_id
@@ -186,7 +200,9 @@ class HuggingFaceEventStore(EventStore):
         self._private_repo_confirmed = False
         self._cached_health_status: tuple[bool, str] | None = None
         self._cache_lock = RLock()
+        self._event_condition = Condition(self._cache_lock)
         self._event_paths: set[str] | None = None
+        self._pending_event_paths: set[str] = set()
         self._events_by_path: dict[str, dict[str, Any]] = {}
         self._participant_paths: set[str] | None = None
         self._participants_by_id: dict[str, dict[str, Any]] = {}
@@ -275,45 +291,91 @@ class HuggingFaceEventStore(EventStore):
         if not events:
             return
         self._require_private_repo()
+        event_paths = [
+            (event, _remote_event_path(event)) for event in events
+        ]
+        reserved_paths: set[str] = set()
         try:
-            from huggingface_hub import CommitOperationAdd
-
             # The remote file listing used to run before every answer.  Apart
             # from being needlessly expensive, that made interaction slower as
-            # the research archive grew.  One process owns a coherent snapshot:
-            # writes are serialized, then immediately added to that snapshot.
-            with self._cache_lock:
+            # the research archive grew.  Reserve only the target paths under
+            # the lock; the network request itself must remain outside it so
+            # independent participants can save concurrently.
+            with self._event_condition:
                 if self._event_paths is None:
                     self._event_paths = set(self._list_files(prefix="events/"))
+                ready = self._event_condition.wait_for(
+                    lambda: all(
+                        path not in self._pending_event_paths
+                        for _, path in event_paths
+                    ),
+                    timeout=self._PENDING_WRITE_TIMEOUT_SECONDS,
+                )
+                if not ready:
+                    raise EventStoreError(
+                        "Salvataggio già in corso per questa risposta. Riprova."
+                    )
                 new_events = [
-                    (event, _remote_event_path(event))
-                    for event in events
-                    if _remote_event_path(event) not in self._event_paths
+                    (event, path)
+                    for event, path in event_paths
+                    if path not in self._event_paths
                 ]
                 if not new_events:
                     return
-                operations = [
-                    CommitOperationAdd(
-                        path_in_repo=path,
-                        path_or_fileobj=io.BytesIO(_json_bytes(event)),
-                    )
-                    for event, path in new_events
-                ]
+                reserved_paths = {path for _, path in new_events}
+                self._pending_event_paths.update(reserved_paths)
+
+            self._commit_events(new_events)
+
+            with self._event_condition:
+                for event, path in new_events:
+                    self._event_paths.add(path)
+                    self._events_by_path[path] = dict(event)
+                self._pending_event_paths.difference_update(reserved_paths)
+                self._event_condition.notify_all()
+                reserved_paths.clear()
+        except EventStoreError:
+            raise
+        except Exception as exc:
+            raise EventStoreError(f"Eventi non salvati: {exc}") from exc
+        finally:
+            if reserved_paths:
+                with self._event_condition:
+                    self._pending_event_paths.difference_update(reserved_paths)
+                    self._event_condition.notify_all()
+
+    def _commit_events(
+        self, events: list[tuple[dict[str, Any], str]]
+    ) -> None:
+        from huggingface_hub import CommitOperationAdd
+
+        for attempt in range(self._MAX_COMMIT_ATTEMPTS):
+            operations = [
+                CommitOperationAdd(
+                    path_in_repo=path,
+                    path_or_fileobj=io.BytesIO(_json_bytes(event)),
+                )
+                for event, path in events
+            ]
+            try:
                 self.api.create_commit(
                     repo_id=self.repo_id,
                     repo_type="dataset",
                     operations=operations,
                     commit_message=(
                         "Registra evento"
-                        if len(new_events) == 1
+                        if len(events) == 1
                         else "Registra eventi"
                     ),
                 )
-                for event, path in new_events:
-                    self._event_paths.add(path)
-                    self._events_by_path[path] = dict(event)
-        except Exception as exc:
-            raise EventStoreError(f"Eventi non salvati: {exc}") from exc
+                return
+            except Exception as exc:
+                if (
+                    attempt + 1 >= self._MAX_COMMIT_ATTEMPTS
+                    or not _is_transient_remote_error(exc)
+                ):
+                    raise
+                time.sleep(0.2 * (2**attempt))
 
     def _upload_participant(
         self, path: str, record: dict[str, Any], commit_message: str
@@ -481,6 +543,24 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def _is_transient_remote_error(exc: Exception) -> bool:
+    status_code = getattr(
+        getattr(exc, "response", None), "status_code", None
+    )
+    if status_code in {408, 409, 423, 425, 429, 500, 502, 503, 504}:
+        return True
+    name = type(exc).__name__.casefold()
+    return any(
+        marker in name
+        for marker in (
+            "timeout",
+            "connect",
+            "network",
+            "remoteprotocol",
+        )
+    )
 
 
 def _remote_event_path(event: dict[str, Any]) -> str:

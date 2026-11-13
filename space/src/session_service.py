@@ -285,6 +285,7 @@ class SessionService:
             "current_index": 0,
             "attempts": [],
             "feedbacks": [],
+            "pending_events": [],
             "descriptor_finished": False,
             "last_result": None,
             "completed_records": [],
@@ -898,8 +899,30 @@ class SessionService:
             ),
             occurred_at=answer_at,
         )
-        events = [answer_event]
+        events = [*updated.get("pending_events", []), answer_event]
+        completion_record: dict[str, Any] | None = None
         if is_finished:
+            completion_record = {
+                "descriptor_id": descriptor["descriptor_id"],
+                "attempts": updated["attempts"] + [selected_level],
+                "resolved": is_correct,
+                "resolved_on_attempt": attempt_number if is_correct else None,
+                "correct_level": descriptor["correct_level"],
+                "rationale": feedback_text,
+                "occurred_at": answer_at,
+                "first_response_distance": self.catalog.level_distance(
+                    (updated["attempts"] + [selected_level])[0],
+                    descriptor["correct_level"],
+                ),
+                "exposure_number": (
+                    int(
+                        updated.get("prior_exposure_counts", {}).get(
+                            descriptor["descriptor_id"], 0
+                        )
+                    )
+                    + 1
+                ),
+            }
             events.append(
                 self._base_event(
                     event_id=self._event_id(
@@ -946,19 +969,42 @@ class SessionService:
                         updated.get("descriptor_presented_at"), answer_at
                     ),
                     exposure_number=(
-                        int(
-                            updated.get("prior_exposure_counts", {}).get(
-                                descriptor["descriptor_id"], 0
-                            )
-                        )
-                        + 1
+                        completion_record["exposure_number"]
                     ),
                     occurred_at=answer_at,
                 )
             )
+            if updated["current_index"] + 1 >= len(updated["descriptor_ids"]):
+                projected = copy.deepcopy(updated)
+                projected["completed_records"] = [
+                    *updated.get("completed_records", []),
+                    completion_record,
+                ]
+                events.append(
+                    self._base_event(
+                        event_id=self._event_id(
+                            updated["session_id"], "session-completed"
+                        ),
+                        event_type="session_completed",
+                        session_id=updated["session_id"],
+                        participant_id=updated["participant_id"],
+                        schema=updated["schema"],
+                        modality=updated["modality"],
+                        activity=updated["activity"],
+                        scale=updated["scale"],
+                        seed=updated["seed"],
+                        descriptor_order=updated["descriptor_ids"],
+                        duration_seconds=_elapsed_seconds(
+                            updated.get("started_at"), answer_at
+                        ),
+                        occurred_at=answer_at,
+                        **self.summary(projected),
+                    )
+                )
 
         # State changes only after the complete event batch is confirmed.
         self.event_store.append_events(events)
+        updated["pending_events"] = []
         updated["attempts"].append(selected_level)
         updated["feedbacks"].append(feedback_text)
         updated["attempt_started_at"] = answer_at
@@ -968,36 +1014,19 @@ class SessionService:
             "correct_level": descriptor["correct_level"],
             "attempt_number": attempt_number,
         }
-        if is_finished:
+        if completion_record is not None:
             updated["descriptor_finished"] = True
-            updated["completed_records"].append(
-                {
-                    "descriptor_id": descriptor["descriptor_id"],
-                    "attempts": list(updated["attempts"]),
-                    "resolved": is_correct,
-                    "resolved_on_attempt": attempt_number if is_correct else None,
-                    "correct_level": descriptor["correct_level"],
-                    "rationale": feedback_text,
-                    "occurred_at": answer_at,
-                    "first_response_distance": self.catalog.level_distance(
-                        updated["attempts"][0], descriptor["correct_level"]
-                    ),
-                    "exposure_number": (
-                        int(
-                            updated.get("prior_exposure_counts", {}).get(
-                                descriptor["descriptor_id"], 0
-                            )
-                        )
-                        + 1
-                    ),
-                }
-            )
+            updated["completed_records"].append(completion_record)
+            if updated["current_index"] + 1 >= len(updated["descriptor_ids"]):
+                updated["session_finished"] = True
         return updated
 
     def advance(self, state: dict[str, Any]) -> dict[str, Any]:
         if not state.get("descriptor_finished"):
             raise SessionError("Completa il descrittore prima di continuare.")
         updated = copy.deepcopy(state)
+        if updated.get("session_finished"):
+            return updated
         if updated["current_index"] + 1 >= len(updated["descriptor_ids"]):
             summary = self.summary(updated)
             completed_at = utc_now()
@@ -1035,7 +1064,10 @@ class SessionService:
         presented_at = utc_now()
         updated["descriptor_presented_at"] = presented_at
         updated["attempt_started_at"] = presented_at
-        self.event_store.append_events([self._presented_event(updated)])
+        # The next presentation is persisted together with its first answer.
+        # This keeps every answer durable while avoiding a second remote
+        # commit for each descriptor transition.
+        updated["pending_events"] = [self._presented_event(updated)]
         return updated
 
     def current_descriptor(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -1229,6 +1261,7 @@ class SessionService:
             "current_index": current_index,
             "attempts": [event["selected_level"] for event in answers],
             "feedbacks": [event["feedback_text"] for event in answers],
+            "pending_events": [],
             "descriptor_finished": current_completion is not None,
             "last_result": (
                 {

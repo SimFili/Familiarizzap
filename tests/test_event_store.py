@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -217,6 +220,109 @@ def test_huggingface_warmup_avoids_metadata_calls_on_first_write():
     assert store.api.calls == 1
     assert store.list_calls == 1
     assert len(store.api.commits) == 1
+
+
+def test_huggingface_independent_writes_run_concurrently():
+    class ConcurrentApi(_FakeHfApi):
+        def __init__(self):
+            super().__init__()
+            self.barrier = threading.Barrier(2)
+
+        def create_commit(self, **kwargs):
+            self.barrier.wait(timeout=2)
+            self.commits.append(kwargs)
+
+    api = ConcurrentApi()
+    store = HuggingFaceEventStore(
+        "Sibucs/Familiarizzap-events", "secret", api=api
+    )
+    store._private_repo_confirmed = True
+    store._event_paths = set()
+    events = [
+        {
+            "event_id": f"e{index}",
+            "occurred_at": "2026-07-30T10:00:00+00:00",
+            "session_id": f"s{index}",
+            "participant_id_hash": f"p{index}",
+        }
+        for index in (1, 2)
+    ]
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(lambda event: store.append_events([event]), events))
+
+    assert len(api.commits) == 2
+    assert {event["event_id"] for event in store.list_events()} == {"e1", "e2"}
+
+
+def test_huggingface_duplicate_concurrent_write_commits_once():
+    class BlockingApi(_FakeHfApi):
+        def __init__(self):
+            super().__init__()
+            self.started = threading.Event()
+            self.release = threading.Event()
+
+        def create_commit(self, **kwargs):
+            self.started.set()
+            assert self.release.wait(timeout=2)
+            self.commits.append(kwargs)
+
+    api = BlockingApi()
+    store = HuggingFaceEventStore(
+        "Sibucs/Familiarizzap-events", "secret", api=api
+    )
+    store._private_repo_confirmed = True
+    store._event_paths = set()
+    event = {
+        "event_id": "same",
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": "same-session",
+        "participant_id_hash": "same-participant",
+    }
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(store.append_events, [event])
+        assert api.started.wait(timeout=2)
+        second = executor.submit(store.append_events, [event])
+        time.sleep(0.05)
+        api.release.set()
+        first.result(timeout=2)
+        second.result(timeout=2)
+
+    assert len(api.commits) == 1
+
+
+def test_huggingface_transient_commit_conflict_is_retried():
+    class ConflictResponse:
+        status_code = 409
+
+    class ConflictError(RuntimeError):
+        response = ConflictResponse()
+
+    class RetryApi(_FakeHfApi):
+        def create_commit(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise ConflictError("conflict")
+            self.commits.append(kwargs)
+
+    api = RetryApi()
+    store = HuggingFaceEventStore(
+        "Sibucs/Familiarizzap-events", "secret", api=api
+    )
+    store._private_repo_confirmed = True
+    store._event_paths = set()
+    event = {
+        "event_id": "retry",
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": "retry-session",
+        "participant_id_hash": "retry-participant",
+    }
+
+    store.append_events([event])
+
+    assert api.calls == 2
+    assert len(api.commits) == 1
 
 
 def test_new_participant_does_not_download_other_participants_events():
