@@ -1,15 +1,17 @@
-# Questionario di valutazione del pilot — bozza
+# Questionario finale del pilot
 
-> **Bozza in attesa di approvazione.** Non ancora somministrata. Prima dell'uso
-> vanno verificati informativa, consenso e conservazione dei dati, come per ogni
-> altro materiale del pilot.
+> **Stato al 13 novembre 2026.** Il questionario è integrato in FamiliarizzApp
+> e viene presentato obbligatoriamente dopo la quarta tappa del percorso
+> consigliato. Gli item chiusi e il consenso specifico sono obbligatori; le due
+> domande aperte sono facoltative.
 
-Strumento di valutazione di FamiliarizzApp, da somministrare ai docenti di lingua
-dei segni **dopo** una prova dell'app.
+Strumento di valutazione di FamiliarizzApp, somministrato ai docenti di LIS
+**dopo** il completamento del percorso consigliato.
 
 Lo script [tools/crea-questionario-tam.gs](../tools/crea-questionario-tam.gs)
-genera il modulo su Google Moduli: si incolla su script.google.com e si esegue
-la funzione `creaQuestionario`.
+resta come copia storica per Google Moduli, ma non è il questionario usato dal
+pilot corrente. La versione operativa è quella incorporata nell’app e salvata
+nel Dataset privato come evento `questionnaire_submitted`.
 
 ## Impianto teorico
 
@@ -124,6 +126,12 @@ pubblicazione scientifica.»
 16. Ci sono lati positivi dell'applicazione che vuoi sottolineare?
 
 **Messaggio finale:** Grazie della collaborazione!
+
+Dopo l’invio, il questionario non viene proposto di nuovo per la stessa
+versione e si sblocca l’esplorazione facoltativa delle altre scale. Nella pagina
+riservata `/ricercatore`, ogni risposta compare con partecipante, data, versione
+e testo della domanda; le stesse risposte sono incluse in
+`questionnaires.csv` nell’esportazione.
 
 ## Corrispondenza fra item e costrutti
 

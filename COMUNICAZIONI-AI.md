@@ -18,6 +18,59 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-11-13 — Salvataggi più rapidi e versione online
+
+È stata pubblicata la revisione `6d0126b` per ridurre i blocchi segnalati dai
+partecipanti senza rinunciare al salvataggio immediato delle risposte.
+
+- ogni risposta viene ancora confermata nel Dataset prima di aggiornare
+  l’interfaccia;
+- presentazione del descrittore successivo, risposta e completamenti collegati
+  vengono raggruppati quando possibile nello stesso commit;
+- partecipanti diversi possono salvare contemporaneamente invece di attendere
+  un unico blocco globale;
+- doppi invii dello stesso evento restano idempotenti;
+- conflitti e indisponibilità transitorie ricevono un retry breve;
+- le richieste al Dataset hanno un limite d’attesa, così un collegamento fermo
+  non lascia il pulsante in caricamento indefinitamente.
+
+Nel percorso consigliato senza errori, le scritture remote stimate scendono da
+circa 39 a circa 23. La simulazione locale completa della prima tappa e
+dell’avvio della seconda ha misurato circa 0,1–0,2 secondi per azione. La suite
+locale completa ha superato 174 test; anche il workflow GitHub è terminato con
+successo
+([run 43348367021](https://github.com/SimFili/Familiarizzap/actions/runs/43348367021)).
+La pubblicazione automatica su `Sibucs/Familiarizzap` è riuscita e lo Space è
+in esecuzione.
+
+I dati accumulati durante il pre-test **non sono stati cancellati**. Fabio
+indicherà successivamente quali partecipanti o sessioni eliminare; prima della
+rimozione va preparato e verificato l’elenco esatto, senza coinvolgere i dati
+della sperimentazione.
+
+## 2026-11-09 — Percorso, questionario e accesso allo studio
+
+La prima schermata presenta in forma breve che cos’è FamiliarizzApp, chiede il
+nome sempre nella stessa forma e include l’informativa espandibile sul
+trattamento dei dati. In modalità di ricerca correttamente configurata non
+mostra dettagli tecnici sul Dataset; un avviso compare soltanto quando il
+salvataggio non è disponibile. Il controllo iniziale dell’archivio viene
+preparato in background.
+
+Il percorso consigliato è la sequenza centrale del pilot: quattro tappe e 16
+descrittori A1–B2. Dopo la quarta tappa compare il questionario finale
+obbligatorio. Le altre scale si sbloccano soltanto dopo l’invio del questionario
+e restano facoltative. La panoramica `/ricercatore` mostra ora i questionari per
+partecipante, data, versione, domanda e risposta; l’esportazione contiene anche
+`questionnaires.csv`.
+
+Le 16 guide del percorso sono attive. Tredici sono marcate come validate per il
+pilot e tre formulazioni della Scala generale QCER come ancora soggette a
+revisione mirata, pur essendo mantenute nella sperimentazione corrente per
+decisione del ricercatore. Quando il docente arriva alla risposta corretta, la
+spiegazione riguarda il descrittore target e non torna sui livelli sbagliati
+scelti in precedenza.
+
 ## 2026-09-25 — Bozza di questionario per il pilot
 
 Aggiunta la bozza del questionario di valutazione rivolto ai docenti dopo la

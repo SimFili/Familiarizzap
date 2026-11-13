@@ -24,14 +24,14 @@ Il catalogo incluso contiene 831 esercizi appartenenti a 52 scale. I feedback
 sono brevi e tengono conto del tentativo e degli esiti precedenti nella sessione.
 Il file di prevalidazione contiene 21 indizi specifici ricondotti per testo e
 livello ai nuclei attivi; dopo la sospensione dei livelli “+” e delle scale
-chiuse, 14 riguardano descrittori oggi esercitabili nella libera esplorazione.
+chiuse, 14 riguardano descrittori esercitabili nella libera esplorazione, una
+volta sbloccata dopo il percorso e il questionario.
 Gli indizi sono nel file
 versionato `data/feedback.prevalidated.json`: ciascuno riporta brevi passaggi
 letterali del descrittore ed è legato all'impronta del suo testo completo.
 L'app controlla ID, livello, impronta e passaggi prima di usare l'indizio: una
 modifica del catalogo lo disattiva finché non viene ricontrollato. Le proposte
-sospese non sono incluse. La corrispondenza testuale è stata ricontrollata,
-ma non equivale alla validazione pedagogica umana.
+sospese non sono incluse.
 Gli altri descrittori conservano, quando presente, una spiegazione editoriale
 specifica. Se manca, l'app propone una domanda di confronto anziché spacciare
 il livello del catalogo per una motivazione. Gli indizi sono provvisori e
@@ -53,10 +53,13 @@ immutabili, mostra riepiloghi cliccabili ed è ottimizzata per smartphone e tema
 scuro. La cronologia personale usa schede leggibili e consente di riprendere
 direttamente una sessione in corso. Le opzioni di risposta indicano quanti
 descrittori della scala appartengono a ciascun livello. Per il primo pilot il
-percorso principale comprende quattro tappe e 16 descrittori A1–B2, con guide
-comparative ancora da validare umanamente. Le altre scale sono in una sezione
-facoltativa, senza obbligo di completare il catalogo e con feedback spesso
-generici. Gli incontri liberi iniziano dai livelli canonici, ne mostrano la
+percorso principale comprende quattro tappe e 16 descrittori A1–B2. Le 16 guide
+sono attive: 13 sono marcate come validate per il pilot e 3 come ancora
+soggette a revisione mirata. Una risposta corretta riceve una spiegazione del
+descrittore target senza tornare sugli errori precedenti. Dopo la quarta tappa
+l’app richiede il questionario finale; soltanto dopo l’invio rende disponibili
+le altre scale, che restano facoltative e hanno feedback spesso generici. Gli
+incontri liberi iniziano dai livelli canonici, ne mostrano la
 varietà interna e ripropongono gli elementi già visti; A2+ e B1+ sono sospesi
 dagli esercizi e dalle risposte, ma restano nel catalogo e nella cronologia.
 Gli incontri contengono da 4 a 6 descrittori distinti,
@@ -64,6 +67,13 @@ con la sola eccezione concordata di `Annunci pubblici`, che conserva i suoi 3
 descrittori; le altre scale con meno di 4 descrittori non sono selezionabili.
 Percentuali e riepiloghi personali considerano soltanto gli esiti conclusi;
 gli esercizi lasciati a metà restano visibili separatamente come in corso.
+
+Le risposte al questionario sono salvate come eventi immutabili, compaiono
+nella panoramica riservata del ricercatore e sono incluse nell’esportazione.
+Ogni risposta dell’esercizio viene confermata nell’archivio prima che
+l’interfaccia proceda. Gli eventi tecnici collegati vengono raggruppati nello
+stesso invio; partecipanti diversi possono salvare in parallelo e le richieste
+remote hanno un tempo massimo e un retry breve per gli errori transitori.
 
 Le scale mantengono il colore della categoria, con una
 sfumatura distinta tra ricezione e produzione nelle competenze in lingua dei

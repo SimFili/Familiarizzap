@@ -1,6 +1,6 @@
 # Dizionario dei dati
 
-Aggiornamento: 30 luglio 2026. Schema eventi corrente: `2.0`.
+Aggiornamento: 13 novembre 2026. Schema eventi corrente: `2.0`.
 
 ## Principio longitudinale
 
@@ -10,8 +10,10 @@ sono viste ricalcolabili dagli eventi originali.
 
 ## Catalogo
 
-Il file pubblicato dal Dataset contenuti si chiama `catalog.json` ed è una lista
-di oggetti. Campi obbligatori:
+Il catalogo distribuito con lo Space si chiama
+`space/data/catalog.full.json` ed è una lista di oggetti. In locale
+`CONTENT_FILE_PATH` può selezionare un file diverso; `CONTENT_REPO_ID` resta
+disponibile per una futura migrazione. Campi obbligatori:
 
 | Campo | Significato |
 |---|---|
@@ -27,13 +29,14 @@ di oggetti. Campi obbligatori:
 | `source`, `source_version` | provenienza |
 | `license_or_permission` | base editoriale per l’uso |
 | `content_version` | versione editoriale |
-| `status`, `active` | nel catalogo remoto soltanto `approved` e `true` vengono pubblicati; il catalogo incluso usa `demo` |
+| `status`, `active` | il catalogo incluso usa `demo`; la Scala generale QCER usa `guided_draft`; in entrambi i casi `active` deve essere vero per l’uso previsto |
 | `source_schema`, `source_modality`, `source_activity` | valori originali B-C-D; conservano anche le celle vuote della fonte quando le etichette operative di navigazione vengono completate |
 
-Il catalogo remoto del pilot accetta soltanto `A1`, `A2`, `A2+`, `B1`,
-`B1+` e `B2`. L’ordine degli oggetti nella stessa scala conserva l’ordine della
-fonte e viene usato nella mappa finale, dopo il raggruppamento discendente per
-livello.
+Il catalogo del pilot accetta soltanto `A1`, `A2`, `A2+`, `B1`, `B1+` e `B2`.
+Nel primo pilot A2+ e B1+ restano conservati ma non entrano negli esercizi o
+nelle opzioni di risposta. L’ordine degli oggetti nella stessa scala conserva
+l’ordine della fonte e viene usato nella mappa finale, dopo il raggruppamento
+discendente per livello.
 
 ## Registro privato dei partecipanti
 
@@ -105,6 +108,9 @@ effettivamente mostrato: testo, livello, gerarchia, versione, fonte e revisione.
 Questo permette di ricostruire lo studio anche se il catalogo viene aggiornato.
 Gli eventi includono inoltre i campi `source_*`, quando presenti, per conservare
 la classificazione originale distinta dalle etichette operative di navigazione.
+Per ridurre una scrittura remota separata, la presentazione del descrittore
+successivo può essere inviata nello stesso commit della sua prima risposta. Il
+campo `occurred_at` conserva comunque l’istante della presentazione.
 
 ### `answer_submitted`
 
@@ -113,12 +119,17 @@ Registra:
 - numero del tentativo;
 - livello scelto e livello corretto;
 - esito;
-- distanza assoluta fra i due livelli nell’ordine CEFR;
+- distanza assoluta fra i due livelli nell’ordine QCER;
 - feedback effettivamente mostrato e sua fase;
 - tempo dal tentativo precedente;
 - tempo totale trascorso sul descrittore;
 - numero dell’esposizione;
 - `client_request_id` per l’idempotenza.
+
+La risposta viene confermata nell’archivio prima che lo stato dell’interfaccia
+avanzi. Un commit può contenere anche `descriptor_presented`,
+`descriptor_completed` e, per l’ultimo descrittore, `session_completed`; questo
+non cambia il significato né lo schema dei singoli eventi.
 
 ### `descriptor_completed`
 
@@ -179,6 +190,7 @@ La dashboard produce un archivio ZIP con:
 - `sessions.csv`;
 - `descriptor_history.csv`;
 - `attempts.csv`;
+- `questionnaires.csv`;
 - `events.jsonl`;
 - `integrity.csv`;
 - `manifest.json`.

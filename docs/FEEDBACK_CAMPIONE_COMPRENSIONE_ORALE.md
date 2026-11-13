@@ -1,6 +1,11 @@
-# Feedback ragionati: tre scale campione
+# Feedback ragionati: percorso consigliato e scale campione
 
-Stato: **bozza editoriale da discutere e validare; non pubblicata**. I testi
+Stato al 13 novembre 2026: le guide dei 16 descrittori del percorso consigliato
+sono **pubblicate e attive**. Tredici sono marcate come validate per il pilot e
+tre come ancora soggette a revisione mirata; queste ultime sono comunque usate
+nella sperimentazione corrente per decisione del ricercatore. Le altre guide
+del file restano materiale editoriale non attivato automaticamente nella libera
+esplorazione. I testi
 sono associati ai descrittori originali delle scale «Comprensione orale
 generale», «Produzione orale generale» e «Interazione orale generale» nel catalogo
 `space/data/catalog.full.json`. ID, livello, impronta del testo e frammenti
@@ -15,11 +20,12 @@ letterali sono controllati prima dell'uso. Le proposte sono in
 2. Dopo il secondo errore, il confronto riguarda **il livello scelto in quel
    tentativo**, usando un descrittore reale della stessa scala. Ogni livello
    effettivamente disponibile ha un confronto distinto.
-3. Alla conclusione, una breve motivazione riprende una scelta effettiva del
-   docente. Se l'ultimo tentativo è sbagliato, confronta proprio quel livello;
-   se la risposta viene corretta dopo un errore, riprende un livello sbagliato
-   non già confrontato nel suggerimento precedente. La risposta esatta al
-   primo tentativo riceve comunque una spiegazione: può essere fortunata.
+3. Alla conclusione corretta, una breve motivazione spiega gli elementi del
+   descrittore target e **non** riprende i livelli sbagliati dei tentativi
+   precedenti. Se anche il terzo tentativo è errato, viene mostrato il livello
+   previsto e, quando disponibile, il confronto con l’ultima scelta. La risposta
+   esatta al primo tentativo riceve comunque una spiegazione: può essere
+   fortunata.
 4. Sullo schermo compare solo il suggerimento più recente; la cronologia
    completa dei tentativi resta registrata. Nessun suggerimento apre con
    «Non ancora.».
@@ -32,23 +38,24 @@ Esempio per `SRC-9`, se il docente sceglie prima A2 e poi B2:
 - Secondo errore: «Confronta con B2: lì si segue un discorso lungo e
   argomentazioni complesse; qui bastano i punti salienti di un discorso
   chiaro.»
-- Conclusione: «Esatto: B1. Confronta con A2: lì si comprendono espressioni di
-  priorità immediata, non i punti salienti di un discorso.»
+- Conclusione: «Esatto: B1. I punti salienti di un discorso chiaro su argomenti
+  familiari affrontati abitualmente, compresi brevi racconti.»
 
 I confronti di questo esempio si appoggiano, rispettivamente, a `SRC-11`
 (A2) e `SRC-7` (B2). Sono confronti **interni a questa scala**, non regole
 generali che associano una singola parola a un livello.
 
-Esempio per `SRC-408` («Interazione orale generale»), con A2+ seguito da B1+:
+Esempio per `SRC-408` («Interazione orale generale»), con A2 seguito da B2:
 
-- Primo errore: «Hai scelto A2+. Le situazioni sono solo strutturate e
-  prevedibili, o la persona interviene senza preparazione?»
-- Secondo errore: «Confronta con B1+: lì si affrontano anche situazioni meno
-  frequenti e temi più astratti; qui prevalgono questioni familiari e vita
-  quotidiana.»
-- Conclusione: «Esatto: B1. Confronta con A2+: lì l'interazione è breve e
-  strutturata, con eventuale collaborazione; qui si interviene senza
-  preparazione su temi familiari.»
+- Primo errore: «Hai scelto A2. Gli scambi restano molto brevi e con autonomia
+  limitata, oppure la persona esprime opinioni e scambia informazioni su temi
+  familiari?»
+- Secondo errore: «Confronta con B2: nel descrittore B2 l’interazione è
+  spontanea e i punti di vista sono argomentati; qui si esprimono opinioni su
+  temi familiari.»
+- Conclusione: «Esatto: B1. Usa un’ampia gamma di strumenti linguistici
+  semplici, esprime opinioni e scambia informazioni su temi abituali,
+  personali o quotidiani.»
 
 ## Verifica prima di estendere il metodo
 
@@ -74,21 +81,20 @@ Chiediamo di valutare soprattutto:
 - se la spiegazione finale è corretta, accessibile e non troppo lunga;
 - se la progressione dei suggerimenti cambia davvero il ragionamento.
 
-La bozza resta disattivata nell'esplorazione libera per impostazione
-predefinita. Può essere provata per tutte e tre le scale in locale con
-`FAMILIARIZZAPP_DRAFT_FEEDBACK=1`. Un'eccezione locale è il percorso
-consigliato iniziale: vi vengono usate le guide dei suoi **16 descrittori
+Le guide non appartenenti al percorso restano disattivate nell'esplorazione
+libera per impostazione predefinita. Possono essere provate in locale con
+`FAMILIARIZZAPP_DRAFT_FEEDBACK=1`. L’eccezione online è il percorso
+consigliato: vi vengono usate le guide dei suoi **16 descrittori
 selezionati**, comprese quattro formulazioni della Scala generale QCER
 fornite nell'immagine del ricercatore. Il file contiene quindi **21 guide
-utilizzabili nella prova locale**: 17 per le tre scale del catalogo e 4 per la
-nuova scala introduttiva. La guida di `SRC-10` è sospesa: il confronto A2/A2+
-non è stato giudicato sufficientemente distintivo e il descrittore resta nel
-catalogo. Nessuna
-di queste modifiche è stata ancora inviata allo Space. Per gli altri, il vecchio materiale non è ancora stato
+complessive**: 17 per le tre scale del catalogo e 4 per la nuova scala
+introduttiva. La guida di `SRC-10` è sospesa: il confronto A2/A2+ non è stato
+giudicato sufficientemente distintivo e il descrittore resta nel catalogo. Per
+gli altri, il vecchio materiale non è ancora stato
 riscritto: non presentiamo queste scale campione come revisione completa dei
-feedback né come via libera al pilot.
+feedback.
 
-Per il pilot locale, A2+ e B1+ sono sospesi anche nell'esplorazione libera.
+Per il pilot corrente, A2+ e B1+ sono sospesi anche nell'esplorazione libera.
 Le 16 guide della sequenza consigliata restano attive solo in quella sequenza;
 nelle altre scale esercitabili sono operativi 14 indizi prevalidati e cinque
 spiegazioni editoriali specifiche, ma non guide comparative complete. Le sei

@@ -1,10 +1,10 @@
 # Ricerca longitudinale in FamiliarizzApp
 
-Aggiornamento: 30 luglio 2026.
+Aggiornamento: 13 novembre 2026.
 
 ## Obiettivo
 
-Permettere di studiare come cambia nel tempo il riconoscimento dei livelli CEFR
+Permettere di studiare come cambia nel tempo il riconoscimento dei livelli QCER
 di ciascun docente, conservando separatamente ogni esposizione e senza
 sovrascrivere risultati precedenti.
 
@@ -101,6 +101,8 @@ La dashboard riservata permette:
 - risposte e feedback effettivamente mostrati;
 - filtri per partecipante, scala e periodo;
 - registro completo degli eventi;
+- risposte al questionario finale, ricercabili per partecipante, domanda, data
+  e versione;
 - controllo delle incoerenze;
 - esportazione completa.
 
@@ -121,6 +123,11 @@ La chiave HMAC derivata dal nome non è inclusa nell'esportazione.
 
 - identificativi evento deterministici impediscono doppioni nei retry;
 - un errore di salvataggio non consuma il tentativo;
+- ogni risposta viene confermata prima di aggiornare l’interfaccia;
+- più eventi tecnici della stessa azione possono essere salvati nello stesso
+  commit senza cambiare l’ordine logico o lo schema dei dati;
+- partecipanti diversi possono salvare contemporaneamente, mentre lo stesso
+  percorso evento viene scritto una sola volta;
 - un evento esistente non viene sovrascritto;
 - file corrotti vengono segnalati, non ignorati;
 - lo schema `2.0` convive con gli eventi `1.0`;

@@ -1,7 +1,7 @@
 # FamiliarizzApp
 
 FamiliarizzApp è un’app Gradio per aiutare docenti di lingua dei segni a
-familiarizzare con descrittori e livelli CEFR. Presenta un descrittore, accetta
+familiarizzare con descrittori e livelli QCER. Presenta un descrittore, accetta
 fino a tre tentativi, offre feedback progressivi e conserva il percorso senza
 trasformarlo in una valutazione professionale.
 
@@ -20,8 +20,8 @@ La versione preparata per il pilot include:
 - conteggio dei descrittori presenti per ciascun livello nelle opzioni di
   risposta;
 - percorso principale consigliato di quattro tappe e 16 descrittori A1–B2;
-  le altre scale restano esplorabili in una sezione facoltativa, non come
-  programma da completare;
+  al termine viene richiesto il questionario finale e soltanto dopo il suo
+  invio si sblocca l’esplorazione facoltativa delle altre scale;
 - incontri liberi progressivi sui soli livelli A1, A2, B1 e B2; A2+ e B1+
   restano nel catalogo e nei dati storici, ma sono sospesi nel pilot;
 - uscita confermata da un esercizio con sessione conservata e riprendibile;
@@ -39,26 +39,43 @@ La versione preparata per il pilot include:
 - intero catalogo distribuito con lo Space: 831 descrittori, 52 scale e livelli
   `A1`, `A2`, `A2+`, `B1`, `B1+`, `B2`;
 - dashboard del ricercatore con filtri, timestamp esatti, dati grezzi,
-  controllo d’integrità ed esportazione ZIP.
+  controllo d’integrità, risposte ai questionari ed esportazione ZIP;
+- salvataggio confermato di ogni risposta prima di aggiornare l’interfaccia,
+  con eventi tecnici collegati raggruppati nello stesso invio;
+- salvataggi simultanei per partecipanti diversi, retry breve degli errori
+  transitori e limite d’attesa sulle richieste al Dataset privato.
 
 **App online:** https://huggingface.co/spaces/Sibucs/Familiarizzap
 
 ## Stato del rilascio
 
-Le guide comparative del percorso consigliato sono bozze in attesa di
-validazione pedagogica umana. La pubblicazione del codice non equivale
-all'avvio della raccolta dati del pilot.
+Le 16 guide del percorso consigliato sono attive nella prima sperimentazione:
+13 risultano marcate come validate per il pilot e 3 come ancora soggette a
+revisione mirata. Anche queste ultime vengono usate nella versione corrente per
+la decisione presa dal ricercatore; il loro stato editoriale resta distinguibile
+nei dati. Quando la risposta finale è corretta, la spiegazione riguarda il
+descrittore riconosciuto e non ripropone gli errori precedenti. I feedback delle
+altre scale restano in parte essenziali o generici e non sono il centro del
+percorso consigliato.
 
 La versione pubblica include 831 descrittori ricavati dal database validato del
 gruppo di ricerca, organizzati in 52 scale. I feedback sono provvisori.
 Provenienza e diritti di pubblicazione dei testi devono essere verificati prima
 dell’uso pubblico definitivo.
 
-Per il pilot reale devono essere configurati:
+Per il pilot corrente sono configurati i componenti tecnici:
 
 - un Dataset Hugging Face privato per registro partecipanti ed eventi;
-- i secret dello Space descritti in `space/.env.example`;
-- informativa, consenso, conservazione e licenze approvati dal progetto.
+- i secret dello Space descritti in `space/.env.example`.
+
+Informativa, consenso, conservazione e licenze restano responsabilità del
+progetto di ricerca e devono essere mantenuti coerenti con il protocollo
+approvato.
+
+Il questionario finale è integrato nell’app, è obbligatorio dopo la quarta
+tappa e compare nella panoramica riservata del ricercatore. Le altre scale non
+si sbloccano prima del completamento del percorso consigliato e dell’invio del
+questionario.
 
 La procedura operativa e la verifica dopo il riavvio sono descritte in
 [docs/CONFIGURAZIONE_STORAGE_HF.md](docs/CONFIGURAZIONE_STORAGE_HF.md). L’app
@@ -78,6 +95,13 @@ Dataset Hugging Face privato.
 
 La modalità locale e quella dimostrativa servono esclusivamente al collaudo:
 la continuità dei dati della ricerca richiede il Dataset privato configurato.
+
+Dal 13 novembre 2026 il caricamento iniziale prepara l’archivio remoto in
+background. Ogni risposta rimane durevole prima del cambio di schermata, ma la
+presentazione del descrittore successivo e la conclusione della sessione vengono
+aggregate ai salvataggi già necessari. Un percorso consigliato completato senza
+errori richiede così circa 23 scritture remote invece di circa 39. Partecipanti
+diversi non sono più costretti ad attendere in coda lo stesso blocco globale.
 
 ## Organizzazione
 

@@ -1,4 +1,6 @@
-# Percorso consigliato iniziale — bozza locale
+# Percorso consigliato del pilot
+
+Stato al 13 novembre 2026: percorso pubblicato e attivo nello Space.
 
 Obiettivo: una familiarizzazione **graduale**, non un test valutativo. Ogni
 tappa propone quattro esercizi, uno per A1, A2, B1 e B2, in ordine mescolato.
@@ -16,26 +18,33 @@ ogni tappa compare una domanda breve per riflettere sulle distinzioni viste.
 La prima scala proviene **solo** dalle quattro righe A1–B2 dell'immagine fornita
 dal ricercatore, riprese dal *QCER – Volume complementare* (Consiglio d'Europa,
 2020, p. 187). Non appartiene al catalogo Excel originale: è identificata
-separatamente, esclusa dalla libera esplorazione e marcata come bozza.
+separatamente, esclusa dalla libera esplorazione e marcata tecnicamente come
+`guided_draft`.
 L'estratto conta 322 parole ed è attribuito nell'interfaccia; resta da
 verificare la situazione dei diritti del catalogo complessivo prima del pilot.
 Le altre dodici righe provengono dal catalogo strutturato esistente; il
 percorso non introduce altri materiali.
 
-I feedback specifici sono ancora **bozze in attesa di validazione umana**. Per
-questi sedici descrittori vengono usati automaticamente soltanto nelle quattro
-tappe guidate; altrove resta il comportamento già in uso. Il collegamento è
-controllato tramite ID, livello, impronta del testo e frammenti attestati.
-L'app verifica anche il riferimento dei confronti allo stesso insieme di
-livelli. I primi due suggerimenti non devono svelare la risposta.
+I feedback specifici dei sedici descrittori vengono usati automaticamente
+soltanto nelle quattro tappe guidate; altrove resta il comportamento della
+libera esplorazione. Tredici guide sono marcate come
+`validated_for_guided_pilot`; tre formulazioni della Scala generale QCER
+restano marcate `pending_targeted_review`, ma sono mantenute nel pilot corrente
+per decisione del ricercatore. Il collegamento è controllato tramite ID,
+livello, impronta del testo e frammenti attestati. L'app verifica anche il
+riferimento dei confronti allo stesso insieme di livelli. I primi due
+suggerimenti non svelano la risposta. Quando la scelta finale è corretta, la
+spiegazione riguarda il descrittore target e non ripropone gli errori
+precedenti.
 
 La progressione è ricostruita dagli eventi salvati: una tappa incompleta si
 può riprendere; la successiva si apre soltanto dopo il completamento della
 precedente. La scala generale compare in «Il mio percorso» se il docente ha
-iniziato quella tappa, pur non essendo una scala libera del catalogo. Le altre
-scale rimangono esplorabili in una sezione facoltativa, salvo quelle sospese:
-non sono presentate come tappe da completare nel pilot e i loro feedback sono
-ancora essenziali. Il percorso principale comprende 16 descrittori in quattro
+iniziato quella tappa, pur non essendo una scala libera del catalogo. Dopo la
+quarta tappa viene presentato il questionario finale obbligatorio; le altre
+scale si sbloccano soltanto dopo il suo invio. Restano facoltative, non sono
+presentate come tappe da completare nel pilot e i loro feedback sono ancora in
+parte essenziali. Il percorso principale comprende 16 descrittori in quattro
 tappe. Per la prima
 sperimentazione A2+ e B1+ sono sospesi in **tutti** gli esercizi del docente,
 non solo nella sequenza introduttiva: non appaiono come testi target né come
@@ -45,6 +54,9 @@ includono non sono riprendibili; il docente può avviare un nuovo incontro
 senza quei livelli. «Pianificazione» e «Annunci pubblici» restano avviabili
 come eccezioni con i loro tre descrittori canonici.
 
-La pubblicazione tecnica non equivale all'avvio del pilot: le guide comparative
-richiedono ancora validazione pedagogica umana e la configurazione dei dati
-deve essere verificata prima di raccogliere risposte reali.
+Ogni risposta è confermata nel Dataset privato prima che l’interfaccia proceda.
+Dal 13 novembre 2026 gli eventi tecnici collegati vengono raggruppati per
+ridurre le attese; più partecipanti possono salvare contemporaneamente. Il
+Dataset privato è configurato e lo Space pubblico è la versione operativa del
+pilot. Provenienza, diritti dei testi e stato editoriale delle tre guide ancora
+in revisione mirata restano da documentare nelle analisi e nelle pubblicazioni.
