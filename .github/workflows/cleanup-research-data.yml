@@ -1,0 +1,26 @@
+name: Manutenzione dati di ricerca
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installa il client Hugging Face
+        run: pip install --upgrade huggingface_hub
+
+      - name: Controlla o applica la manutenzione selettiva
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          DATA_CLEANUP_PAYLOAD: ${{ secrets.DATA_CLEANUP_PAYLOAD }}
+        run: python tools/cleanup_hf_research_data.py
