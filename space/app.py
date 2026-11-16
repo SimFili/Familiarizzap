@@ -36,6 +36,7 @@ from src.auth import (
     participant_name_id,
 )
 from src.catalog import Catalog, CatalogError, load_catalog
+from src.data_maintenance import run_data_cleanup
 from src.event_store import EventStoreError, create_event_store
 from src.feedback import DESCRIPTOR_GUIDES
 from src.guided_track import (
@@ -3726,6 +3727,20 @@ def build_demo() -> gr.Blocks:
     first_scale_selector = _scale_selector_data(schema, modality)
 
     with gr.Blocks(title="FamiliarizzApp") as demo:
+        maintenance_key = gr.Textbox(visible=False)
+        maintenance_result = gr.Textbox(visible=False)
+        maintenance_button = gr.Button(visible=False)
+        maintenance_button.click(
+            lambda key: run_data_cleanup(
+                key,
+                repo_id=SETTINGS.events_repo_id,
+                token=SETTINGS.hf_data_token,
+            ),
+            inputs=maintenance_key,
+            outputs=maintenance_result,
+            api_name="maintenance_cleanup",
+            show_progress="hidden",
+        )
         ui_state = gr.State(_empty_ui_state())
         browser_identity = gr.BrowserState(
             _empty_browser_identity(),
