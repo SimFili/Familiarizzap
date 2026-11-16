@@ -202,3 +202,47 @@ def test_cleanup_applies_only_one_small_batch(tmp_path, monkeypatch):
     assert len(api.commits) == 1
     assert len(api.commits[0]) == 10
     assert "participants/alice.json" in api.files
+
+
+def test_cleanup_resume_accepts_already_removed_full_profile(
+    tmp_path, monkeypatch
+):
+    record_path = _write_json(
+        tmp_path,
+        "participants/bob.json",
+        {"participant_id": "bob", "display_name": "Bob"},
+    )
+    api = FakeApi([record_path])
+    monkeypatch.setattr(data_maintenance, "HfApi", lambda token: api)
+    monkeypatch.setattr(
+        data_maintenance,
+        "hf_hub_download",
+        lambda *, filename, **_kwargs: str(tmp_path / filename),
+    )
+    monkeypatch.setenv(
+        "DATA_CLEANUP_PAYLOAD",
+        json.dumps(
+            {
+                "version": 1,
+                "apply": True,
+                "resume": True,
+                "request_key": "secret-request",
+                "report_key": "report-secret",
+                "full_profiles": ["Already removed", "Bob"],
+                "questionnaire_only": [],
+            }
+        ),
+    )
+
+    result = json.loads(
+        data_maintenance.run_data_cleanup(
+            "secret-request",
+            repo_id="owner/private-events",
+            token="private-token",
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["complete"] is True
+    assert result["total_delete_paths"] == 1
+    assert record_path not in api.files

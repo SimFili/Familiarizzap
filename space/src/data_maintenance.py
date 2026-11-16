@@ -68,6 +68,7 @@ def run_data_cleanup(
 
     report_key = str(payload["report_key"])
     apply_changes = payload.get("apply") is True
+    resume_changes = apply_changes and payload.get("resume") is True
     full_names = [str(value) for value in payload.get("full_profiles", [])]
     questionnaire_names = [
         str(value) for value in payload.get("questionnaire_only", [])
@@ -121,11 +122,14 @@ def run_data_cleanup(
                 "participant_records": len(participants_by_name.get(normalized, [])),
             }
         )
-    ambiguous = [
-        normalized
-        for normalized in target_names
-        if len(participants_by_name.get(normalized, [])) != 1
-    ]
+    ambiguous = []
+    for normalized in normalized_full:
+        count = len(participants_by_name.get(normalized, []))
+        if count > 1 or (count == 0 and not resume_changes):
+            ambiguous.append(normalized)
+    for normalized in normalized_questionnaire:
+        if len(participants_by_name.get(normalized, [])) != 1:
+            ambiguous.append(normalized)
     if ambiguous:
         return json.dumps(
             {
@@ -138,8 +142,9 @@ def run_data_cleanup(
         )
 
     full_ids = {
-        str(participants_by_name[name][0][1]["participant_id"])
+        str(records[0][1]["participant_id"])
         for name in normalized_full
+        if (records := participants_by_name.get(name))
     }
     questionnaire_ids = {
         str(participants_by_name[name][0][1]["participant_id"])
@@ -169,7 +174,18 @@ def run_data_cleanup(
     delete_paths: set[str] = set()
     details = []
     for normalized, source_name in normalized_full.items():
-        participant_path, participant = participants_by_name[normalized][0]
+        participant_records = participants_by_name.get(normalized, [])
+        if not participant_records:
+            details.append(
+                {
+                    "label": _anonymous_label(source_name, report_key),
+                    "operation": "full",
+                    "events": 0,
+                    "participant_files": 0,
+                }
+            )
+            continue
+        participant_path, participant = participant_records[0]
         participant_id = str(participant["participant_id"])
         paths = full_event_paths[participant_id]
         delete_paths.add(participant_path)
