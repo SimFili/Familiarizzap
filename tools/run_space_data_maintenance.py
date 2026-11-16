@@ -41,6 +41,10 @@ def main() -> int:
                     api_name="/maintenance_cleanup",
                 )
                 result = json.loads(str(raw_result))
+                if result.get("error") == "maintenance_disabled":
+                    last_error = RuntimeError("Space non ancora riavviato")
+                    time.sleep(10)
+                    continue
                 print("MAINTENANCE_RESULT=" + json.dumps(result, sort_keys=True))
                 return 0 if result.get("ok") else 2
             except Exception as exc:
