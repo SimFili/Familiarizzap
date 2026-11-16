@@ -14,7 +14,7 @@ from typing import Any
 from huggingface_hub import CommitOperationDelete, HfApi, hf_hub_download
 
 
-MAX_DELETE_OPERATIONS = 50
+MAX_DELETE_OPERATIONS = 10
 
 
 def _normalize_name(value: str) -> str:
@@ -42,10 +42,6 @@ def _read_repo_json(
         token=token,
     )
     return path, json.loads(Path(local_path).read_text(encoding="utf-8"))
-
-
-def _batches(values: list[str], size: int) -> list[list[str]]:
-    return [values[index : index + size] for index in range(0, len(values), size)]
 
 
 def run_data_cleanup(
@@ -210,16 +206,16 @@ def run_data_cleanup(
     if not apply_changes:
         return json.dumps(result, sort_keys=True)
 
-    for batch_number, paths in enumerate(
-        _batches(sorted(delete_paths), MAX_DELETE_OPERATIONS), start=1
-    ):
+    paths = sorted(delete_paths)[:MAX_DELETE_OPERATIONS]
+    if paths:
         api.create_commit(
             repo_id=repo_id,
             repo_type="dataset",
             operations=[CommitOperationDelete(path_in_repo=path) for path in paths],
-            commit_message=f"Rimuove dati di pre-test selezionati ({batch_number})",
+            commit_message="Rimuove un gruppo di dati di pre-test selezionati",
         )
     remaining_files = set(api.list_repo_files(repo_id=repo_id, repo_type="dataset"))
     result["remaining_delete_paths"] = len(delete_paths & remaining_files)
-    result["ok"] = result["remaining_delete_paths"] == 0
+    result["deleted_in_batch"] = len(paths)
+    result["complete"] = result["remaining_delete_paths"] == 0
     return json.dumps(result, sort_keys=True)

@@ -36,17 +36,33 @@ def main() -> int:
         for attempt in range(60):
             try:
                 client = Client(SPACE_URL, verbose=False)
-                raw_result = client.predict(
-                    request_key,
-                    api_name="/maintenance_cleanup",
-                )
-                result = json.loads(str(raw_result))
-                if result.get("error") == "maintenance_disabled":
-                    last_error = RuntimeError("Space non ancora riavviato")
-                    time.sleep(10)
-                    continue
-                print("MAINTENANCE_RESULT=" + json.dumps(result, sort_keys=True))
-                return 0 if result.get("ok") else 2
+                for batch_number in range(100):
+                    raw_result = client.predict(
+                        request_key,
+                        api_name="/maintenance_cleanup",
+                    )
+                    result = json.loads(str(raw_result))
+                    if result.get("error") == "maintenance_disabled":
+                        last_error = RuntimeError("Space non ancora riavviato")
+                        break
+                    print(
+                        "MAINTENANCE_RESULT="
+                        + json.dumps(result, sort_keys=True),
+                        flush=True,
+                    )
+                    if not result.get("ok"):
+                        return 2
+                    if result.get("mode") != "apply" or result.get("complete"):
+                        return 0
+                    print(
+                        f"MAINTENANCE_BATCH={batch_number + 1} "
+                        f"remaining={result.get('remaining_delete_paths')}",
+                        flush=True,
+                    )
+                if last_error is None:
+                    raise RuntimeError("Numero massimo di gruppi superato.")
+                time.sleep(10)
+                continue
             except Exception as exc:
                 last_error = exc
                 if attempt and attempt % 6 == 0:

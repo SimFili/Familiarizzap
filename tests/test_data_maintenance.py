@@ -100,6 +100,7 @@ def test_cleanup_deletes_full_profile_and_only_selected_questionnaire(
     )
 
     assert result["ok"] is True
+    assert result["complete"] is True
     assert result["total_delete_paths"] == 4
     assert "participants/alice.json" not in api.files
     assert "events/2026/01/01/s1/alice-answer.json" not in api.files
@@ -149,3 +150,55 @@ def test_cleanup_stops_if_a_target_is_missing(tmp_path, monkeypatch):
     assert result["ok"] is False
     assert result["error"] == "ambiguous_or_missing"
     assert api.commits == []
+
+
+def test_cleanup_applies_only_one_small_batch(tmp_path, monkeypatch):
+    records = {
+        "participants/alice.json": {
+            "participant_id": "alice",
+            "display_name": "Alice",
+        }
+    }
+    for index in range(12):
+        records[f"events/2026/01/01/s1/event-{index:02}.json"] = {
+            "participant_id_hash": "alice",
+            "event_type": "answer_submitted",
+        }
+    for path, record in records.items():
+        _write_json(tmp_path, path, record)
+    api = FakeApi(list(records))
+    monkeypatch.setattr(data_maintenance, "HfApi", lambda token: api)
+    monkeypatch.setattr(
+        data_maintenance,
+        "hf_hub_download",
+        lambda *, filename, **_kwargs: str(tmp_path / filename),
+    )
+    monkeypatch.setenv(
+        "DATA_CLEANUP_PAYLOAD",
+        json.dumps(
+            {
+                "version": 1,
+                "apply": True,
+                "request_key": "secret-request",
+                "report_key": "report-secret",
+                "full_profiles": ["Alice"],
+                "questionnaire_only": [],
+            }
+        ),
+    )
+
+    result = json.loads(
+        data_maintenance.run_data_cleanup(
+            "secret-request",
+            repo_id="owner/private-events",
+            token="private-token",
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["complete"] is False
+    assert result["deleted_in_batch"] == 10
+    assert result["remaining_delete_paths"] == 3
+    assert len(api.commits) == 1
+    assert len(api.commits[0]) == 10
+    assert "participants/alice.json" in api.files

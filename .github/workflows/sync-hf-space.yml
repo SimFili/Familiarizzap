@@ -13,7 +13,7 @@ on:
 
 jobs:
   pubblica:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -29,17 +29,4 @@ jobs:
       - name: Carica space/ nello Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          python - <<'PY'
-          import os
-          from huggingface_hub import HfApi
-
-          HfApi().upload_folder(
-              repo_id="Sibucs/Familiarizzap",
-              repo_type="space",
-              folder_path="space",
-              commit_message=f"Pubblicato da GitHub: {os.environ['GITHUB_SHA'][:7]}",
-              # Per rispecchiare anche le cancellazioni (un file tolto da space/
-              # sparisce anche dallo Space) aggiungere: delete_patterns=["*"]
-          )
-          PY
+        run: python tools/publish_hf_space.py
