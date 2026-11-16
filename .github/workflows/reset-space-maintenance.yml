@@ -1,0 +1,25 @@
+name: Disattiva manutenzione dati
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --upgrade huggingface_hub
+
+      - name: Rimuove il segreto temporaneo e riavvia lo Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python tools/reset_space_maintenance.py
