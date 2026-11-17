@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -12,6 +14,9 @@ from threading import Condition, RLock
 from typing import Any
 
 from .settings import Settings
+
+
+PARTICIPANT_DELETE_SCOPES = frozenset({"questionnaire", "events", "profile"})
 
 
 class EventStoreError(RuntimeError):
@@ -66,6 +71,27 @@ class EventStore(ABC):
     def list_participants(self) -> list[dict[str, Any]]:
         raise NotImplementedError
 
+    def preview_participant_deletion(
+        self, participant_id: str, scope: str
+    ) -> dict[str, Any]:
+        """Describe an administrative deletion without changing the archive."""
+        participant = self.get_participant(participant_id)
+        if participant is None:
+            raise EventStoreError("Partecipante non trovato.")
+        events = self.list_events(participant_id)
+        return _participant_deletion_preview(participant, events, scope)
+
+    @abstractmethod
+    def delete_participant_data(
+        self,
+        participant_id: str,
+        scope: str,
+        *,
+        expected_revision: str,
+    ) -> dict[str, Any]:
+        """Delete the exact data confirmed by a researcher preview."""
+        raise NotImplementedError
+
 
 class LocalEventStore(EventStore):
     def __init__(self, root: Path, mode: str = "local"):
@@ -73,6 +99,7 @@ class LocalEventStore(EventStore):
         self.mode = mode
         self.participants_dir = root / "participants"
         self.events_dir = root / "events"
+        self._deletion_lock = RLock()
 
     def register_participant(
         self,
@@ -107,24 +134,27 @@ class LocalEventStore(EventStore):
 
     def append_events(self, events: list[dict[str, Any]]) -> None:
         staged: list[tuple[Path, Path]] = []
-        try:
-            for event in events:
-                target = self._event_path(event)
-                if target.exists():
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                temporary = target.with_suffix(".json.tmp")
-                temporary.write_text(
-                    json.dumps(event, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
-                )
-                staged.append((temporary, target))
-            for temporary, target in staged:
-                os.replace(temporary, target)
-        except OSError as exc:
-            for temporary, _ in staged:
-                temporary.unlink(missing_ok=True)
-            raise EventStoreError(f"Salvataggio locale non riuscito: {exc}") from exc
+        with self._deletion_lock:
+            try:
+                for event in events:
+                    target = self._event_path(event)
+                    if target.exists():
+                        continue
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    temporary = target.with_suffix(".json.tmp")
+                    temporary.write_text(
+                        json.dumps(event, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                    staged.append((temporary, target))
+                for temporary, target in staged:
+                    os.replace(temporary, target)
+            except OSError as exc:
+                for temporary, _ in staged:
+                    temporary.unlink(missing_ok=True)
+                raise EventStoreError(
+                    f"Salvataggio locale non riuscito: {exc}"
+                ) from exc
 
     def _event_path(self, event: dict[str, Any]) -> Path:
         occurred = datetime.fromisoformat(str(event["occurred_at"]))
@@ -172,6 +202,33 @@ class LocalEventStore(EventStore):
                 ) from exc
         return sorted(participants, key=lambda item: item["display_name"].casefold())
 
+    def delete_participant_data(
+        self,
+        participant_id: str,
+        scope: str,
+        *,
+        expected_revision: str,
+    ) -> dict[str, Any]:
+        with self._deletion_lock:
+            participant = self.get_participant(participant_id)
+            if participant is None:
+                raise EventStoreError("Partecipante non trovato.")
+            events = self.list_events(participant_id)
+            preview = _participant_deletion_preview(participant, events, scope)
+            _require_matching_deletion_revision(preview, expected_revision)
+            selected = _events_for_deletion(events, scope)
+            paths = [self._event_path(event) for event in selected]
+            if scope == "profile":
+                paths.append(self.participants_dir / f"{participant_id}.json")
+            try:
+                for path in paths:
+                    path.unlink(missing_ok=True)
+            except OSError as exc:
+                raise EventStoreError(
+                    f"Cancellazione locale non riuscita: {exc}"
+                ) from exc
+        return {**preview, "deleted_files": len(paths)}
+
 
 class HuggingFaceEventStore(EventStore):
     mode = "huggingface"
@@ -207,6 +264,7 @@ class HuggingFaceEventStore(EventStore):
         self._participant_paths: set[str] | None = None
         self._participants_by_id: dict[str, dict[str, Any]] = {}
         self._participants_without_remote_history: set[str] = set()
+        self._participants_pending_deletion: set[str] = set()
 
     def health_check(self) -> tuple[bool, str]:
         try:
@@ -302,6 +360,13 @@ class HuggingFaceEventStore(EventStore):
             # the lock; the network request itself must remain outside it so
             # independent participants can save concurrently.
             with self._event_condition:
+                participant_ids = {
+                    str(event.get("participant_id_hash", "")) for event in events
+                }
+                if participant_ids & self._participants_pending_deletion:
+                    raise EventStoreError(
+                        "I dati del partecipante sono in eliminazione. Riprova."
+                    )
                 if self._event_paths is None:
                     self._event_paths = set(self._list_files(prefix="events/"))
                 ready = self._event_condition.wait_for(
@@ -454,6 +519,98 @@ class HuggingFaceEventStore(EventStore):
             ]
         return sorted(participants, key=lambda item: item["display_name"].casefold())
 
+    def delete_participant_data(
+        self,
+        participant_id: str,
+        scope: str,
+        *,
+        expected_revision: str,
+    ) -> dict[str, Any]:
+        self._require_private_repo()
+        with self._event_condition:
+            if participant_id in self._participants_pending_deletion:
+                raise EventStoreError("Cancellazione già in corso.")
+            self._participants_pending_deletion.add(participant_id)
+            ready = self._event_condition.wait_for(
+                lambda: not self._pending_event_paths,
+                timeout=self._PENDING_WRITE_TIMEOUT_SECONDS,
+            )
+            if not ready:
+                self._participants_pending_deletion.discard(participant_id)
+                self._event_condition.notify_all()
+                raise EventStoreError(
+                    "Un salvataggio è ancora in corso. Riprova tra poco."
+                )
+
+        try:
+            participant = self.get_participant(participant_id)
+            if participant is None:
+                raise EventStoreError("Partecipante non trovato.")
+            events = self.list_events(participant_id)
+            preview = _participant_deletion_preview(participant, events, scope)
+            _require_matching_deletion_revision(preview, expected_revision)
+            selected = _events_for_deletion(events, scope)
+            event_paths = [_remote_event_path(event) for event in selected]
+            paths = list(event_paths)
+            participant_path = f"participants/{participant_id}.json"
+            if scope == "profile":
+                # The profile is deliberately last: a partial remote failure
+                # must never leave anonymous events without their registry row.
+                paths.append(participant_path)
+
+            deleted = 0
+            for offset in range(0, len(paths), 50):
+                batch = paths[offset : offset + 50]
+                self._commit_deletions(batch)
+                deleted += len(batch)
+                with self._event_condition:
+                    for path in batch:
+                        if self._event_paths is not None:
+                            self._event_paths.discard(path)
+                        self._events_by_path.pop(path, None)
+                        if path == participant_path:
+                            if self._participant_paths is not None:
+                                self._participant_paths.discard(path)
+                            self._participants_by_id.pop(participant_id, None)
+            with self._event_condition:
+                if scope in {"events", "profile"}:
+                    self._participants_without_remote_history.add(participant_id)
+                if scope == "profile":
+                    self._participants_without_remote_history.discard(participant_id)
+            return {**preview, "deleted_files": deleted}
+        except EventStoreError:
+            raise
+        except Exception as exc:
+            raise EventStoreError(f"Cancellazione non riuscita: {exc}") from exc
+        finally:
+            with self._event_condition:
+                self._participants_pending_deletion.discard(participant_id)
+                self._event_condition.notify_all()
+
+    def _commit_deletions(self, paths: list[str]) -> None:
+        if not paths:
+            return
+        from huggingface_hub import CommitOperationDelete
+
+        for attempt in range(self._MAX_COMMIT_ATTEMPTS):
+            try:
+                self.api.create_commit(
+                    repo_id=self.repo_id,
+                    repo_type="dataset",
+                    operations=[
+                        CommitOperationDelete(path_in_repo=path) for path in paths
+                    ],
+                    commit_message="Rimuove dati selezionati dall’area ricercatore",
+                )
+                return
+            except Exception as exc:
+                if (
+                    attempt + 1 >= self._MAX_COMMIT_ATTEMPTS
+                    or not _is_transient_remote_error(exc)
+                ):
+                    raise
+                time.sleep(0.2 * (2**attempt))
+
     def _require_private_repo(self) -> None:
         with self._cache_lock:
             if self._private_repo_confirmed:
@@ -517,6 +674,69 @@ class HuggingFaceEventStore(EventStore):
             raise EventStoreError(
                 f"File dell’archivio non leggibile ({path}): {exc}"
             ) from exc
+
+
+def _events_for_deletion(
+    events: list[dict[str, Any]], scope: str
+) -> list[dict[str, Any]]:
+    if scope not in PARTICIPANT_DELETE_SCOPES:
+        raise EventStoreError("Tipo di cancellazione non valido.")
+    if scope == "questionnaire":
+        return [
+            event
+            for event in events
+            if event.get("event_type") == "questionnaire_submitted"
+        ]
+    return list(events)
+
+
+def _participant_deletion_preview(
+    participant: dict[str, Any],
+    events: list[dict[str, Any]],
+    scope: str,
+) -> dict[str, Any]:
+    selected = _events_for_deletion(events, scope)
+    revision_payload = {
+        "participant_id": str(participant.get("participant_id", "")),
+        "participant": participant,
+        "scope": scope,
+        "events": sorted(
+            json.dumps(event, ensure_ascii=False, sort_keys=True)
+            for event in selected
+        ),
+    }
+    revision = hashlib.sha256(
+        json.dumps(
+            revision_payload, ensure_ascii=False, sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+    questionnaire_count = sum(
+        event.get("event_type") == "questionnaire_submitted"
+        for event in selected
+    )
+    profile_count = 1 if scope == "profile" else 0
+    return {
+        "participant_id": str(participant.get("participant_id", "")),
+        "display_name": str(participant.get("display_name", "")),
+        "scope": scope,
+        "event_count": len(selected),
+        "questionnaire_count": questionnaire_count,
+        "profile_count": profile_count,
+        "total_files": len(selected) + profile_count,
+        "revision": revision,
+    }
+
+
+def _require_matching_deletion_revision(
+    preview: dict[str, Any], expected_revision: str
+) -> None:
+    if not expected_revision or not hmac.compare_digest(
+        str(preview["revision"]), str(expected_revision)
+    ):
+        raise EventStoreError(
+            "I dati sono cambiati dopo l’anteprima. Controllali di nuovo prima "
+            "di cancellare."
+        )
 
 
 def create_event_store(settings: Settings) -> EventStore:

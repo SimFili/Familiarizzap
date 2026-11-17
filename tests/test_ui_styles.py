@@ -553,6 +553,10 @@ def test_researcher_page_exposes_questionnaire_responses_directly() -> None:
     source = inspect.getsource(app.build_demo)
     assert 'with gr.Accordion("Questionari finali", open=True)' in source
     assert '"Aggiorna questionari"' in source
+    assert 'with gr.Accordion("Gestione dei dati", open=False)' in source
+    assert '"Mostra che cosa verrà eliminato"' in source
+    assert '"Elimina i dati selezionati"' in source
+    assert 'placeholder="Scrivi ELIMINA"' in source
     assert ".journey-page-links" in CSS
 
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import hmac
 import html
 import json
 import os
+import secrets
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -3284,7 +3286,28 @@ def logout_personal():
 
 
 def _research_authorized(state: dict[str, Any] | None) -> bool:
-    return bool(state and state.get("authorized"))
+    if not state or not state.get("authorized") or not SETTINGS.researcher_access_key:
+        return False
+    nonce = str(state.get("nonce", ""))
+    proof = str(state.get("proof", ""))
+    if not nonce or not proof:
+        return False
+    expected = hmac.new(
+        SETTINGS.researcher_access_key.encode("utf-8"),
+        nonce.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(proof, expected)
+
+
+def _authorized_research_state() -> dict[str, Any]:
+    nonce = secrets.token_urlsafe(24)
+    proof = hmac.new(
+        SETTINGS.researcher_access_key.encode("utf-8"),
+        nonce.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return {"authorized": True, "nonce": nonce, "proof": proof}
 
 
 def _research_dataset():
@@ -3294,6 +3317,24 @@ def _research_dataset():
     for event in events:
         by_participant[str(event.get("participant_id_hash", ""))].append(event)
     return participants, events, by_participant
+
+
+def _research_participant_choices(
+    participants: list[dict[str, Any]],
+) -> list[tuple[str, str]]:
+    name_counts = Counter(
+        str(item.get("display_name", "")).strip().casefold()
+        for item in participants
+    )
+    choices = []
+    for item in participants:
+        name = str(item.get("display_name", ""))
+        participant_id = str(item.get("participant_id", ""))
+        label = name
+        if name_counts[name.strip().casefold()] > 1:
+            label = f"{name} · ID {participant_id}"
+        choices.append((label, participant_id))
+    return choices
 
 
 def _research_overview_rows(
@@ -3393,6 +3434,7 @@ def researcher_login(access_key: str):
             [],
             gr.Dropdown(choices=[], value=None),
             gr.Dropdown(choices=[], value="all"),
+            gr.Dropdown(choices=[], value=None),
             None,
             [],
             [],
@@ -3408,6 +3450,7 @@ def researcher_login(access_key: str):
             [],
             gr.Dropdown(choices=[], value=None),
             gr.Dropdown(choices=[], value="all"),
+            gr.Dropdown(choices=[], value=None),
             None,
             [],
             [],
@@ -3431,13 +3474,12 @@ def researcher_login(access_key: str):
             [],
             gr.Dropdown(choices=[], value=None),
             gr.Dropdown(choices=[], value="all"),
+            gr.Dropdown(choices=[], value=None),
             None,
             [],
             [],
         )
-    participant_choices = [
-        (item["display_name"], item["participant_id"]) for item in participants
-    ]
+    participant_choices = _research_participant_choices(participants)
     first_participant = participant_choices[0][1] if participant_choices else None
     global_html = _research_global_html(participants, events, issues)
     scale_choices = [
@@ -3448,7 +3490,7 @@ def researcher_login(access_key: str):
         [item["severity"], item["scope"], item["message"]] for item in issues
     ]
     return (
-        {"authorized": True},
+        _authorized_research_state(),
         gr.update(visible=True),
         "Accesso autorizzato.",
         global_html,
@@ -3459,6 +3501,11 @@ def researcher_login(access_key: str):
             interactive=bool(participant_choices),
         ),
         gr.Dropdown(choices=scale_choices, value="all"),
+        gr.Dropdown(
+            choices=participant_choices,
+            value=first_participant,
+            interactive=bool(participant_choices),
+        ),
         archive,
         issue_rows,
         questionnaire_rows,
@@ -3492,7 +3539,7 @@ def _research_global_html(
         f'<div class="journey-metric"><strong>{questionnaires}</strong>'
         "questionari finali</div>"
         f'<div class="journey-metric"><strong>{len(events)}</strong>'
-        "eventi immutabili</div>"
+        "eventi registrati</div>"
         f'<div class="journey-metric"><strong>{len(issues)}</strong>'
         "segnalazioni di integrità</div>"
         "</div></section>"
@@ -3720,6 +3767,187 @@ def refresh_research_questionnaires(research_state: dict[str, Any]):
         )
     except EventStoreError as exc:
         return [], f"Questionari non disponibili: {exc}"
+
+
+RESEARCH_DELETE_SCOPE_LABELS = {
+    "questionnaire": "solo il questionario finale",
+    "events": (
+        "tutte le attività (sessioni, risposte e questionario), mantenendo "
+        "il profilo"
+    ),
+    "profile": "il profilo completo e tutti i dati collegati",
+}
+
+
+def reset_research_deletion():
+    return {}, "", "", gr.update(interactive=False)
+
+
+def preview_research_deletion(
+    research_state: dict[str, Any],
+    participant_id: str | None,
+    scope: str,
+):
+    if not _research_authorized(research_state):
+        return (
+            {},
+            "Accesso ricercatore non autorizzato.",
+            "",
+            gr.update(interactive=False),
+        )
+    if not participant_id:
+        return (
+            {},
+            "Seleziona un partecipante.",
+            "",
+            gr.update(interactive=False),
+        )
+    if scope not in RESEARCH_DELETE_SCOPE_LABELS:
+        return (
+            {},
+            "Seleziona che cosa vuoi eliminare.",
+            "",
+            gr.update(interactive=False),
+        )
+    try:
+        preview = STORE.preview_participant_deletion(participant_id, scope)
+    except EventStoreError as exc:
+        return {}, f"Anteprima non disponibile: {exc}", "", gr.update(interactive=False)
+
+    safe_name = html.escape(str(preview["display_name"]))
+    summary = (
+        "<div class=\"deletion-preview\">"
+        "<strong>Controlla prima di cancellare</strong><br>"
+        f"Partecipante: <strong>{safe_name}</strong><br>"
+        f"Operazione: {RESEARCH_DELETE_SCOPE_LABELS[scope]}.<br>"
+        f"Eventi coinvolti: <strong>{preview['event_count']}</strong> · "
+        f"questionari: <strong>{preview['questionnaire_count']}</strong> · "
+        f"profili: <strong>{preview['profile_count']}</strong>."
+        "</div>"
+    )
+    can_delete = int(preview["total_files"]) > 0
+    if not can_delete:
+        summary += (
+            "<p>Non ci sono dati corrispondenti da eliminare con questa "
+            "opzione.</p>"
+        )
+    else:
+        summary += (
+            "<p>Se i numeri sono corretti, scrivi <strong>ELIMINA</strong> "
+            "nel campo sottostante.</p>"
+        )
+    return preview, summary, "", gr.update(interactive=can_delete)
+
+
+def delete_research_data(
+    research_state: dict[str, Any],
+    deletion_preview: dict[str, Any] | None,
+    confirmation: str,
+):
+    if not _research_authorized(research_state):
+        return (
+            "Accesso ricercatore non autorizzato.",
+            {},
+            "",
+            "",
+            gr.update(interactive=False),
+        )
+    preview = dict(deletion_preview or {})
+    if not preview.get("participant_id") or not preview.get("revision"):
+        return (
+            "Genera prima l’anteprima della cancellazione.",
+            {},
+            "",
+            "",
+            gr.update(interactive=False),
+        )
+    if (confirmation or "").strip() != "ELIMINA":
+        return (
+            "Per confermare, scrivi esattamente **ELIMINA**.",
+            preview,
+            "",
+            confirmation,
+            gr.update(interactive=True),
+        )
+    try:
+        result = STORE.delete_participant_data(
+            str(preview["participant_id"]),
+            str(preview["scope"]),
+            expected_revision=str(preview["revision"]),
+        )
+    except EventStoreError as exc:
+        return (
+            f"Cancellazione non eseguita: {exc}",
+            {},
+            "",
+            "",
+            gr.update(interactive=False),
+        )
+    return (
+        f"Cancellazione completata: {result['deleted_files']} file rimossi "
+        "dall’archivio attivo.",
+        {},
+        "",
+        "",
+        gr.update(interactive=False),
+    )
+
+
+def refresh_research_dashboard(
+    research_state: dict[str, Any], preferred_participant: str | None
+):
+    if not _research_authorized(research_state):
+        return (
+            "",
+            [],
+            gr.Dropdown(choices=[], value=None),
+            gr.Dropdown(choices=[], value=None),
+            None,
+            [],
+            [],
+        )
+    try:
+        participants, events, by_participant = _research_dataset()
+        issues = integrity_report(events, participants)
+        archive = build_research_export(participants, events, CATALOG)
+    except (EventStoreError, CatalogError, OSError):
+        return (
+            "",
+            [],
+            gr.Dropdown(choices=[], value=None),
+            gr.Dropdown(choices=[], value=None),
+            None,
+            [],
+            [],
+        )
+    choices = _research_participant_choices(participants)
+    available_ids = {value for _, value in choices}
+    selected = (
+        preferred_participant
+        if preferred_participant in available_ids
+        else (choices[0][1] if choices else None)
+    )
+    dropdown = gr.Dropdown(
+        choices=choices,
+        value=selected,
+        interactive=bool(choices),
+    )
+    issue_rows = [
+        [item["severity"], item["scope"], item["message"]] for item in issues
+    ]
+    return (
+        _research_global_html(participants, events, issues),
+        _research_overview_rows(participants, by_participant),
+        dropdown,
+        gr.Dropdown(
+            choices=choices,
+            value=selected,
+            interactive=bool(choices),
+        ),
+        archive,
+        issue_rows,
+        _research_questionnaire_rows(participants, events),
+    )
 
 
 def build_demo() -> gr.Blocks:
@@ -4968,6 +5196,44 @@ def build_demo() -> gr.Blocks:
                     "Aggiorna questionari"
                 )
                 researcher_questionnaire_message = gr.Markdown()
+            with gr.Accordion("Gestione dei dati", open=False):
+                gr.Markdown(
+                    "Puoi rimuovere dati di prova o record errati senza "
+                    "entrare in Hugging Face. L’operazione riguarda la "
+                    "versione attiva dell’archivio; le precedenti versioni "
+                    "possono restare nella cronologia tecnica del Dataset."
+                )
+                researcher_delete_state = gr.State({})
+                researcher_delete_participant = gr.Dropdown(
+                    choices=[],
+                    label="Partecipante da gestire",
+                )
+                researcher_delete_scope = gr.Radio(
+                    choices=[
+                        ("Solo il questionario finale", "questionnaire"),
+                        (
+                            "Tutte le attività, mantenendo il profilo",
+                            "events",
+                        ),
+                        ("Profilo completo e tutti i dati", "profile"),
+                    ],
+                    value="questionnaire",
+                    label="Che cosa vuoi eliminare?",
+                )
+                researcher_delete_preview_button = gr.Button(
+                    "Mostra che cosa verrà eliminato"
+                )
+                researcher_delete_preview = gr.Markdown()
+                researcher_delete_confirmation = gr.Textbox(
+                    label="Conferma",
+                    placeholder="Scrivi ELIMINA",
+                )
+                researcher_delete_button = gr.Button(
+                    "Elimina i dati selezionati",
+                    variant="stop",
+                    interactive=False,
+                )
+                researcher_delete_message = gr.Markdown()
             with gr.Accordion("Integrità e backup", open=False):
                 researcher_integrity = gr.Dataframe(
                     headers=["Gravità", "Ambito", "Messaggio"],
@@ -4994,6 +5260,7 @@ def build_demo() -> gr.Blocks:
                 researcher_table,
                 researcher_participant,
                 researcher_scale,
+                researcher_delete_participant,
                 researcher_export,
                 researcher_integrity,
                 researcher_questionnaires,
@@ -5060,6 +5327,76 @@ def build_demo() -> gr.Blocks:
             outputs=[
                 researcher_questionnaires,
                 researcher_questionnaire_message,
+            ],
+        )
+        researcher_delete_preview_button.click(
+            preview_research_deletion,
+            inputs=[
+                researcher_state,
+                researcher_delete_participant,
+                researcher_delete_scope,
+            ],
+            outputs=[
+                researcher_delete_state,
+                researcher_delete_preview,
+                researcher_delete_confirmation,
+                researcher_delete_button,
+            ],
+        )
+        for deletion_input in (
+            researcher_delete_participant,
+            researcher_delete_scope,
+        ):
+            deletion_input.change(
+                reset_research_deletion,
+                outputs=[
+                    researcher_delete_state,
+                    researcher_delete_preview,
+                    researcher_delete_confirmation,
+                    researcher_delete_button,
+                ],
+            )
+        researcher_delete_button.click(
+            delete_research_data,
+            inputs=[
+                researcher_state,
+                researcher_delete_state,
+                researcher_delete_confirmation,
+            ],
+            outputs=[
+                researcher_delete_message,
+                researcher_delete_state,
+                researcher_delete_preview,
+                researcher_delete_confirmation,
+                researcher_delete_button,
+            ],
+        ).then(
+            refresh_research_dashboard,
+            inputs=[researcher_state, researcher_delete_participant],
+            outputs=[
+                researcher_global,
+                researcher_table,
+                researcher_participant,
+                researcher_delete_participant,
+                researcher_export,
+                researcher_integrity,
+                researcher_questionnaires,
+            ],
+        ).then(
+            researcher_detail,
+            inputs=[
+                researcher_state,
+                researcher_participant,
+                researcher_scale,
+                researcher_from,
+                researcher_to,
+            ],
+            outputs=[
+                researcher_personal_summary,
+                researcher_sessions,
+                researcher_descriptors,
+                researcher_events,
+                researcher_detail_message,
             ],
         )
 

@@ -18,6 +18,27 @@ che *esistono* e a *cosa servono*.
 
 ---
 
+## 2026-11-17 — Cancellazione controllata dall’area ricercatore
+
+L’area `/ricercatore` dispone ora di una sezione **Gestione dei dati**. Dopo
+l’accesso con la chiave riservata, il ricercatore può scegliere un partecipante
+tramite il suo identificativo univoco e rimuovere: soltanto il questionario;
+tutte le attività mantenendo il profilo; oppure il profilo e tutti i dati
+collegati. Prima della cancellazione l’app mostra il numero esatto di eventi,
+questionari e profili coinvolti e richiede di scrivere `ELIMINA`.
+
+L’anteprima viene invalidata se l’archivio cambia prima della conferma. Gli
+omonimi sono distinti tramite identificativo e una cancellazione non può
+procedere durante un salvataggio. L’operazione rimuove i file dalla versione
+attiva del Dataset; le versioni precedenti possono restare nella cronologia
+Git del Dataset privato.
+
+La pulizia selettiva dei dati di pre-test richiesta da Fabio è stata completata
+prima di introdurre questa interfaccia: nove profili completi e due soli
+questionari sono stati rimossi, con controllo finale a zero residui. I nomi non
+sono riportati qui per non conservarli nel repository pubblico. La suite locale
+completa della nuova versione ha superato **184 test**.
+
 ## 2026-11-13 — Salvataggi più rapidi e versione online
 
 È stata pubblicata la revisione `6d0126b` per ridurre i blocchi segnalati dai

@@ -63,6 +63,74 @@ def test_corrupted_event_is_reported_instead_of_silently_dropped(
         store.list_events()
 
 
+def _deletion_event(
+    event_id: str, event_type: str = "answer_submitted"
+) -> dict:
+    return {
+        "event_id": event_id,
+        "event_type": event_type,
+        "occurred_at": "2026-07-30T10:00:00+00:00",
+        "session_id": f"session-{event_id}",
+        "participant_id_hash": "p1",
+    }
+
+
+def test_local_researcher_deletion_has_three_explicit_scopes(tmp_path: Path):
+    store = LocalEventStore(tmp_path)
+    store.register_participant("p1", "Anna")
+    store.append_events(
+        [
+            _deletion_event("answer"),
+            _deletion_event("questionnaire", "questionnaire_submitted"),
+        ]
+    )
+
+    questionnaire = store.preview_participant_deletion("p1", "questionnaire")
+    assert questionnaire["event_count"] == 1
+    assert questionnaire["questionnaire_count"] == 1
+    assert questionnaire["profile_count"] == 0
+    store.delete_participant_data(
+        "p1", "questionnaire", expected_revision=questionnaire["revision"]
+    )
+    assert [event["event_id"] for event in store.list_events("p1")] == [
+        "answer"
+    ]
+    assert store.get_participant("p1") is not None
+
+    events = store.preview_participant_deletion("p1", "events")
+    assert events["event_count"] == 1
+    store.delete_participant_data(
+        "p1", "events", expected_revision=events["revision"]
+    )
+    assert store.list_events("p1") == []
+    assert store.get_participant("p1") is not None
+
+    profile = store.preview_participant_deletion("p1", "profile")
+    assert profile["event_count"] == 0
+    assert profile["profile_count"] == 1
+    store.delete_participant_data(
+        "p1", "profile", expected_revision=profile["revision"]
+    )
+    assert store.get_participant("p1") is None
+
+
+def test_researcher_deletion_stops_when_data_changed_after_preview(
+    tmp_path: Path,
+):
+    store = LocalEventStore(tmp_path)
+    store.register_participant("p1", "Anna")
+    store.append_events([_deletion_event("first")])
+    preview = store.preview_participant_deletion("p1", "events")
+    store.append_events([_deletion_event("new")])
+
+    with pytest.raises(EventStoreError, match="cambiati dopo l’anteprima"):
+        store.delete_participant_data(
+            "p1", "events", expected_revision=preview["revision"]
+        )
+
+    assert len(store.list_events("p1")) == 2
+
+
 class _FakeRepoInfo:
     def __init__(self, private: bool):
         self.private = private
@@ -110,6 +178,40 @@ class _CachedStore(HuggingFaceEventStore):
         del commit_message
         self.upload_calls += 1
         self.files[path] = dict(record)
+
+
+def test_huggingface_researcher_deletion_updates_the_live_cache():
+    participant = {
+        "participant_id": "p1",
+        "display_name": "Anna",
+        "created_at": "2026-07-30T10:00:00+00:00",
+    }
+    answer = _deletion_event("answer")
+    questionnaire = _deletion_event(
+        "questionnaire", "questionnaire_submitted"
+    )
+    store = _CachedStore(
+        {
+            "participants/p1.json": participant,
+            "events/2026/07/30/session-answer/answer.json": answer,
+            (
+                "events/2026/07/30/session-questionnaire/"
+                "questionnaire.json"
+            ): questionnaire,
+        }
+    )
+
+    preview = store.preview_participant_deletion("p1", "questionnaire")
+    result = store.delete_participant_data(
+        "p1", "questionnaire", expected_revision=preview["revision"]
+    )
+
+    assert result["deleted_files"] == 1
+    assert [event["event_id"] for event in store.list_events("p1")] == [
+        "answer"
+    ]
+    assert store.get_participant("p1") == participant
+    assert len(store.api.commits) == 1
 
 
 def test_huggingface_store_accepts_only_a_reachable_private_dataset():
