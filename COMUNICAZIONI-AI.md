@@ -39,6 +39,12 @@ questionari sono stati rimossi, con controllo finale a zero residui. I nomi non
 sono riportati qui per non conservarli nel repository pubblico. La suite locale
 completa della nuova versione ha superato **184 test**.
 
+Durante la prima pubblicazione Hugging Face ha applicato il controllo ZeroGPU
+che considera soltanto le funzioni decorate registrate come handler Gradio. Il
+probe già presente è stato quindi collegato a un pulsante invisibile che non
+viene mai premuto nell’uso normale: lo Space supera il controllo senza
+richiedere una GPU e senza consumare quota.
+
 ## 2026-11-13 — Salvataggi più rapidi e versione online
 
 È stata pubblicata la revisione `6d0126b` per ridurre i blocchi segnalati dai

@@ -3955,6 +3955,17 @@ def build_demo() -> gr.Blocks:
     first_scale_selector = _scale_selector_data(schema, modality)
 
     with gr.Blocks(title="FamiliarizzApp") as demo:
+        # ZeroGPU now validates decorated functions by inspecting Gradio's
+        # registered handlers.  This hidden, never-triggered control keeps the
+        # free Space eligible without consuming GPU quota during normal use.
+        zero_gpu_result = gr.Textbox(visible=False)
+        zero_gpu_button = gr.Button(visible=False)
+        zero_gpu_button.click(
+            zero_gpu_probe,
+            outputs=zero_gpu_result,
+            api_name=False,
+            show_progress="hidden",
+        )
         maintenance_key = gr.Textbox(visible=False)
         maintenance_result = gr.Textbox(visible=False)
         maintenance_button = gr.Button(visible=False)

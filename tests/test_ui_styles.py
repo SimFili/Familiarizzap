@@ -560,6 +560,13 @@ def test_researcher_page_exposes_questionnaire_responses_directly() -> None:
     assert ".journey-page-links" in CSS
 
 
+def test_zero_gpu_probe_is_registered_as_a_gradio_handler() -> None:
+    source = inspect.getsource(app.build_demo)
+    assert "zero_gpu_button.click(" in source
+    assert "zero_gpu_probe," in source
+    assert "api_name=False" in source
+
+
 def test_dark_theme_uses_coherent_surfaces_and_selected_filter_contrast() -> None:
     assert "--fapp-page: #0f1714;" in CSS
     assert "--fapp-paper: #17251f;" in CSS
